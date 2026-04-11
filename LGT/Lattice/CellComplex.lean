@@ -2,115 +2,93 @@
 Copyright (c) 2026 Michael R. Douglas. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 
-# Cell Complex Structure of the Lattice ℤᵈ
+# Cell Complex Structure of the Lattice
 
-The lattice ℤᵈ (or its finite quotient (ℤ/Nℤ)ᵈ) has a natural cell
-complex structure:
-- 0-cells (sites/vertices): points in ℤᵈ
-- 1-cells (links/edges): directed edges between nearest neighbors
-- 2-cells (plaquettes/faces): unit squares
-
-This module defines these cells and their boundary/coboundary maps,
-providing the foundation for discrete differential geometry and
-lattice gauge theory.
-
-## Main definitions
-
-- `LatticeSite d N` — sites of (ℤ/Nℤ)ᵈ
-- `LatticeLink d N` — oriented links (site + direction)
-- `LatticePlaquette d N` — oriented plaquettes (site + two directions)
-- `linkSource`, `linkTarget` — boundary of a link
-- `plaquetteBoundary` — oriented boundary of a plaquette (4 links)
+Builds on gaussian-field's `FinLatticeSites` and `AsymLatticeSites` to
+define links (1-cells) and plaquettes (2-cells) for gauge theory.
 
 ## References
 
 - Chatterjee, "Gauge Theory Lecture Notes" (2026), §15.2, App C.8
-- Wilson, Phys. Rev. D 10 (1974), 2445
 -/
 
-import Mathlib.Data.ZMod.Basic
+import Lattice.Sites
+import Torus.AsymmetricTorus
 
-/-! ## Sites, links, and plaquettes -/
+open GaussianField
 
-/-- A site (0-cell) on the d-dimensional lattice (ℤ/Nℤ)ᵈ. -/
-abbrev LatticeSite (d : ℕ) (N : ℕ) := Fin d → ZMod N
+noncomputable section
 
-/-- A link (oriented 1-cell) on the lattice: a site plus a direction.
-The link goes from `site` to `site + e_dir` where e_dir is the
-unit vector in direction `dir`. -/
+variable (d : ℕ) (N : ℕ)
+
+/-! ## Links on (ℤ/Nℤ)ᵈ -/
+
+/-- A link (oriented 1-cell): site + direction. -/
 structure LatticeLink (d : ℕ) (N : ℕ) where
-  /-- The source site of the link. -/
-  site : LatticeSite d N
-  /-- The direction of the link (which coordinate axis). -/
+  site : FinLatticeSites d N
   dir : Fin d
   deriving DecidableEq
 
-/-- A plaquette (oriented 2-cell) on the lattice: a site plus two
-distinct directions. The plaquette is the unit square in the plane
-spanned by directions `dir1` and `dir2`, with `dir1 < dir2`. -/
+/-- Shift a site by +1 in direction μ. -/
+def siteShift (x : FinLatticeSites d N) (μ : Fin d) :
+    FinLatticeSites d N :=
+  Function.update x μ (x μ + 1)
+
+/-- Target of a link. -/
+def LatticeLink.target {d N : ℕ} (l : LatticeLink d N) :
+    FinLatticeSites d N :=
+  siteShift d N l.site l.dir
+
+/-- A plaquette (oriented 2-cell): site + two ordered directions. -/
 structure LatticePlaquette (d : ℕ) (N : ℕ) where
-  /-- The corner site of the plaquette. -/
-  site : LatticeSite d N
-  /-- First direction (row). -/
+  site : FinLatticeSites d N
   dir1 : Fin d
-  /-- Second direction (column), must satisfy dir1 < dir2. -/
   dir2 : Fin d
-  /-- Orientation: dir1 < dir2. -/
   h_lt : dir1 < dir2
   deriving DecidableEq
 
-/-! ## Lattice navigation -/
+/-- The four boundary links of a plaquette (counterclockwise). -/
+def LatticePlaquette.boundaryLinks {d N : ℕ}
+    (p : LatticePlaquette d N) : Fin 4 → LatticeLink d N
+  | 0 => ⟨p.site, p.dir1⟩
+  | 1 => ⟨siteShift d N p.site p.dir1, p.dir2⟩
+  | 2 => ⟨siteShift d N p.site p.dir2, p.dir1⟩  -- reversed
+  | 3 => ⟨p.site, p.dir2⟩                        -- reversed
 
-/-- Shift a site by one step in direction `μ`. -/
-def siteShift (d N : ℕ) (x : LatticeSite d N) (μ : Fin d) :
-    LatticeSite d N :=
-  Function.update x μ (x μ + 1)
+/-! ## 2D asymmetric lattice (for mass gap proof)
 
-/-- The source of a link. -/
-def LatticeLink.source (l : LatticeLink d N) : LatticeSite d N :=
-  l.site
+Uses `AsymLatticeSites Nt Ns = ZMod Nt × ZMod Ns` from gaussian-field. -/
 
-/-- The target of a link (source shifted by one in the link direction). -/
-def LatticeLink.target (l : LatticeLink d N) : LatticeSite d N :=
-  siteShift d N l.site l.dir
+/-- Direction on a 2D lattice. -/
+inductive Dir2D where
+  | time : Dir2D
+  | space : Dir2D
+  deriving DecidableEq, Fintype, Repr
 
-/-- The reverse of a link (same sites, opposite orientation). -/
-def LatticeLink.reverse (l : LatticeLink d N) : LatticeLink d N :=
-  ⟨l.target, l.dir⟩
+/-- A link on the asymmetric 2D lattice. -/
+structure AsymLink (Nt Ns : ℕ) where
+  site : AsymLatticeSites Nt Ns
+  dir : Dir2D
+  deriving DecidableEq
 
-/-! ## Plaquette boundary
+/-- Target of an asymmetric link. -/
+def AsymLink.target {Nt Ns : ℕ} (l : AsymLink Nt Ns) :
+    AsymLatticeSites Nt Ns :=
+  match l.dir with
+  | Dir2D.time  => (l.site.1 + 1, l.site.2)
+  | Dir2D.space => (l.site.1, l.site.2 + 1)
 
-The boundary of a plaquette consists of 4 oriented links forming
-a closed loop:
+/-- A plaquette on the 2D lattice (only one orientation: time × space). -/
+structure AsymPlaquette (Nt Ns : ℕ) where
+  site : AsymLatticeSites Nt Ns
+  deriving DecidableEq
 
-```
-    x + e₂ ←——— x + e₁ + e₂
-      |                |
-      |    plaquette   |
-      |                |
-      x ————→ x + e₁
-```
-
-Going counterclockwise: right, up, left, down.
-The boundary is: l₁ + l₂ - l₃ - l₄ where
-  l₁ = (x, e₁), l₂ = (x+e₁, e₂), l₃ = (x+e₂, e₁), l₄ = (x, e₂)
--/
-
-/-- The four links forming the boundary of a plaquette, in order:
-right, up, left⁻¹, down⁻¹. -/
-def LatticePlaquette.boundaryLinks (p : LatticePlaquette d N) :
-    Fin 4 → LatticeLink d N
-  | 0 => ⟨p.site, p.dir1⟩                              -- right
-  | 1 => ⟨siteShift d N p.site p.dir1, p.dir2⟩         -- up
-  | 2 => ⟨siteShift d N p.site p.dir2, p.dir1⟩         -- left (reversed)
-  | 3 => ⟨p.site, p.dir2⟩                              -- down (reversed)
-
-/-- The orientation signs of the boundary links:
-+1 for forward, -1 for backward. -/
-def LatticePlaquette.boundarySigns : Fin 4 → Int
-  | 0 => 1    -- right: forward
-  | 1 => 1    -- up: forward
-  | 2 => -1   -- left: backward (reversed)
-  | 3 => -1   -- down: backward (reversed)
+/-- Boundary links of a 2D plaquette. -/
+def AsymPlaquette.boundaryLinks {Nt Ns : ℕ}
+    (p : AsymPlaquette Nt Ns) : Fin 4 → AsymLink Nt Ns
+  | 0 => ⟨p.site, Dir2D.time⟩
+  | 1 => ⟨(p.site.1 + 1, p.site.2), Dir2D.space⟩
+  | 2 => ⟨(p.site.1, p.site.2 + 1), Dir2D.time⟩   -- reversed
+  | 3 => ⟨p.site, Dir2D.space⟩                      -- reversed
 
 end
