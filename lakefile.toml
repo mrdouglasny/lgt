@@ -1,0 +1,15 @@
+name = "LGT"
+version = "0.1.0"
+keywords = ["math", "gauge-theory", "lattice"]
+defaultTargets = ["LGT"]
+
+[leanOptions]
+autoImplicit = false
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+version = "git#v4.29.0"
+
+[[lean_lib]]
+name = "LGT"
