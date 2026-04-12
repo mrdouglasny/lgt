@@ -143,8 +143,8 @@ theorem ym_satisfies_doeblin (β : ℝ) (hβ : 0 ≤ β)
             (∫ W', singleSiteTransitionWeight G n β V W' ∂μ) ∂μ := by
           apply MeasureTheory.setIntegral_mono
             (integrableOn_const (measure_ne_top μ A))
-          · -- IntegrableOn: q/Z is bounded (by 1/c since q ≤ 1 and Z ≥ c)
-            sorry
+          · -- IntegrableOn: q/Z is bounded, hence integrable on probability measure
+            sorry -- needs: AEStronglyMeasurable of q/Z (measurability on compact G)
           · -- Pointwise: c ≤ q(V,W)/Z(V) since q ≥ c and Z ≤ 1
             intro W
             have hZ_le : ∫ W', singleSiteTransitionWeight G n β V W' ∂μ ≤ 1 := by
