@@ -91,4 +91,13 @@ def AsymPlaquette.boundaryLinks {Nt Ns : ℕ}
   | 2 => ⟨(p.site.1, p.site.2 + 1), Dir2D.time⟩   -- reversed
   | 3 => ⟨p.site, Dir2D.space⟩                      -- reversed
 
+/-! ## Fintype instances for 2D cells -/
+
+instance (Nt Ns : ℕ) [NeZero Nt] [NeZero Ns] : Fintype (AsymPlaquette Nt Ns) :=
+  Fintype.ofEquiv (AsymLatticeSites Nt Ns)
+    { toFun := AsymPlaquette.mk
+      invFun := AsymPlaquette.site
+      left_inv := fun x => rfl
+      right_inv := fun p => by cases p; rfl }
+
 end
