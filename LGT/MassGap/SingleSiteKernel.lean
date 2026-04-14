@@ -21,6 +21,7 @@ to the Doeblin verification.
 -/
 
 import LGT.MassGap.TransferMatrix
+import LGT.MassGap.Integrability
 
 open MeasureTheory
 
@@ -31,6 +32,16 @@ variable [TopologicalSpace G] [IsTopologicalGroup G] [CompactSpace G]
 variable [MeasurableSpace G] [BorelSpace G]
 
 variable (μ : Measure G) [IsProbabilityMeasure μ]
+
+/-- The single-site transition weight W ↦ q(V,W) is continuous when the
+representation is continuous. This follows from continuity of rep, group
+multiplication, matrix trace, and Real.exp. -/
+theorem singleSiteTransitionWeight_continuous
+    (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
+    (β : ℝ) (V : G) :
+    Continuous (singleSiteTransitionWeight G n β V ·) := by
+  unfold singleSiteTransitionWeight gaugeReTr gaugeTrace
+  fun_prop
 
 /-! ## Single-site partition function -/
 
@@ -44,7 +55,8 @@ def singleSiteZ (β : ℝ) (V : G) : ℝ :=
 More precisely: q(V,W) ≥ exp(-2nβ) > 0 for all W, so
 Z(V) = ∫ q dμ ≥ ∫ exp(-2nβ) dμ = exp(-2nβ) > 0. -/
 theorem singleSiteZ_pos (β : ℝ) (hβ : 0 ≤ β) (V : G)
-    (hTrace : ∀ g : G, -↑n ≤ gaugeReTr G n g) :
+    (hTrace : ∀ g : G, -↑n ≤ gaugeReTr G n g)
+    (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n))) :
     0 < singleSiteZ G n μ β V := by
   unfold singleSiteZ
   -- ∫ q dμ ≥ ∫ exp(-2nβ) dμ = exp(-2nβ) > 0
@@ -53,29 +65,30 @@ theorem singleSiteZ_pos (β : ℝ) (hβ : 0 ≤ β) (V : G)
     fun W => singleSiteTransitionWeight_lower_bound G n β hβ V W hTrace
   calc 0 < ymDoeblinLowerBound n β := ymDoeblinLowerBound_pos n β
     _ = ∫ _, ymDoeblinLowerBound n β ∂μ := by
-        rw [integral_const]; simp [IsProbabilityMeasure.measure_univ]
+        rw [integral_const]; simp
     _ ≤ ∫ W, singleSiteTransitionWeight G n β V W ∂μ := by
         apply integral_mono (integrable_const _)
-        · -- Integrability of q: bounded continuous function on finite measure space
-          -- Requires AEStronglyMeasurable (from continuity of q), sorry'd here
-          sorry
+        · exact continuous_integrable_of_compactSpace
+            (singleSiteTransitionWeight_continuous G n hRep_cont β V)
         · exact fun W => h_lower W
 
 /-- Z(V) ≤ 1 when β ≥ 0 (since q ≤ 1 and μ is probability). -/
 theorem singleSiteZ_le_one (β : ℝ) (hβ : 0 ≤ β) (V : G)
-    (hTrace : ∀ g : G, gaugeReTr G n g ≤ ↑n) :
+    (hTrace : ∀ g : G, gaugeReTr G n g ≤ ↑n)
+    (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n))) :
     singleSiteZ G n μ β V ≤ 1 := by
   unfold singleSiteZ
   calc ∫ W, singleSiteTransitionWeight G n β V W ∂μ
       ≤ ∫ _, (1 : ℝ) ∂μ := by
         apply integral_mono
-          (by sorry)  -- Integrability of q (bounded on finite measure)
+          (continuous_integrable_of_compactSpace
+            (singleSiteTransitionWeight_continuous G n hRep_cont β V))
           (integrable_const _)
         intro W
         unfold singleSiteTransitionWeight
         rw [Real.exp_le_one_iff]
         nlinarith [hTrace (W * V⁻¹)]
-    _ = 1 := by simp [integral_const, IsProbabilityMeasure.measure_univ]
+    _ = 1 := by simp [integral_const]
 
 /-! ## The concrete Markov kernel -/
 
@@ -84,9 +97,11 @@ def singleSiteDensity (β : ℝ) (V W : G) : ℝ :=
   singleSiteTransitionWeight G n β V W / singleSiteZ G n μ β V
 
 /-- The density is nonneg. -/
-theorem singleSiteDensity_nonneg (β : ℝ) (V W : G) :
+theorem singleSiteDensity_nonneg (β : ℝ) (hβ : 0 ≤ β) (V W : G)
+    (hTrace : ∀ g : G, -↑n ≤ gaugeReTr G n g)
+    (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n))) :
     0 ≤ singleSiteDensity G n μ β V W :=
-  div_nonneg (Real.exp_pos _).le (le_of_lt sorry)  -- needs Z > 0 without hypotheses
+  div_nonneg (Real.exp_pos _).le (le_of_lt (singleSiteZ_pos G n μ β hβ V hTrace hRep_cont))
 
 /-- The density integrates to 1: ∫ p(V,W) dμ(W) = 1. -/
 theorem singleSiteDensity_integral_one (β : ℝ) (V : G)

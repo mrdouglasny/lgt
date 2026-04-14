@@ -86,6 +86,7 @@ theorem mass_gap_2d
     (β : ℝ) (hβ : 0 ≤ β)
     (hTrace_lower : ∀ (g : G), -↑n ≤ gaugeReTr G n g)
     (hTrace_upper : ∀ (g : G), gaugeReTr G n g ≤ ↑n)
+    (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
     (plaq : Finset (LatticePlaquette d N))
     (p q : LatticePlaquette d N) :
     -- Components that ARE proved:
@@ -115,7 +116,7 @@ theorem mass_gap_2d
   -- 3. Doeblin constant is positive
   · exact ymDoeblinLowerBound_pos n β
   -- 4. Z(V) > 0
-  · exact fun V => singleSiteZ_pos G n (haarG G) β hβ V hTrace_lower
+  · exact fun V => singleSiteZ_pos G n (haarG G) β hβ V hTrace_lower hRep_cont
   -- 5. Density integrates to 1
   · exact fun V hZ => singleSiteDensity_integral_one G n (haarG G) β V hZ
   -- 6. Exponential decay

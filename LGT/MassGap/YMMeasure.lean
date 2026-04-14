@@ -25,6 +25,7 @@ configurations for a compact gauge group G on a finite lattice.
 import LGT.Lattice.CellComplex
 import LGT.GaugeField.Connection
 import LGT.GaugeField.GaugeGroup
+import LGT.MassGap.Integrability
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Mathlib.MeasureTheory.Measure.Prod
 import Mathlib.MeasureTheory.Constructions.Pi
@@ -116,19 +117,50 @@ This is the normalizing constant for the YM measure. -/
 def partitionFn (β : ℝ) (plaq : Finset (LatticePlaquette d N)) : ℝ :=
   ∫ U, boltzmannWeight G n d N β U plaq ∂(productHaar G d N)
 
+instance instIsProbabilityMeasureProductHaar :
+    IsProbabilityMeasure (productHaar G d N) := by
+  unfold productHaar
+  exact MeasureTheory.Measure.pi.instIsProbabilityMeasure _
+
 /-- **The partition function is positive.**
 
 Z > 0 because the integrand exp(-S) is strictly positive everywhere
 and the product Haar measure has full support on the compact space. -/
 theorem partitionFn_pos (β : ℝ) (hβ : 0 ≤ β)
     (plaq : Finset (LatticePlaquette d N))
-    (hTrace : ∀ g : G, gaugeReTr G n g ≤ ↑n) :
+    (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
+    (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
+    (hIntegrable : Integrable (fun U => boltzmannWeight G n d N β U plaq)
+        (productHaar G d N)) :
     0 < partitionFn G n d N β plaq := by
   unfold partitionFn
-  -- The integrand is ≥ exp(-β · |plaq| · 2n) > 0 everywhere
-  -- and the measure is a probability measure, so the integral is positive.
-  -- We use: ∫ f dμ ≥ ∫ c dμ = c when f ≥ c > 0 and μ is probability
-  sorry
+  -- The integrand w(U) = exp(-S(U)) satisfies 0 < w(U) ≤ 1 everywhere.
+  -- Since productHaar is a probability measure and w ≥ exp(-...) > 0,
+  -- the integral is positive.
+  -- Lower bound: w(U) ≥ exp(-β · |plaq| · 2n) > 0
+  set c := Real.exp (-(β * ↑plaq.card * (2 * ↑n))) with hc_def
+  have hc_pos : 0 < c := Real.exp_pos _
+  have hc_lower : ∀ U, c ≤ boltzmannWeight G n d N β U plaq := by
+    intro U
+    unfold boltzmannWeight wilsonAction
+    apply Real.exp_le_exp_of_le
+    apply neg_le_neg
+    -- Need: Σ β(n - ReTr(U_p)) ≤ β * |plaq| * 2n
+    -- Each term: β(n - ReTr) ≤ β * 2n since ReTr ≥ -n
+    calc ∑ p ∈ plaq, β * wilsonPlaquetteCost G n (plaquetteHolonomy U p)
+        ≤ ∑ _ ∈ plaq, β * (2 * ↑n) := by
+          apply Finset.sum_le_sum; intro p _
+          apply mul_le_mul_of_nonneg_left _ hβ
+          unfold wilsonPlaquetteCost
+          linarith [hTrace_lower (plaquetteHolonomy U p)]
+      _ = β * ↑plaq.card * (2 * ↑n) := by
+          simp [Finset.sum_const, smul_eq_mul]; ring
+  calc (0 : ℝ) < c := hc_pos
+    _ = ∫ _, c ∂(productHaar G d N) := by
+        rw [integral_const]; simp [IsProbabilityMeasure.measure_univ]
+    _ ≤ ∫ U, boltzmannWeight G n d N β U plaq ∂(productHaar G d N) := by
+        apply integral_mono (integrable_const _) hIntegrable
+        exact fun U => hc_lower U
 
 /-! ## The Yang-Mills probability measure -/
 
