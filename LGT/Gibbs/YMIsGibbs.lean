@@ -508,26 +508,29 @@ since RHS via `integral_indicator_w_fubini_link_split` equals
 ### Progress (2026-04-15)
 
 **Identity A** (proven as `integral_smul_condZ_eq_integral_smul_w`):
-`∫ σ h(σ) · Z_Λ(σ) dph = ∫ U h(U) · w(U) dph` for h respecting
-glue.
+`∫ σ h(σ) · Z_Λ(σ) dph = ∫ U h(U) · w(U) dph` for h respecting glue.
 
-**S2** (Cancellation identity, not yet proved but derivable from
-Identity A via the trivial `1 = Z(σ)/Z(σ)` substitution).
-For h depending only on σ|_Λᶜ:
+**S2** (proven as `cancellation_identity`): for h respecting glue,
 `∫ σ h(σ) · w(σ)/Z_Λ(σ) dph = ∫ σ h(σ) dph`.
-Proof: `∫ σ h σ dph = ∫ σ (h/Z) · Z dph = ∫ U (h/Z) · w dph` (by A)
-`= ∫ σ h · w/Z dph`. Needs integrability of `h/Z · w` (OK since
-Z is bounded away from 0 by `hZcond_pos` and compactness).
 
-**S3** (DLR assembly): combine S2 (with `h(σ) := inner(σ)` from
-`integral_indicator_w_fubini_link_split`) after unfolding `ymMeasure`
-and `gibbsCondMeasure` via `withDensity` + `integral_map`.
+### DLR assembly (remaining sorry, ~80 lines)
 
-### Status
+Sketch:
+- Write `(ymMeasure A).toReal = (1/Z) · ∫ U Set.indicator A w U dph`
+  by unfolding `ymMeasure = ph.withDensity (ofReal (w/Z))`.
+- Write `(gibbsCondMeasure Λ σ A).toReal = (1/Z_Λ(σ)) · ∫ uΛ
+  Set.indicator A w (glue uΛ σ) dph` by unfolding `gibbsCondMeasure`
+  + `withDensity_apply` + `lintegral_map`.
+- Denote `inner(σ) := ∫ uΛ Set.indicator A w (glue uΛ σ) dph`.
+- RHS = `∫ σ (1/Z_Λ(σ)) · inner(σ) ∂ymMeasure
+       = (1/Z) · ∫ σ (w(σ)/Z_Λ(σ)) · inner(σ) dph` (unfolding ymMeasure).
+- By `cancellation_identity` with `h := inner` (inner respects glue):
+  RHS = `(1/Z) · ∫ σ inner(σ) dph`.
+- By `integral_indicator_w_fubini_link_split`:
+  RHS = `(1/Z) · ∫ U Set.indicator A w U dph` = LHS. ✓
 
-Single sorry remaining. Next pass: prove S2 (~20 lines from
-Identity A), then S3 DLR assembly (~80 lines of `withDensity` +
-`lintegral_map` bookkeeping).
+No more deep measure theory needed. The remaining work is
+`withDensity`/`lintegral_map` plumbing.
 
 Assumes:
 - `hβ`, `hTrace_lower`, `hTrace_upper` — for `Z > 0` and trace bounds
