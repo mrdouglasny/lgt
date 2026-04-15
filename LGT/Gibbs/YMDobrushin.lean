@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 # Dobrushin Condition for the YM Gibbs Specification
 
-Verifies that the `gaugeFixedYMSpec` (defined in LGT/Gibbs/YMSpec.lean)
+Verifies that the `ymGibbsSpec` (defined in LGT/Gibbs/YMSpec.lean)
 satisfies Dobrushin's uniqueness condition when the coupling β is
 sufficiently small.
 
@@ -14,13 +14,14 @@ markov-semigroups.
 
 ## Architecture
 
-For the gauge-fixed YM specification on links:
+For the (unfixed) YM specification on links:
 - Neighbor relation: "share a plaquette"
-- Each link has ≤ 4(d-1) plaquette-neighbors (maxNeighbors d)
+- Each link has ≤ 6(d-1) plaquette-neighbors (maxNeighbors d)
+  (Each plaquette has 4 links; excluding x, 3 others interact.)
 - Each shared plaquette contributes influence ≤ 1 - exp(-2nβ) ≤ 2nβ
-- Dobrushin column sum ≤ 4(d-1) · 2nβ = 8n(d-1)β
+- Dobrushin column sum ≤ 6(d-1) · 2nβ = 12n(d-1)β
 
-For β < 1/(8n(d-1)), the Dobrushin condition holds.
+For β < 1/(12n(d-1)), the Dobrushin condition holds.
 
 ## References
 
@@ -101,7 +102,7 @@ def ymInfluenceZeroOffPlaquette (β : ℝ) (plaq : Finset (LatticePlaquette d N)
     (x y : LatticeLink d N) (hne : x ≠ y)
     (h_no_shared : ¬ sharesPlaquette d N plaq x y) : Prop :=
   influenceCoeff
-    (gaugeFixedYMSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
+    (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
     x y = 0
 
 /-- **Influence coefficient bound for plaquette-neighbors.**
@@ -131,7 +132,7 @@ def ymInfluenceBoundOnPlaquette (β : ℝ) (plaq : Finset (LatticePlaquette d N)
         ((gibbsCondMeasure G n d N plaq β Λ σ) A).toReal))
     (x y : LatticeLink d N) : Prop :=
   influenceCoeff
-    (gaugeFixedYMSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
+    (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
     x y ≤ influenceBound n β
 
 /-! ## Main theorem: YM satisfies Dobrushin at strong coupling
@@ -150,7 +151,7 @@ The proof requires:
 1. Each `influenceCoeff` bound (from `ymInfluenceZeroOffPlaquette` and
    `ymInfluenceBoundOnPlaquette`)
 2. Finite-support summability (links form a Fintype)
-3. Column sum ≤ 4(d-1) · (1 - exp(-2nβ)) (plaquette counting)
+3. Column sum ≤ 6(d-1) · (1 - exp(-2nβ)) (plaquette counting)
 4. Column sum < 1 (from `dobrushin_sufficient`)
 
 Bridge hypothesis encoding the full construction. -/
@@ -174,7 +175,7 @@ def ymDobrushinCondition
     -- Uses Classical decidability to avoid requiring a Decidable instance.
     (hInfluence : ∀ x y : LatticeLink d N,
       influenceCoeff
-        (gaugeFixedYMSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
+        (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
         x y ≤ (if sharesPlaquette d N plaq x y then influenceBound n β else 0)) :
     Type _ :=
   -- This packages all the pieces into a DobrushinCondition.
@@ -184,7 +185,7 @@ def ymDobrushinCondition
   -- row_bound: symmetric
   -- summability: automatic (finite lattice)
   DobrushinCondition
-    (gaugeFixedYMSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
+    (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
 
 /-! ## Path to uniqueness
 
@@ -192,7 +193,7 @@ With `ymDobrushinCondition` realized as an actual `DobrushinCondition`
 term, the abstract `dobrushin_uniqueness` theorem from markov-semigroups
 gives:
 
-  ∀ μ₁ μ₂ Gibbs measures for gaugeFixedYMSpec, μ₁ = μ₂.
+  ∀ μ₁ μ₂ Gibbs measures for ymGibbsSpec, μ₁ = μ₂.
 
 This is the uniqueness of the Yang-Mills Gibbs measure at strong
 coupling, which (combined with gauge invariance) gives the mass gap. -/

@@ -106,21 +106,23 @@ theorem influenceBound_le_linear (β : ℝ) (hβ : 0 ≤ β) :
 
 /-! ## Interaction graph geometry
 
-After axial gauge fixing in d dimensions:
-- Each link has at most 2(d-1) plaquettes containing it
-- Each plaquette connects 3 non-trivial links (the 4th is gauge-fixed)
-- Two links share at most 1 plaquette (generically)
+For the unfixed Wilson lattice gauge theory in d dimensions:
+- Each link is contained in 2(d-1) plaquettes
+- Each plaquette has 4 links; excluding the link itself, 3 other links
+- So the number of links interacting with a given link y is ≤ 3·2(d-1) = 6(d-1)
 
-So the number of links interacting with a given link y is ≤ 2·2(d-1) = 4(d-1),
-and each interaction involves 1 shared plaquette. -/
+NOTE (per Gemini 3 Pro review 2026-04-15): the previous count of 4(d-1)
+incorrectly assumed axial gauge fixing ("2 non-trivial links per plaquette"),
+but our measure uses the unfixed product Haar. Each plaquette contributes
+3 plaquette-neighbors (not 2), giving 6(d-1) total. -/
 
-/-- Maximum number of plaquettes containing a single gauge-fixed link. -/
+/-- Maximum number of plaquettes containing a single link. -/
 def maxPlaquettesPerLink (d : ℕ) : ℕ := 2 * (d - 1)
 
 /-- Maximum number of interacting neighbors of a link (links sharing
-at least one plaquette). Each plaquette has 3 non-trivial links,
-so each of the 2(d-1) plaquettes contributes 2 neighbors. -/
-def maxNeighbors (d : ℕ) : ℕ := 2 * maxPlaquettesPerLink d
+at least one plaquette). Each of the 2(d-1) plaquettes contributes 3
+plaquette-neighbors (excluding the link itself). -/
+def maxNeighbors (d : ℕ) : ℕ := 3 * maxPlaquettesPerLink d
 
 /-! ## Dobrushin column sum bound -/
 

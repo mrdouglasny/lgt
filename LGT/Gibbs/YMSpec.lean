@@ -4,13 +4,19 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 # Yang-Mills as a Gibbs Specification
 
-Encodes the gauge-fixed Wilson lattice gauge theory as a
+Encodes the (unfixed) Wilson lattice gauge theory as a
 `MarkovSemigroups.Dobrushin.GibbsSpec` with sites = links and
 spin space = compact gauge group G.
 
 This bridges the lgt-specific definitions (GaugeConnection, Wilson
 action) to the abstract Dobrushin uniqueness machinery, enabling
 the d ≥ 3 mass gap proof.
+
+Note: The measure uses the full product Haar on all links (no gauge
+fixing applied to the Gibbs spec itself). Dobrushin's uniqueness
+works directly for the unfixed measure at strong coupling. Gauge
+invariance of the action ensures gauge-invariant observables have
+well-defined expectations.
 
 ## Architecture
 
@@ -387,7 +393,7 @@ The four structure axioms are:
   is provided as a hypothesis `hmeas_condDist`, which we do not prove
   here; a fully unconditional proof requires substantial extra
   measure-theoretic infrastructure (see the detailed sketch below). -/
-def gaugeFixedYMSpec (β : ℝ)
+def ymGibbsSpec (β : ℝ)
     (hZ_pos : ∀ (Λ : Finset (LatticeLink d N)) (σ : GaugeConnection G d N),
       0 < gibbsConditionalZ G n d N plaq β Λ σ)
     (hw_meas : Measurable
