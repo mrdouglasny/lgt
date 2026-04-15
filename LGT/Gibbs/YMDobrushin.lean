@@ -176,16 +176,105 @@ def ymDobrushinCondition
     (hInfluence : ∀ x y : LatticeLink d N,
       influenceCoeff
         (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
-        x y ≤ (if sharesPlaquette d N plaq x y then influenceBound n β else 0)) :
-    Type _ :=
-  -- This packages all the pieces into a DobrushinCondition.
-  -- Full construction:
-  -- α := dobrushinColumnSum n d β = maxNeighbors(d) · influenceBound(n, β)
-  -- column_bound: ∑' x, C(x,y) ≤ α via hInfluence + plaquette counting
-  -- row_bound: symmetric
-  -- summability: automatic (finite lattice)
-  DobrushinCondition
-    (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
+        x y ≤ (if sharesPlaquette d N plaq x y then influenceBound n β else 0))
+    -- Plaquette counting (geometric fact about the lattice):
+    -- the number of links sharing a plaquette with a fixed link y (resp. x)
+    -- is at most maxNeighbors d = 6(d-1).
+    (hMaxNeighborsCol : ∀ y : LatticeLink d N,
+      ((Finset.univ : Finset (LatticeLink d N)).filter
+        (fun x => sharesPlaquette d N plaq x y)).card ≤ maxNeighbors d)
+    (hMaxNeighborsRow : ∀ x : LatticeLink d N,
+      ((Finset.univ : Finset (LatticeLink d N)).filter
+        (fun y => sharesPlaquette d N plaq x y)).card ≤ maxNeighbors d) :
+    DobrushinCondition
+      (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist) :=
+  -- Short-hand for the Gibbs spec in proofs below.
+  let γ := ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist
+  -- The contraction constant α := maxNeighbors(d) · influenceBound(n,β),
+  -- which is `dobrushinColumnSum n d β`.
+  { α := dobrushinColumnSum n d β
+    hα_pos := by
+      unfold dobrushinColumnSum
+      exact mul_nonneg (Nat.cast_nonneg' _) (influenceBound_nonneg n β hβ)
+    hα_lt := dobrushin_sufficient n d hd hn β hβ hβ_small
+    col_summable := by
+      -- Any function on a Fintype is summable: it has finite support.
+      intro y
+      exact summable_of_ne_finset_zero (s := Finset.univ)
+        (fun x hx => (hx (Finset.mem_univ x)).elim)
+    column_bound := by
+      intro y
+      -- Reduce tsum to a finite sum on Finset.univ.
+      have htsum : (∑' x, influenceCoeff γ x y) =
+          ∑ x ∈ (Finset.univ : Finset (LatticeLink d N)), influenceCoeff γ x y := by
+        rw [tsum_eq_sum (s := Finset.univ)
+          (fun x hx => (hx (Finset.mem_univ x)).elim)]
+      rw [htsum]
+      -- Majorize by the indicator sum using hInfluence.
+      have hstep1 :
+          ∑ x ∈ (Finset.univ : Finset (LatticeLink d N)), influenceCoeff γ x y
+            ≤ ∑ x ∈ (Finset.univ : Finset (LatticeLink d N)),
+                (if sharesPlaquette d N plaq x y then influenceBound n β else 0) := by
+        apply Finset.sum_le_sum
+        intro x _
+        exact hInfluence x y
+      -- The indicator sum equals card · influenceBound.
+      have hstep2 :
+          ∑ x ∈ (Finset.univ : Finset (LatticeLink d N)),
+              (if sharesPlaquette d N plaq x y then influenceBound n β else 0)
+            = ((Finset.univ.filter
+                (fun x => sharesPlaquette d N plaq x y)).card : ℝ)
+              * influenceBound n β := by
+        classical
+        rw [← Finset.sum_filter]
+        rw [Finset.sum_const, nsmul_eq_mul]
+      calc ∑ x ∈ (Finset.univ : Finset (LatticeLink d N)), influenceCoeff γ x y
+          ≤ ∑ x ∈ (Finset.univ : Finset (LatticeLink d N)),
+              (if sharesPlaquette d N plaq x y then influenceBound n β else 0) := hstep1
+        _ = ((Finset.univ.filter
+              (fun x => sharesPlaquette d N plaq x y)).card : ℝ)
+            * influenceBound n β := hstep2
+        _ ≤ (maxNeighbors d : ℝ) * influenceBound n β := by
+            apply mul_le_mul_of_nonneg_right _ (influenceBound_nonneg n β hβ)
+            exact_mod_cast hMaxNeighborsCol y
+        _ = dobrushinColumnSum n d β := rfl
+    row_summable := by
+      intro x
+      exact summable_of_ne_finset_zero (s := Finset.univ)
+        (fun y hy => (hy (Finset.mem_univ y)).elim)
+    row_bound := by
+      intro x
+      have htsum : (∑' y, influenceCoeff γ x y) =
+          ∑ y ∈ (Finset.univ : Finset (LatticeLink d N)), influenceCoeff γ x y := by
+        rw [tsum_eq_sum (s := Finset.univ)
+          (fun y hy => (hy (Finset.mem_univ y)).elim)]
+      rw [htsum]
+      have hstep1 :
+          ∑ y ∈ (Finset.univ : Finset (LatticeLink d N)), influenceCoeff γ x y
+            ≤ ∑ y ∈ (Finset.univ : Finset (LatticeLink d N)),
+                (if sharesPlaquette d N plaq x y then influenceBound n β else 0) := by
+        apply Finset.sum_le_sum
+        intro y _
+        exact hInfluence x y
+      have hstep2 :
+          ∑ y ∈ (Finset.univ : Finset (LatticeLink d N)),
+              (if sharesPlaquette d N plaq x y then influenceBound n β else 0)
+            = ((Finset.univ.filter
+                (fun y => sharesPlaquette d N plaq x y)).card : ℝ)
+              * influenceBound n β := by
+        classical
+        rw [← Finset.sum_filter]
+        rw [Finset.sum_const, nsmul_eq_mul]
+      calc ∑ y ∈ (Finset.univ : Finset (LatticeLink d N)), influenceCoeff γ x y
+          ≤ ∑ y ∈ (Finset.univ : Finset (LatticeLink d N)),
+              (if sharesPlaquette d N plaq x y then influenceBound n β else 0) := hstep1
+        _ = ((Finset.univ.filter
+              (fun y => sharesPlaquette d N plaq x y)).card : ℝ)
+            * influenceBound n β := hstep2
+        _ ≤ (maxNeighbors d : ℝ) * influenceBound n β := by
+            apply mul_le_mul_of_nonneg_right _ (influenceBound_nonneg n β hβ)
+            exact_mod_cast hMaxNeighborsRow x
+        _ = dobrushinColumnSum n d β := rfl }
 
 /-! ## Path to uniqueness
 
