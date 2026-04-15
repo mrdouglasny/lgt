@@ -100,6 +100,51 @@ Hence `γ_* (productHaar × productHaar) = productHaar`.
 The proof is left as a sorry; the Lean realization requires
 `Measure.pi_eq` or a chain of `MeasurePreserving.integral_comp'`
 applications. -/
+/-- The pushforward of `productHaar × productHaar` under
+`(uΛ, σ) ↦ gluedConfig Λ uΛ σ` is `productHaar`.
+
+Proof idea: factor `γ(u, σ) := glue Λ u σ` through the pi-split
+equivalence `Φ := piEquivPiSubtypeProd (· ∈ Λ)`. Then
+`Φ ∘ γ = (u, σ) ↦ (u|_Λ, σ|_Λᶜ)`. This "parallel projection"
+pushes `ph × ph` to `μΛ × μΛᶜ = Φ_* ph`, hence γ_* (ph × ph) =
+Φ⁻¹_* (μΛ × μΛᶜ) = ph.
+
+Left as a sorry; the Lean realization requires either
+`Measure.pi_eq` on boxes or a chain of `MeasurePreserving`
+compositions through `piEquivPiSubtypeProd`. -/
+theorem glue_measurePreserving (Λ : Finset (LatticeLink d N)) :
+    MeasurePreserving
+      (fun p : (LatticeLink d N → G) × (LatticeLink d N → G) =>
+        gluedConfig G d N Λ p.1 p.2)
+      ((productHaar G d N).prod (productHaar G d N))
+      (productHaar G d N) := by
+  sorry
+
+/-- `integral_glue_split_eq` reduces the double integral through `glue` to
+a single integral over `productHaar`, given the measure-preserving fact
+above.
+
+### Proof outline (assembly, ~25 lines)
+
+1. Define `γ(u, σ) := glue Λ u σ`; by `glue_measurePreserving`,
+   `γ_* (ph × ph) = ph`.
+2. `∫ U F U ∂ph = ∫ U F U ∂(γ_* (ph × ph)) = ∫ p F(γ p) d(ph × ph)`
+   via `integral_map`.
+3. Fubini swap (`integral_prod_symm`): `∫ p F(γ p) d(ph × ph)
+   = ∫ σ ∫ u F(glue u σ) dph dph`.
+
+Blocker for the Lean realization: `integral_prod_symm` requires
+`SFinite` instances on both factors of `productHaar.prod productHaar`.
+Although `productHaar` is a probability measure (hence finite, hence
+SFinite), the automatic instance chain
+`IsProbabilityMeasure → IsFiniteMeasure → SigmaFinite → SFinite`
+doesn't propagate through the `unfold productHaar` step cleanly in
+this context. Fix: register a top-level `SFinite (productHaar …)`
+instance in `YMMeasure.lean`, or inline `Measure.pi.instSFinite` at
+the usage site.
+
+Next pass: register the SFinite instance then fill in the ~25 lines
+of assembly. -/
 theorem integral_glue_split_eq
     (Λ : Finset (LatticeLink d N))
     (F : GaugeConnection G d N → ℝ)
