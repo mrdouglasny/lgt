@@ -120,31 +120,12 @@ theorem glue_measurePreserving (Λ : Finset (LatticeLink d N)) :
       (productHaar G d N) := by
   sorry
 
-/-- `integral_glue_split_eq` reduces the double integral through `glue` to
-a single integral over `productHaar`, given the measure-preserving fact
-above.
+/-- Reduces the double integral through `glue` to a single
+integral over `productHaar`, given `glue_measurePreserving`.
 
-### Proof outline (assembly, ~25 lines)
-
-1. Define `γ(u, σ) := glue Λ u σ`; by `glue_measurePreserving`,
-   `γ_* (ph × ph) = ph`.
-2. `∫ U F U ∂ph = ∫ U F U ∂(γ_* (ph × ph)) = ∫ p F(γ p) d(ph × ph)`
-   via `integral_map`.
-3. Fubini swap (`integral_prod_symm`): `∫ p F(γ p) d(ph × ph)
-   = ∫ σ ∫ u F(glue u σ) dph dph`.
-
-Blocker for the Lean realization: `integral_prod_symm` requires
-`SFinite` instances on both factors of `productHaar.prod productHaar`.
-Although `productHaar` is a probability measure (hence finite, hence
-SFinite), the automatic instance chain
-`IsProbabilityMeasure → IsFiniteMeasure → SigmaFinite → SFinite`
-doesn't propagate through the `unfold productHaar` step cleanly in
-this context. Fix: register a top-level `SFinite (productHaar …)`
-instance in `YMMeasure.lean`, or inline `Measure.pi.instSFinite` at
-the usage site.
-
-Next pass: register the SFinite instance then fill in the ~25 lines
-of assembly. -/
+Uses `integral_map` for change-of-variables through the
+measure-preserving map `γ(u, σ) := glue Λ u σ`, then
+`integral_prod_symm` for Fubini swap. -/
 theorem integral_glue_split_eq
     (Λ : Finset (LatticeLink d N))
     (F : GaugeConnection G d N → ℝ)
@@ -153,7 +134,38 @@ theorem integral_glue_split_eq
     ∫ σ, (∫ uΛ, F (gluedConfig G d N Λ uΛ σ)
             ∂(productHaar G d N)) ∂(productHaar G d N)
     = ∫ U, F U ∂(productHaar G d N) := by
-  sorry
+  set γ : (LatticeLink d N → G) × (LatticeLink d N → G) → GaugeConnection G d N :=
+    fun p => gluedConfig G d N Λ p.1 p.2 with hγ_def
+  have hMP : MeasurePreserving γ
+      ((productHaar G d N).prod (productHaar G d N))
+      (productHaar G d N) :=
+    glue_measurePreserving G d N Λ
+  have hmap_eq :
+      (productHaar G d N) =
+        Measure.map γ ((productHaar G d N).prod (productHaar G d N)) :=
+    hMP.map_eq.symm
+  have hF_aesm :
+      AEStronglyMeasurable F
+        (Measure.map γ ((productHaar G d N).prod (productHaar G d N))) := by
+    rw [← hmap_eq]; exact hF_int.aestronglyMeasurable
+  have hchg :
+      ∫ U, F U ∂(productHaar G d N)
+        = ∫ p, F (γ p) ∂((productHaar G d N).prod (productHaar G d N)) := by
+    conv_lhs => rw [hmap_eq]
+    exact integral_map hMP.measurable.aemeasurable hF_aesm
+  have hFγ_int :
+      Integrable (fun p => F (γ p))
+        ((productHaar G d N).prod (productHaar G d N)) := by
+    have : Integrable F (Measure.map γ
+        ((productHaar G d N).prod (productHaar G d N))) := by
+      rw [← hmap_eq]; exact hF_int
+    exact (integrable_map_measure hF_aesm hMP.measurable.aemeasurable).mp this
+  have hfub :
+      ∫ p, F (γ p) ∂((productHaar G d N).prod (productHaar G d N))
+        = ∫ σ, (∫ uΛ, F (gluedConfig G d N Λ uΛ σ)
+              ∂(productHaar G d N)) ∂(productHaar G d N) :=
+    MeasureTheory.integral_prod_symm _ hFγ_int
+  rw [← hfub, ← hchg]
 
 /-- **Key identity.** The integral of the Boltzmann weight equals
 `∫ σ Z(σ) dHaar(σ)`, the σ-average of the conditional partition

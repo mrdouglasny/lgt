@@ -122,6 +122,17 @@ instance instIsProbabilityMeasureProductHaar :
   unfold productHaar
   exact MeasureTheory.Measure.pi.instIsProbabilityMeasure _
 
+instance instIsFiniteMeasureProductHaar :
+    IsFiniteMeasure (productHaar G d N) :=
+  IsZeroOrProbabilityMeasure.toIsFiniteMeasure _
+
+instance instSigmaFiniteProductHaar :
+    SigmaFinite (productHaar G d N) :=
+  IsFiniteMeasure.toSigmaFinite _
+
+instance instSFiniteProductHaar :
+    SFinite (productHaar G d N) := inferInstance
+
 /-- **The partition function is positive.**
 
 Z > 0 because the integrand exp(-S) is strictly positive everywhere
