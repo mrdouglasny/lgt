@@ -78,6 +78,38 @@ theorem gibbsConditionalZ_eq_of_agrees_outside
   · simp [gluedConfig, he]
   · simp [gluedConfig, he, hστ e he]
 
+/-! ## Core Fubini helper for `gluedConfig`
+
+Both `partitionFn_eq_integral_gibbsConditionalZ` and
+`integral_indicator_w_fubini_link_split` are special cases of
+the following identity: integrating any integrable function
+`F` against the double `(productHaar × productHaar)`-measure
+through `gluedConfig` equals integrating `F` against
+`productHaar` directly.
+
+Proof idea: the measurable map
+`γ : (L → G) × (L → G) → (L → G)`,
+`γ(uΛ, σ) := gluedConfig Λ uΛ σ` pushes
+`productHaar ×ˢ productHaar` forward to `productHaar`.
+Indeed, factoring `γ` through
+`Φ := piEquivPiSubtypeProd (· ∈ Λ)` gives
+`Φ ∘ γ = (u ↦ u|_Λ) × (σ ↦ σ|_Λᶜ)`, which pushes
+`productHaar × productHaar` to `μΛ × μΛᶜ = Φ_* productHaar`.
+Hence `γ_* (productHaar × productHaar) = productHaar`.
+
+The proof is left as a sorry; the Lean realization requires
+`Measure.pi_eq` or a chain of `MeasurePreserving.integral_comp'`
+applications. -/
+theorem integral_glue_split_eq
+    (Λ : Finset (LatticeLink d N))
+    (F : GaugeConnection G d N → ℝ)
+    (hF_meas : Measurable F)
+    (hF_int : Integrable F (productHaar G d N)) :
+    ∫ σ, (∫ uΛ, F (gluedConfig G d N Λ uΛ σ)
+            ∂(productHaar G d N)) ∂(productHaar G d N)
+    = ∫ U, F U ∂(productHaar G d N) := by
+  sorry
+
 /-- **Key identity.** The integral of the Boltzmann weight equals
 `∫ σ Z(σ) dHaar(σ)`, the σ-average of the conditional partition
 function.
@@ -106,10 +138,17 @@ Under this equivalence:
 Estimated ~80 lines. Uses: `MeasurePreserving.integral_map_equiv`,
 `integral_prod`, `integral_const` over probability measures. -/
 theorem partitionFn_eq_integral_gibbsConditionalZ
-    (β : ℝ) (Λ : Finset (LatticeLink d N)) :
+    (β : ℝ) (Λ : Finset (LatticeLink d N))
+    (hw_meas : Measurable (fun U => boltzmannWeight G n d N β U plaq))
+    (hw_int : Integrable (fun U => boltzmannWeight G n d N β U plaq)
+        (productHaar G d N)) :
     partitionFn G n d N β plaq =
       ∫ σ, gibbsConditionalZ G n d N plaq β Λ σ ∂(productHaar G d N) := by
-  sorry
+  unfold partitionFn gibbsConditionalZ gibbsConditionalWeight
+  -- The RHS has an inner integral over `Measure.pi (fun _ => haarG G)`,
+  -- which definitionally equals `productHaar G d N`.
+  exact (integral_glue_split_eq G d N Λ
+    (fun U => boltzmannWeight G n d N β U plaq) hw_meas hw_int).symm
 
 /-- **Key identity.** Fubini on `Haar^Λ × Haar^Λᶜ` for the
 indicator × Boltzmann integrand:
@@ -140,7 +179,11 @@ Estimated ~100 lines, structurally identical to
 through a general `integral_split_glue` helper lemma. -/
 theorem integral_indicator_w_fubini_link_split
     (β : ℝ) (Λ : Finset (LatticeLink d N))
-    (A : Set (GaugeConnection G d N)) (hA : MeasurableSet A) :
+    (A : Set (GaugeConnection G d N)) (hA : MeasurableSet A)
+    (hw_meas : Measurable (fun U => boltzmannWeight G n d N β U plaq))
+    (hFA_int : Integrable
+        (Set.indicator A (fun U => boltzmannWeight G n d N β U plaq))
+        (productHaar G d N)) :
     ∫ U, Set.indicator A (fun U => boltzmannWeight G n d N β U plaq) U
         ∂(productHaar G d N) =
     ∫ σ, (∫ uΛ,
@@ -149,7 +192,12 @@ theorem integral_indicator_w_fubini_link_split
           (gluedConfig G d N Λ uΛ σ)
         ∂(Measure.pi (fun _ : LatticeLink d N => haarG G)))
       ∂(productHaar G d N) := by
-  sorry
+  have hFA_meas : Measurable
+      (Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)) :=
+    (hw_meas.indicator hA)
+  exact (integral_glue_split_eq G d N Λ
+    (Set.indicator A (fun U => boltzmannWeight G n d N β U plaq))
+    hFA_meas hFA_int).symm
 
 /-- **Main DLR identity: `ymMeasure` satisfies DLR for `ymGibbsSpec`.**
 
