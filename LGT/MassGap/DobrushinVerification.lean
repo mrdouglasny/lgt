@@ -108,21 +108,26 @@ theorem influenceBound_le_linear (β : ℝ) (hβ : 0 ≤ β) :
 
 For the unfixed Wilson lattice gauge theory in d dimensions:
 - Each link is contained in 2(d-1) plaquettes
-- Each plaquette has 4 links; excluding the link itself, 3 other links
-- So the number of links interacting with a given link y is ≤ 3·2(d-1) = 6(d-1)
+- Each plaquette has 4 links (including the link itself)
+- Coarse bound: number of links sharing a plaquette with y ≤ 4·2(d-1) = 8(d-1)
+  (from Finset.card_biUnion_le over plaquettes containing y)
+
+This coarse bound is used in the formal `sharesPlaquette` definition,
+which includes reflexivity (y shares a plaquette with itself). Tighter
+counting (6(d-1)) requires excluding y from each plaquette's boundary,
+which the formal proof does not currently track.
 
 NOTE (per Gemini 3 Pro review 2026-04-15): the previous count of 4(d-1)
 incorrectly assumed axial gauge fixing ("2 non-trivial links per plaquette"),
-but our measure uses the unfixed product Haar. Each plaquette contributes
-3 plaquette-neighbors (not 2), giving 6(d-1) total. -/
+but our measure uses the unfixed product Haar. -/
 
 /-- Maximum number of plaquettes containing a single link. -/
 def maxPlaquettesPerLink (d : ℕ) : ℕ := 2 * (d - 1)
 
-/-- Maximum number of interacting neighbors of a link (links sharing
-at least one plaquette). Each of the 2(d-1) plaquettes contributes 3
-plaquette-neighbors (excluding the link itself). -/
-def maxNeighbors (d : ℕ) : ℕ := 3 * maxPlaquettesPerLink d
+/-- Coarse upper bound on the number of plaquette-neighbors of a link
+(links sharing at least one plaquette). Each of the 2(d-1) plaquettes
+contains 4 boundary links, giving the bound 8(d-1). -/
+def maxNeighbors (d : ℕ) : ℕ := 4 * maxPlaquettesPerLink d
 
 /-! ## Dobrushin column sum bound -/
 

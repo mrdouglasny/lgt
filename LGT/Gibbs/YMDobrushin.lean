@@ -64,6 +64,174 @@ instance [DecidableEq (LatticePlaquette d N)] [Fintype (LatticePlaquette d N)]
     Decidable (sharesPlaquette d N plaq x y) := by
   unfold sharesPlaquette; infer_instance
 
+/-! ## Plaquette counting: neighbor-count bounds
+
+The set of links sharing a plaquette with a fixed link `y` is
+contained in the union, over plaquettes `p` containing `y`, of the
+four boundary links of `p`. Hence if every link lies on at most `M`
+plaquettes, every link has at most `4·M` plaquette-neighbours.
+
+Concretely, for the periodic lattice `(ℤ/Nℤ)ᵈ` the sharp geometric
+bound is `M = 2·(d-1) = maxPlaquettesPerLink d`, giving `8(d-1)`
+neighbours — which is looser than the `6(d-1) = maxNeighbors d` used
+below because it does not exclude `y` itself from each plaquette.
+The finer `6(d-1)` bound (at most `3` other links per plaquette) is
+also available but requires tracking which index on the boundary
+equals `y`. We prove the coarse `4·M` bound here since it is all
+that is needed to absorb both bridge hypotheses into a single
+`hPlaqPerLink` assumption. -/
+
+/-- If `p` is a plaquette and both `x` and `y` lie on its boundary,
+then `x` lies in the image of `p.boundaryLinks`. This is immediate
+but packaged for reuse. -/
+lemma mem_image_boundaryLinks_of_eq {p : LatticePlaquette d N}
+    {i : Fin 4} {x : LatticeLink d N} (hx : p.boundaryLinks i = x) :
+    x ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks := by
+  refine Finset.mem_image.mpr ⟨i, Finset.mem_univ _, hx⟩
+
+/-- The Finset `Finset.univ.image p.boundaryLinks` has at most `4`
+elements. -/
+lemma card_image_boundaryLinks_le (p : LatticePlaquette d N) :
+    ((Finset.univ : Finset (Fin 4)).image p.boundaryLinks).card ≤ 4 := by
+  refine le_trans (Finset.card_image_le) ?_
+  simp
+
+/-- **Key neighbour-count bound.**
+
+For any link `y` and any finite set of plaquettes `plaq`, the finset
+of links sharing a plaquette with `y` is bounded by `4` times the
+number of plaquettes in `plaq` whose boundary contains `y`. -/
+lemma sharesPlaquette_card_le_plaq_containing
+    (plaq : Finset (LatticePlaquette d N)) (y : LatticeLink d N) :
+    ((Finset.univ : Finset (LatticeLink d N)).filter
+        (fun x => sharesPlaquette d N plaq x y)).card
+      ≤ 4 * (plaq.filter
+          (fun p => y ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card := by
+  classical
+  -- The set of neighbours is contained in the biUnion of boundary-link images
+  -- over plaquettes that contain `y`.
+  set P_y : Finset (LatticePlaquette d N) :=
+    plaq.filter
+      (fun p => y ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks) with hPy
+  have hsubset :
+      (Finset.univ : Finset (LatticeLink d N)).filter
+          (fun x => sharesPlaquette d N plaq x y)
+        ⊆ P_y.biUnion
+            (fun p => (Finset.univ : Finset (Fin 4)).image p.boundaryLinks) := by
+    intro x hx
+    rcases Finset.mem_filter.mp hx with ⟨_, hshare⟩
+    rcases hshare with ⟨p, hp, i, j, hxi, hyj⟩
+    refine Finset.mem_biUnion.mpr ⟨p, ?_, ?_⟩
+    · refine Finset.mem_filter.mpr ⟨hp, ?_⟩
+      exact mem_image_boundaryLinks_of_eq d N hyj
+    · exact mem_image_boundaryLinks_of_eq d N hxi
+  -- Cardinality of biUnion is bounded by sum of cardinalities.
+  have hcard :
+      (P_y.biUnion
+          (fun p => (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card
+        ≤ ∑ p ∈ P_y,
+            ((Finset.univ : Finset (Fin 4)).image p.boundaryLinks).card :=
+    Finset.card_biUnion_le
+  -- Each summand is ≤ 4, so the sum ≤ 4 · card P_y.
+  have hsum_le :
+      (∑ p ∈ P_y,
+          ((Finset.univ : Finset (Fin 4)).image p.boundaryLinks).card)
+        ≤ ∑ p ∈ P_y, 4 :=
+    Finset.sum_le_sum (fun p _ => card_image_boundaryLinks_le d N p)
+  have hsum_const : (∑ _p ∈ P_y, (4 : ℕ)) = 4 * P_y.card := by
+    rw [Finset.sum_const, smul_eq_mul, Nat.mul_comm]
+  calc ((Finset.univ : Finset (LatticeLink d N)).filter
+          (fun x => sharesPlaquette d N plaq x y)).card
+      ≤ (P_y.biUnion
+          (fun p => (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card :=
+        Finset.card_le_card hsubset
+    _ ≤ ∑ p ∈ P_y,
+          ((Finset.univ : Finset (Fin 4)).image p.boundaryLinks).card := hcard
+    _ ≤ ∑ p ∈ P_y, 4 := hsum_le
+    _ = 4 * P_y.card := hsum_const
+
+/-- The row version of `sharesPlaquette_card_le_plaq_containing`: the
+number of links `y` sharing a plaquette with a fixed `x` is also
+controlled by the number of plaquettes containing `x`. -/
+lemma sharesPlaquette_card_le_plaq_containing_row
+    (plaq : Finset (LatticePlaquette d N)) (x : LatticeLink d N) :
+    ((Finset.univ : Finset (LatticeLink d N)).filter
+        (fun y => sharesPlaquette d N plaq x y)).card
+      ≤ 4 * (plaq.filter
+          (fun p => x ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card := by
+  classical
+  set P_x : Finset (LatticePlaquette d N) :=
+    plaq.filter
+      (fun p => x ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks) with hPx
+  have hsubset :
+      (Finset.univ : Finset (LatticeLink d N)).filter
+          (fun y => sharesPlaquette d N plaq x y)
+        ⊆ P_x.biUnion
+            (fun p => (Finset.univ : Finset (Fin 4)).image p.boundaryLinks) := by
+    intro y hy
+    rcases Finset.mem_filter.mp hy with ⟨_, hshare⟩
+    rcases hshare with ⟨p, hp, i, j, hxi, hyj⟩
+    refine Finset.mem_biUnion.mpr ⟨p, ?_, ?_⟩
+    · refine Finset.mem_filter.mpr ⟨hp, ?_⟩
+      exact mem_image_boundaryLinks_of_eq d N hxi
+    · exact mem_image_boundaryLinks_of_eq d N hyj
+  have hcard :
+      (P_x.biUnion
+          (fun p => (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card
+        ≤ ∑ p ∈ P_x,
+            ((Finset.univ : Finset (Fin 4)).image p.boundaryLinks).card :=
+    Finset.card_biUnion_le
+  have hsum_le :
+      (∑ p ∈ P_x,
+          ((Finset.univ : Finset (Fin 4)).image p.boundaryLinks).card)
+        ≤ ∑ p ∈ P_x, 4 :=
+    Finset.sum_le_sum (fun p _ => card_image_boundaryLinks_le d N p)
+  have hsum_const : (∑ _p ∈ P_x, (4 : ℕ)) = 4 * P_x.card := by
+    rw [Finset.sum_const, smul_eq_mul, Nat.mul_comm]
+  calc ((Finset.univ : Finset (LatticeLink d N)).filter
+          (fun y => sharesPlaquette d N plaq x y)).card
+      ≤ (P_x.biUnion
+          (fun p => (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card :=
+        Finset.card_le_card hsubset
+    _ ≤ ∑ p ∈ P_x,
+          ((Finset.univ : Finset (Fin 4)).image p.boundaryLinks).card := hcard
+    _ ≤ ∑ p ∈ P_x, 4 := hsum_le
+    _ = 4 * P_x.card := hsum_const
+
+/-- **Neighbor count from a plaquette-per-link bound (column).**
+
+If every link lies on at most `M` plaquettes (from `plaq`), then the
+number of plaquette-neighbours of any link is at most `4·M`. This
+derives the `hMaxNeighborsCol` bridge hypothesis of
+`ymDobrushinCondition` from the single combinatorial statement that
+each link is contained in at most `M` plaquettes. -/
+theorem maxNeighborsCol_of_plaqPerLink
+    (plaq : Finset (LatticePlaquette d N)) (M : ℕ)
+    (hPlaqPerLink : ∀ y : LatticeLink d N,
+      (plaq.filter
+        (fun p => y ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card
+          ≤ M) :
+    ∀ y : LatticeLink d N,
+      ((Finset.univ : Finset (LatticeLink d N)).filter
+        (fun x => sharesPlaquette d N plaq x y)).card ≤ 4 * M := by
+  intro y
+  exact (sharesPlaquette_card_le_plaq_containing d N plaq y).trans
+    (Nat.mul_le_mul_left 4 (hPlaqPerLink y))
+
+/-- **Neighbor count from a plaquette-per-link bound (row).** -/
+theorem maxNeighborsRow_of_plaqPerLink
+    (plaq : Finset (LatticePlaquette d N)) (M : ℕ)
+    (hPlaqPerLink : ∀ x : LatticeLink d N,
+      (plaq.filter
+        (fun p => x ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card
+          ≤ M) :
+    ∀ x : LatticeLink d N,
+      ((Finset.univ : Finset (LatticeLink d N)).filter
+        (fun y => sharesPlaquette d N plaq x y)).card ≤ 4 * M := by
+  intro x
+  exact (sharesPlaquette_card_le_plaq_containing_row d N plaq x).trans
+    (Nat.mul_le_mul_left 4 (hPlaqPerLink x))
+
 /-! ## Influence coefficient bounds for YM
 
 The key physics input: when a link y changes (others fixed), the
@@ -275,6 +443,61 @@ def ymDobrushinCondition
             apply mul_le_mul_of_nonneg_right _ (influenceBound_nonneg n β hβ)
             exact_mod_cast hMaxNeighborsRow x
         _ = dobrushinColumnSum n d β := rfl }
+
+/-! ## Convenience wrapper: Dobrushin from a plaquette-per-link bound
+
+The two `hMaxNeighbors*` bridge hypotheses in `ymDobrushinCondition`
+encode a genuinely geometric fact about the lattice: each link lies
+on at most `2·(d-1) = maxPlaquettesPerLink d` plaquettes. Combined
+with the fact that each plaquette has four boundary links (proven
+above in `sharesPlaquette_card_le_plaq_containing[_row]`), this
+yields the neighbor-count bound `card ≤ 4·M`.
+
+This wrapper packages that reduction: the user supplies only a
+single `hPlaqPerLink` hypothesis (plus a numeric inequality
+`4·M ≤ maxNeighbors d` witnessing that `maxNeighbors d` is loose
+enough). In particular, with `M = 2·(d-1) = maxPlaquettesPerLink d`
+one has `4·M = 8(d-1)`, which is the *best* bound provable from
+this coarse union argument; the sharper `6(d-1) = maxNeighbors d`
+requires tracking which position on each plaquette's boundary
+equals the fixed link. -/
+def ymDobrushinCondition_of_plaqPerLink
+    (β : ℝ) (hβ : 0 ≤ β) (plaq : Finset (LatticePlaquette d N))
+    (hd : 2 ≤ d) (hn : 1 ≤ n)
+    (hβ_small : β < 1 / (2 * ↑n * ↑(maxNeighbors d)))
+    (hZ_pos : ∀ Λ σ, 0 < gibbsConditionalZ G n d N plaq β Λ σ)
+    (hw_meas : Measurable fun U => boltzmannWeight G n d N β U plaq)
+    (hw_integrable : ∀ (Λ : Finset (LatticeLink d N))
+        (σ : GaugeConnection G d N),
+        Integrable (fun uΛ : LatticeLink d N → G =>
+            gibbsConditionalWeight G n d N plaq β Λ σ uΛ)
+          (Measure.pi (fun _ : LatticeLink d N => haarG G)))
+    (hmeas_condDist : ∀ (Λ : Finset (LatticeLink d N))
+      (A : Set (GaugeConnection G d N)),
+      MeasurableSet A →
+      Measurable (fun σ : GaugeConnection G d N =>
+        ((gibbsCondMeasure G n d N plaq β Λ σ) A).toReal))
+    (hInfluence : ∀ x y : LatticeLink d N,
+      influenceCoeff
+        (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
+        x y ≤ (if sharesPlaquette d N plaq x y then influenceBound n β else 0))
+    -- Single combinatorial bridge hypothesis: each link lies on at most
+    -- `M` plaquettes from `plaq`.
+    (M : ℕ)
+    (hPlaqPerLink : ∀ ℓ : LatticeLink d N,
+      (plaq.filter
+        (fun p => ℓ ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card
+          ≤ M)
+    -- Numeric slack: the coarse neighbor bound `4·M` must fit in `maxNeighbors d`.
+    (hLoose : 4 * M ≤ maxNeighbors d) :
+    DobrushinCondition
+      (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist) :=
+  ymDobrushinCondition G n d N β hβ plaq hd hn hβ_small
+    hZ_pos hw_meas hw_integrable hmeas_condDist hInfluence
+    (hMaxNeighborsCol := fun y =>
+      (maxNeighborsCol_of_plaqPerLink d N plaq M hPlaqPerLink y).trans hLoose)
+    (hMaxNeighborsRow := fun x =>
+      (maxNeighborsRow_of_plaqPerLink d N plaq M hPlaqPerLink x).trans hLoose)
 
 /-! ## Path to uniqueness
 
