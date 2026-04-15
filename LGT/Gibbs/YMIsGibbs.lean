@@ -352,6 +352,83 @@ theorem integral_smul_condZ_eq_integral_smul_w
     _ = ∫ U, h U * boltzmannWeight G n d N β U plaq
             ∂(productHaar G d N) := hsplit
 
+/-- **S2 — Cancellation identity.** For any `h` that depends on
+`σ` only through `σ|_Λᶜ`, the Boltzmann-density-normalized σ-average
+collapses to the plain average:
+```
+∫ σ, h(σ) · w(σ) / Z_Λ(σ) ∂productHaar = ∫ σ, h(σ) ∂productHaar
+```
+
+Proof: apply Identity A with `h' := h / Z_Λ`. Then
+`h'(σ) · Z_Λ(σ) = h(σ)` pointwise (when `Z_Λ > 0`), and
+`h'(U) · w(U) = h(U) · w(U) / Z_Λ(U)`, giving the identity. -/
+theorem cancellation_identity
+    (β : ℝ) (Λ : Finset (LatticeLink d N))
+    (h : GaugeConnection G d N → ℝ)
+    (hh_outside : ∀ (uΛ : LatticeLink d N → G)
+        (σ : GaugeConnection G d N),
+        h (gluedConfig G d N Λ uΛ σ) = h σ)
+    (hh_meas : Measurable h)
+    (hw_meas : Measurable (fun U => boltzmannWeight G n d N β U plaq))
+    (hZ_pos : ∀ σ : GaugeConnection G d N,
+        0 < gibbsConditionalZ G n d N plaq β Λ σ)
+    (hZ_meas : Measurable (fun σ : GaugeConnection G d N =>
+        gibbsConditionalZ G n d N plaq β Λ σ))
+    (hhw_over_Z_int : Integrable
+        (fun U : GaugeConnection G d N => h U / gibbsConditionalZ G n d N plaq β Λ U
+              * boltzmannWeight G n d N β U plaq)
+        (productHaar G d N)) :
+    ∫ σ, h σ * boltzmannWeight G n d N β σ plaq
+          / gibbsConditionalZ G n d N plaq β Λ σ
+        ∂(productHaar G d N) =
+    ∫ σ, h σ ∂(productHaar G d N) := by
+  -- `h' := h / Z_Λ` respects `gluedConfig` since both `h` and `Z_Λ` do.
+  have hh'_outside : ∀ (uΛ : LatticeLink d N → G)
+      (σ : GaugeConnection G d N),
+      (fun τ => h τ / gibbsConditionalZ G n d N plaq β Λ τ)
+          (gluedConfig G d N Λ uΛ σ)
+      = (fun τ => h τ / gibbsConditionalZ G n d N plaq β Λ τ) σ := by
+    intro uΛ σ
+    show h (gluedConfig G d N Λ uΛ σ) /
+            gibbsConditionalZ G n d N plaq β Λ (gluedConfig G d N Λ uΛ σ)
+        = h σ / gibbsConditionalZ G n d N plaq β Λ σ
+    rw [hh_outside uΛ σ]
+    congr 1
+    exact gibbsConditionalZ_eq_of_agrees_outside G n d N plaq β Λ
+      (gluedConfig G d N Λ uΛ σ) σ (fun e he =>
+        gluedConfig_eq_outside G d N Λ uΛ σ e he)
+  have hh'_meas :
+      Measurable (fun σ : GaugeConnection G d N =>
+        h σ / gibbsConditionalZ G n d N plaq β Λ σ) :=
+    hh_meas.div hZ_meas
+  -- Apply Identity A with h' = h/Z.
+  have hA := integral_smul_condZ_eq_integral_smul_w G n d N plaq β Λ
+    (fun σ => h σ / gibbsConditionalZ G n d N plaq β Λ σ)
+    hh'_outside hh'_meas hw_meas hhw_over_Z_int
+  -- Simplify the LHS of Identity A: (h/Z) · Z = h (since Z > 0).
+  have hLHS_simp :
+      ∫ σ, h σ / gibbsConditionalZ G n d N plaq β Λ σ
+            * gibbsConditionalZ G n d N plaq β Λ σ
+          ∂(productHaar G d N)
+        = ∫ σ, h σ ∂(productHaar G d N) := by
+    refine integral_congr_ae (Filter.Eventually.of_forall ?_)
+    intro σ
+    field_simp [(hZ_pos σ).ne']
+  rw [hLHS_simp] at hA
+  -- Now hA : ∫ σ h σ = ∫ U (h U / Z U) · w U.
+  -- Rewrite our goal's LHS to the shape `(h/Z) · w` matching hA's RHS.
+  have hgoal :
+      ∫ σ, h σ * boltzmannWeight G n d N β σ plaq
+            / gibbsConditionalZ G n d N plaq β Λ σ
+          ∂(productHaar G d N)
+        = ∫ σ, h σ / gibbsConditionalZ G n d N plaq β Λ σ
+              * boltzmannWeight G n d N β σ plaq
+            ∂(productHaar G d N) := by
+    refine integral_congr_ae (Filter.Eventually.of_forall ?_)
+    intro σ; ring
+  rw [hgoal]
+  exact hA.symm
+
 /-- **Key identity.** Fubini on `Haar^Λ × Haar^Λᶜ` for the
 indicator × Boltzmann integrand:
 ```
