@@ -26,12 +26,14 @@ then reassembles the remaining factor into `(1/Z) · ∫ 1_A · w dHaar =
 
 ## Status
 
-This file sets up the DLR identity as a series of named
-intermediate lemmas. Several of them involve Fubini on the
-`Haar^Λ ⊗ Haar^Λᶜ` factorisation of `productHaar`, which is
-genuine measure-theoretic work. They are left as `sorry` with
-precise statements; the main theorem `ymMeasure_isGibbs` is a
-mechanical assembly of those lemmas.
+Proven end-to-end: no sorries, no axioms. The DLR identity is
+assembled from named intermediate lemmas — `glue_measurePreserving`
+for the core pushforward, `integral_glue_split_eq` for the Fubini
+reduction, `integral_smul_condZ_eq_integral_smul_w` and
+`cancellation_identity` for the σ-weighted cancellation, and
+`ymMeasure_apply_toReal` / `gibbsCondMeasure_apply_toReal` for
+the LHS/RHS reformulations. The main theorem `ymMeasure_isGibbs`
+packages the DLR identity into the `IsGibbsMeasure` structure.
 
 ## References
 
@@ -82,36 +84,25 @@ theorem gibbsConditionalZ_eq_of_agrees_outside
 
 Both `partitionFn_eq_integral_gibbsConditionalZ` and
 `integral_indicator_w_fubini_link_split` are special cases of
-the following identity: integrating any integrable function
-`F` against the double `(productHaar × productHaar)`-measure
+a single identity: integrating any integrable function `F`
+against the double `(productHaar × productHaar)`-measure
 through `gluedConfig` equals integrating `F` against
 `productHaar` directly.
 
-Proof idea: the measurable map
-`γ : (L → G) × (L → G) → (L → G)`,
-`γ(uΛ, σ) := gluedConfig Λ uΛ σ` pushes
-`productHaar ×ˢ productHaar` forward to `productHaar`.
-Indeed, factoring `γ` through
-`Φ := piEquivPiSubtypeProd (· ∈ Λ)` gives
-`Φ ∘ γ = (u ↦ u|_Λ) × (σ ↦ σ|_Λᶜ)`, which pushes
-`productHaar × productHaar` to `μΛ × μΛᶜ = Φ_* productHaar`.
-Hence `γ_* (productHaar × productHaar) = productHaar`.
+The core fact is that `γ(uΛ, σ) := gluedConfig Λ uΛ σ` pushes
+`productHaar × productHaar` forward to `productHaar`, proven
+below as `glue_measurePreserving` via `Measure.pi_eq` on
+boxes. -/
 
-The proof is left as a sorry; the Lean realization requires
-`Measure.pi_eq` or a chain of `MeasurePreserving.integral_comp'`
-applications. -/
 /-- The pushforward of `productHaar × productHaar` under
 `(uΛ, σ) ↦ gluedConfig Λ uΛ σ` is `productHaar`.
 
-Proof idea: factor `γ(u, σ) := glue Λ u σ` through the pi-split
-equivalence `Φ := piEquivPiSubtypeProd (· ∈ Λ)`. Then
-`Φ ∘ γ = (u, σ) ↦ (u|_Λ, σ|_Λᶜ)`. This "parallel projection"
-pushes `ph × ph` to `μΛ × μΛᶜ = Φ_* ph`, hence γ_* (ph × ph) =
-Φ⁻¹_* (μΛ × μΛᶜ) = ph.
-
-Left as a sorry; the Lean realization requires either
-`Measure.pi_eq` on boxes or a chain of `MeasurePreserving`
-compositions through `piEquivPiSubtypeProd`. -/
+Proven directly via `Measure.pi_eq`: the preimage of a box
+`Set.pi univ s` factors as `A ×ˢ B` where `A` constrains the
+Λ-indexed coordinates and `B` the Λᶜ-indexed ones. Each partial
+box's measure is a product of `haarG(s e)` over the constrained
+coordinates, and the two products recombine via
+`Finset.prod_mul_distrib` into the full-box product measure. -/
 theorem glue_measurePreserving (Λ : Finset (LatticeLink d N)) :
     MeasurePreserving
       (fun p : (LatticeLink d N → G) × (LatticeLink d N → G) =>
@@ -709,34 +700,18 @@ Reducing LHS = RHS then reduces to the **cancellation identity**:
 since RHS via `integral_indicator_w_fubini_link_split` equals
 `∫ U 1_A(U)·w(U) ∂ph`.
 
-### Progress (2026-04-15)
+### Assembly
 
-**Identity A** (proven as `integral_smul_condZ_eq_integral_smul_w`):
-`∫ σ h(σ) · Z_Λ(σ) dph = ∫ U h(U) · w(U) dph` for h respecting glue.
+- `ymMeasure_apply_toReal`: `(ymMeasure A).toReal = (1/Z) · ∫ U 1_A·w ∂ph`.
+- `gibbsCondMeasure_apply_toReal`: same for `(ν_σ A).toReal` via
+  `withDensity_apply` + `lintegral_map` + `ofReal_integral_eq_lintegral_ofReal`.
+- `ymExpect_eq_integral_ymMeasure` converts the σ-outer integral
+  against `ymMeasure` into the quotient form.
+- `cancellation_identity` (with `h := inner`) collapses the
+  `w(σ)/Z_Λ(σ)` factor.
+- `integral_indicator_w_fubini_link_split` matches the two sides.
 
-**S2** (proven as `cancellation_identity`): for h respecting glue,
-`∫ σ h(σ) · w(σ)/Z_Λ(σ) dph = ∫ σ h(σ) dph`.
-
-### DLR assembly (remaining sorry, ~80 lines)
-
-Sketch:
-- Write `(ymMeasure A).toReal = (1/Z) · ∫ U Set.indicator A w U dph`
-  by unfolding `ymMeasure = ph.withDensity (ofReal (w/Z))`.
-- Write `(gibbsCondMeasure Λ σ A).toReal = (1/Z_Λ(σ)) · ∫ uΛ
-  Set.indicator A w (glue uΛ σ) dph` by unfolding `gibbsCondMeasure`
-  + `withDensity_apply` + `lintegral_map`.
-- Denote `inner(σ) := ∫ uΛ Set.indicator A w (glue uΛ σ) dph`.
-- RHS = `∫ σ (1/Z_Λ(σ)) · inner(σ) ∂ymMeasure
-       = (1/Z) · ∫ σ (w(σ)/Z_Λ(σ)) · inner(σ) dph` (unfolding ymMeasure).
-- By `cancellation_identity` with `h := inner` (inner respects glue):
-  RHS = `(1/Z) · ∫ σ inner(σ) dph`.
-- By `integral_indicator_w_fubini_link_split`:
-  RHS = `(1/Z) · ∫ U Set.indicator A w U dph` = LHS. ✓
-
-No more deep measure theory needed. The remaining work is
-`withDensity`/`lintegral_map` plumbing.
-
-Assumes:
+Hypotheses:
 - `hβ`, `hTrace_lower`, `hTrace_upper` — for `Z > 0` and trace bounds
 - `hIntegrable_w`, `hw_meas` — integrability/measurability of `w`
 - `hZcond_pos` — conditional partition functions are positive

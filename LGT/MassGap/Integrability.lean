@@ -5,7 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 # Integrability of Continuous Functions on Compact Groups
 
 On a compact space with a finite measure, every continuous function
-is integrable. This lemma closes all integrability sorry's in the
+is integrable. Supplies the integrability witnesses needed in the
 YM mass gap proof.
 
 ## Main result

@@ -74,12 +74,13 @@ the axial links — this exists because the axial links form a
 tree connecting all lattice sites. -/
 
 /-- For gauge-invariant f·w, the expectation is unchanged by
-restricting to gauge-fixed configurations.
-
-This is the Faddeev-Popov identity. The proof requires Fubini
-on the product Haar measure and Haar left-invariance. The
-mathematical argument is given above; the Lean proof uses
-sorry for the measure decomposition step. -/
+restricting to gauge-fixed configurations — the Faddeev-Popov
+identity. Currently a pass-through on a hypothesis `hFP`
+asserting the identity; unused by the d≥3 mass gap proof,
+which goes directly through `ymMeasure_isGibbs` +
+`dobrushin_correlation_decay_direct` without gauge fixing.
+Retained for the 2D path (W4'), which would discharge `hFP`
+by Fubini + Haar left-invariance on the torus. -/
 theorem faddeevPopov
     (β : ℝ) (plaq : Finset (LatticePlaquette d N))
     (f : GaugeConnection G d N → ℝ) (hf : IsGaugeInvariant f)
