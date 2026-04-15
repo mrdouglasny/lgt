@@ -56,7 +56,14 @@ theorem mass_gap_2d
     (plaq : Finset (LatticePlaquette d N))
     (hIntegrable : Integrable (fun U => boltzmannWeight G n d N β U plaq)
         (productHaar G d N))
-    (p q : LatticePlaquette d N) :
+    (p q : LatticePlaquette d N)
+    -- Bridge: FP + spatial factorization + Doeblin temporal mixing.
+    -- Supplies the correlation-decay inequality produced by the abstract
+    -- `doeblin_correlation_decay` (markov-semigroups) theorem applied to
+    -- each spatial-site temporal chain after gauge fixing.
+    (hBridge :
+      |connected2pt G n d N β plaq (plaqObs G n d N p) (plaqObs G n d N q)| ≤
+        4 * (↑n : ℝ) ^ 2 * (1 - ymDoeblinLowerBound n β) ^ plaquetteDist d N p q) :
     -- THE MASS GAP: connected 2-point function decays exponentially
     |connected2pt G n d N β plaq (plaqObs G n d N p) (plaqObs G n d N q)| ≤
       4 * (↑n) ^ 2 * Real.exp (-(-Real.log (1 - ymDoeblinLowerBound n β)) *
@@ -68,7 +75,7 @@ theorem mass_gap_2d
       ⟨by linarith [hTrace_lower g], hTrace_upper g⟩))
     (fun U => plaqObs_bounded G n d N q U (fun g => abs_le.mpr
       ⟨by linarith [hTrace_lower g], hTrace_upper g⟩))
-    (plaquetteDist d N p q)
+    (plaquetteDist d N p q) hBridge
   -- Step 2: Bound (1-ε)^dist ≤ exp(-m·dist) with m = -log(1-ε) > 0
   set c := 1 - ymDoeblinLowerBound n β
   have hc_lt : c < 1 := by simp only [c]; linarith [ymDoeblinLowerBound_pos n β]

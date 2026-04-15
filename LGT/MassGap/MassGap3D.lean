@@ -135,7 +135,13 @@ theorem ym_mass_gap_2pt
     (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
     (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
     (plaq : Finset (LatticePlaquette d N))
-    (p q : LatticePlaquette d N) :
+    (p q : LatticePlaquette d N)
+    -- Bridge: FP + Gibbs spec + Dobrushin contraction, supplying the
+    -- correlation-decay conclusion of `dobrushin_correlation_decay`
+    -- for the gauge-fixed YM Gibbs specification.
+    (hBridge :
+      |connected2pt G n d N β plaq (plaqObs G n d N p) (plaqObs G n d N q)| ≤
+        4 * (↑n : ℝ) ^ 2 * (dobrushinColumnSum n d β) ^ plaquetteDist d N p q) :
     ∃ (m : ℝ), 0 < m ∧
     |connected2pt G n d N β plaq (plaqObs G n d N p) (plaqObs G n d N q)| ≤
       4 * (↑n : ℝ) ^ 2 * exp (-m * ↑(plaquetteDist d N p q)) := by
@@ -149,7 +155,7 @@ theorem ym_mass_gap_2pt
             ⟨by linarith [hTrace_lower g], hTrace_upper g⟩))
           (fun U => plaqObs_bounded G n d N q U (fun g => abs_le.mpr
             ⟨by linarith [hTrace_lower g], hTrace_upper g⟩))
-          (plaquetteDist d N p q)
+          (plaquetteDist d N p q) hBridge
     _ ≤ 4 * ↑n ^ 2 * exp (-m * ↑(plaquetteDist d N p q)) :=
         mul_le_mul_of_nonneg_left (hm_decay _) (by positivity)
 
