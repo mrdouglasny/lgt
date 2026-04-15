@@ -23,3 +23,4 @@ import LGT.MassGap.MassGap2D
 
 -- Layer 5: Gibbs specification + Dobrushin (d≥3 mass gap path)
 import LGT.Gibbs.YMSpec
+import LGT.Gibbs.YMDobrushin
