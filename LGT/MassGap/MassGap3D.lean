@@ -106,13 +106,14 @@ theorem ym_mass_gap_uniform
 
 /-- The strong coupling threshold.
 
-For d = 3, n = 1 (e.g., U(1)): β₀ = 1/16
-For d = 3, n = 2 (e.g., SU(2)): β₀ = 1/32
-For d = 3, n = 3 (e.g., SU(3)): β₀ = 1/48
-For d = 4, n = 3 (e.g., SU(3) in 4D): β₀ = 1/72 -/
+With the coarse neighbor bound `maxNeighbors d = 8(d-1)`, we get:
+For d = 3, n = 1 (e.g., U(1)): β₀ = 1/32
+For d = 3, n = 2 (e.g., SU(2)): β₀ = 1/64
+For d = 3, n = 3 (e.g., SU(3)): β₀ = 1/96
+For d = 4, n = 3 (e.g., SU(3) in 4D): β₀ = 1/144 -/
 theorem ym_threshold_formula (hd : 2 ≤ d) :
     (1 : ℝ) / (2 * ↑n * ↑(maxNeighbors d)) =
-    1 / (2 * ↑n * (4 * ((↑d : ℝ) - 1))) := by
+    1 / (2 * ↑n * (8 * ((↑d : ℝ) - 1))) := by
   unfold maxNeighbors maxPlaquettesPerLink
   have h1d : 1 ≤ d := by omega
   push_cast [Nat.cast_sub h1d]
@@ -126,9 +127,14 @@ variable [HasHaarProbability G] [Fintype (LatticeLink d N)]
 
 |connected2pt(plaqObs p, plaqObs q)| ≤ 4n² · exp(-m · dist(p,q))
 
-The `hCorrelationBound` hypothesis encodes gauge fixing + Dobrushin
-correlation decay for the gauge-fixed lattice model. -/
+The theorem now consumes the *narrow* bridge `hIterInf` (a bound on
+the covariance in terms of `iterateInfluence γ dist x y`) together
+with a pre-built Gibbs specification `γ` and a Dobrushin witness
+`hD` (e.g. `γ := ymGibbsSpec …`, `hD := ymDobrushinCondition …`).
+All integrability/measurability witnesses for the conversion
+`ymExpect → ∫ · ∂ymMeasure` are supplied as hypotheses. -/
 theorem ym_mass_gap_2pt
+    [DecidableEq (LatticeLink d N)]
     (hd : 2 ≤ d) (hn : 1 ≤ n)
     (β : ℝ) (hβ : 0 ≤ β)
     (hβ_small : β < 1 / (2 * ↑n * ↑(maxNeighbors d)))
@@ -136,26 +142,52 @@ theorem ym_mass_gap_2pt
     (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
     (plaq : Finset (LatticePlaquette d N))
     (p q : LatticePlaquette d N)
-    -- Bridge: FP + Gibbs spec + Dobrushin contraction, supplying the
-    -- correlation-decay conclusion of `dobrushin_correlation_decay`
-    -- for the gauge-fixed YM Gibbs specification.
-    (hBridge :
+    (hIntegrable_w : Integrable (fun U => boltzmannWeight G n d N β U plaq)
+        (productHaar G d N))
+    (hw_meas : Measurable (fun U => boltzmannWeight G n d N β U plaq))
+    (hPlaqObs_meas_p : Measurable (plaqObs G n d N p))
+    (hPlaqObs_meas_q : Measurable (plaqObs G n d N q))
+    (hPlaqObs_meas_pq : Measurable
+        (fun U => plaqObs G n d N p U * plaqObs G n d N q U))
+    (hPlaqObs_pw_int :
+        Integrable (fun U => plaqObs G n d N p U *
+          boltzmannWeight G n d N β U plaq) (productHaar G d N))
+    (hPlaqObs_qw_int :
+        Integrable (fun U => plaqObs G n d N q U *
+          boltzmannWeight G n d N β U plaq) (productHaar G d N))
+    (hPlaqObs_pqw_int :
+        Integrable (fun U => (plaqObs G n d N p U * plaqObs G n d N q U) *
+          boltzmannWeight G n d N β U plaq) (productHaar G d N))
+    (γ : GibbsSpec (LatticeLink d N) G)
+    (hD : DobrushinCondition γ)
+    (hα_eq : hD.α = dobrushinColumnSum n d β)
+    (x y : LatticeLink d N)
+    -- Narrow bridge: covariance ≤ 4n² · iterateInfluence γ dist x y.
+    (hIterInf :
       |connected2pt G n d N β plaq (plaqObs G n d N p) (plaqObs G n d N q)| ≤
-        4 * (↑n : ℝ) ^ 2 * (dobrushinColumnSum n d β) ^ plaquetteDist d N p q) :
+        4 * (↑n : ℝ) ^ 2 *
+          iterateInfluence γ (plaquetteDist d N p q) x y) :
     ∃ (m : ℝ), 0 < m ∧
     |connected2pt G n d N β plaq (plaqObs G n d N p) (plaqObs G n d N q)| ≤
       4 * (↑n : ℝ) ^ 2 * exp (-m * ↑(plaquetteDist d N p q)) := by
   have hdob := ym_satisfies_dobrushin n d hd hn β hβ hβ_small
   obtain ⟨_, m, hm_pos, hm_decay⟩ := hdob
   refine ⟨m, hm_pos, ?_⟩
+  have hbound_p : ∀ U, |plaqObs G n d N p U| ≤ (↑n : ℝ) :=
+    fun U => plaqObs_bounded G n d N p U (fun g => abs_le.mpr
+      ⟨by linarith [hTrace_lower g], hTrace_upper g⟩)
+  have hbound_q : ∀ U, |plaqObs G n d N q U| ≤ (↑n : ℝ) :=
+    fun U => plaqObs_bounded G n d N q U (fun g => abs_le.mpr
+      ⟨by linarith [hTrace_lower g], hTrace_upper g⟩)
   calc |connected2pt G n d N β plaq (plaqObs G n d N p) (plaqObs G n d N q)|
       ≤ 4 * ↑n ^ 2 * (dobrushinColumnSum n d β) ^ plaquetteDist d N p q :=
-        dobrushin_correlation_bound G n d N β hβ hd hn hβ_small plaq _ _ n
-          (fun U => plaqObs_bounded G n d N p U (fun g => abs_le.mpr
-            ⟨by linarith [hTrace_lower g], hTrace_upper g⟩))
-          (fun U => plaqObs_bounded G n d N q U (fun g => abs_le.mpr
-            ⟨by linarith [hTrace_lower g], hTrace_upper g⟩))
-          (plaquetteDist d N p q) hBridge
+        dobrushin_correlation_bound G n d N β hβ hd hn hβ_small plaq
+          hTrace_upper hTrace_lower hIntegrable_w hw_meas
+          (plaqObs G n d N p) (plaqObs G n d N q)
+          hPlaqObs_meas_p hPlaqObs_meas_q hPlaqObs_meas_pq
+          hPlaqObs_pw_int hPlaqObs_qw_int hPlaqObs_pqw_int
+          (↑n : ℝ) hbound_p hbound_q (plaquetteDist d N p q)
+          γ hD hα_eq x y hIterInf
     _ ≤ 4 * ↑n ^ 2 * exp (-m * ↑(plaquetteDist d N p q)) :=
         mul_le_mul_of_nonneg_left (hm_decay _) (by positivity)
 

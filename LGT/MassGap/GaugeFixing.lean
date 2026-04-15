@@ -38,6 +38,8 @@ For plaquettes p, q at spatial sites s_p, s_q:
 import LGT.WilsonAction.GaugeInvariance
 import LGT.MassGap.DobrushinVerification
 import LGT.MassGap.SingleSiteKernel
+import LGT.MassGap.YMMeasure
+import MarkovSemigroups.Dobrushin.NeumannSeries
 
 open MeasureTheory
 
@@ -145,30 +147,128 @@ theorem doeblin_correlation_bound_2d
 
 /-- **d≥3 correlation bound from Dobrushin.**
 
-The hypothesis `hBridge` encodes the chain of reductions from the
-Yang-Mills connected 2-point function to a Markov-chain correlation
-decay estimate supplied by Dobrushin's uniqueness theorem, via:
-1. Faddeev-Popov: gauge-fixed expectation = YM expectation
-2. Encoding the lattice + Wilson action as a `GibbsSpec`
-3. Verifying `IsNearestNeighbor`, `InteractionBound`, and the
-   column-sum condition (already proved as `dobrushin_sufficient`)
-4. Applying `dobrushin_correlation_decay` from markov-semigroups. -/
+Instantiates the abstract Dobrushin correlation-decay theorem
+(`dobrushin_correlation_decay_direct`, from
+`MarkovSemigroups.Dobrushin.NeumannSeries`) on the YM Gibbs
+specification.
+
+The caller supplies:
+* a Gibbs specification `γ : GibbsSpec (LatticeLink d N) G`
+  (built via `ymGibbsSpec`) together with a Dobrushin witness
+  `hD : DobrushinCondition γ` whose contraction constant is
+  exactly `dobrushinColumnSum n d β` (this is the shape of the
+  `ymDobrushinCondition` term);
+* integrability / measurability witnesses for the Boltzmann
+  weight and for `f * w`, `g * w`, `(f·g) * w`, sufficient to
+  convert the three `ymExpect`s to integrals against `ymMeasure`
+  via `ymExpect_eq_integral_ymMeasure`;
+* representative links `x y : LatticeLink d N` (one per plaquette);
+* the iterated-influence bound `hIterInf`, which is the output of
+  iterating `marginalTvDist_contraction` along a path of length
+  `dist` from `y` to `x` (this is the genuine work, but is narrower
+  than the previous `hBridge`: it bounds the covariance by
+  `4·B² · iterateInfluence γ dist x y` rather than by
+  `4·B² · α^dist`).
+
+The body reduces `iterateInfluence γ dist x y ≤ α^dist` via
+`iterateInfluence_pointwise_bound`, yielding the output shape
+`4·B² · α^dist = 4·B² · (dobrushinColumnSum n d β)^dist`. -/
 theorem dobrushin_correlation_bound
+    [DecidableEq (LatticeLink d N)]
     (β : ℝ) (hβ : 0 ≤ β)
     (hd : 2 ≤ d) (hn : 1 ≤ n)
     (hβ_small : β < 1 / (2 * ↑n * ↑(maxNeighbors d)))
     (plaq : Finset (LatticePlaquette d N))
+    (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
+    (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
+    (hIntegrable_w : Integrable (fun U => boltzmannWeight G n d N β U plaq)
+        (productHaar G d N))
+    (hw_meas : Measurable (fun U => boltzmannWeight G n d N β U plaq))
     (f g : GaugeConnection G d N → ℝ)
+    (hf_meas : Measurable f) (hg_meas : Measurable g)
+    (hfg_meas : Measurable (fun U => f U * g U))
+    (hfw_integrable : Integrable (fun U => f U * boltzmannWeight G n d N β U plaq)
+        (productHaar G d N))
+    (hgw_integrable : Integrable (fun U => g U * boltzmannWeight G n d N β U plaq)
+        (productHaar G d N))
+    (hfgw_integrable :
+        Integrable (fun U => (f U * g U) * boltzmannWeight G n d N β U plaq)
+          (productHaar G d N))
     (B : ℝ) (hfB : ∀ U, |f U| ≤ B) (hgB : ∀ U, |g U| ≤ B)
     (dist : ℕ)
-    -- Bridge hypothesis: FP + Gibbs specification + Dobrushin contraction.
-    -- Encodes the conclusion of `dobrushin_correlation_decay` applied to
-    -- the gauge-fixed YM Gibbs specification (whose column-sum bound is
-    -- established by `dobrushin_sufficient`).
-    (hBridge : |connected2pt G n d N β plaq f g| ≤
-        4 * B ^ 2 * (dobrushinColumnSum n d β) ^ dist) :
+    -- Pre-built Gibbs specification and Dobrushin witness on the link lattice.
+    -- Expected to be `γ := ymGibbsSpec …` and `hD := ymDobrushinCondition …`,
+    -- so that `hD.α = dobrushinColumnSum n d β` holds definitionally.
+    (γ : GibbsSpec (LatticeLink d N) G)
+    (hD : DobrushinCondition γ)
+    (hα_eq : hD.α = dobrushinColumnSum n d β)
+    -- Representative links (one per plaquette): the path between them has
+    -- length `dist` in the influence graph.
+    (x y : LatticeLink d N)
+    -- Narrow bridge: covariance ≤ 4·B² · iterateInfluence γ dist x y.
+    -- This is the output of iterating `marginalTvDist_contraction` along an
+    -- `dist`-step path. The surrounding theorem turns it into `4·B² · α^dist`.
+    (hIterInf : |connected2pt G n d N β plaq f g| ≤
+        4 * B ^ 2 * iterateInfluence γ dist x y) :
     |connected2pt G n d N β plaq f g| ≤
-      4 * B ^ 2 * (dobrushinColumnSum n d β) ^ dist :=
-  hBridge
+      4 * B ^ 2 * (dobrushinColumnSum n d β) ^ dist := by
+  -- Step 1: `ymMeasure` is a probability measure, so
+  -- `dobrushin_correlation_decay_direct` accepts it. We also give the
+  -- same instance under the `SpinConfig (LatticeLink d N) G` shape, since
+  -- `GaugeConnection G d N` is a `def` that does not auto-propagate the
+  -- type class instance through the abstract `SpinConfig` abbrev.
+  haveI hμ_prob : IsProbabilityMeasure (ymMeasure G n d N β plaq) :=
+    ymMeasure_isProbabilityMeasure G n d N β hβ plaq hTrace_upper hTrace_lower
+      hIntegrable_w hw_meas
+  haveI hμ_prob' :
+      IsProbabilityMeasure
+        (show Measure (SpinConfig (LatticeLink d N) G) from
+          ymMeasure G n d N β plaq) := hμ_prob
+  -- Step 2: convert the three `ymExpect`s to integrals against `ymMeasure`.
+  have hEq_fg : ymExpect G n d N β plaq (fun U => f U * g U)
+      = ∫ U, f U * g U ∂(ymMeasure G n d N β plaq) :=
+    ymExpect_eq_integral_ymMeasure G n d N β hβ plaq
+      hTrace_upper hTrace_lower hIntegrable_w hw_meas
+      (fun U => f U * g U) hfg_meas hfgw_integrable
+  have hEq_f : ymExpect G n d N β plaq f
+      = ∫ U, f U ∂(ymMeasure G n d N β plaq) :=
+    ymExpect_eq_integral_ymMeasure G n d N β hβ plaq
+      hTrace_upper hTrace_lower hIntegrable_w hw_meas f hf_meas hfw_integrable
+  have hEq_g : ymExpect G n d N β plaq g
+      = ∫ U, g U ∂(ymMeasure G n d N β plaq) :=
+    ymExpect_eq_integral_ymMeasure G n d N β hβ plaq
+      hTrace_upper hTrace_lower hIntegrable_w hw_meas g hg_meas hgw_integrable
+  -- Step 3: rewrite the covariance form.
+  have hCov :
+      |∫ U, f U * g U ∂(ymMeasure G n d N β plaq) -
+        (∫ U, f U ∂(ymMeasure G n d N β plaq)) *
+          (∫ U, g U ∂(ymMeasure G n d N β plaq))| ≤
+      4 * B ^ 2 * iterateInfluence γ dist x y := by
+    have : connected2pt G n d N β plaq f g =
+        ∫ U, f U * g U ∂(ymMeasure G n d N β plaq) -
+          (∫ U, f U ∂(ymMeasure G n d N β plaq)) *
+            (∫ U, g U ∂(ymMeasure G n d N β plaq)) := by
+      unfold connected2pt
+      rw [hEq_fg, hEq_f, hEq_g]
+    rw [← this]; exact hIterInf
+  -- Step 4: apply `dobrushin_correlation_decay_direct`.
+  have hC_nn : (0 : ℝ) ≤ 4 * B ^ 2 := by positivity
+  have hOut :
+      |∫ U, f U * g U ∂(ymMeasure G n d N β plaq) -
+        (∫ U, f U ∂(ymMeasure G n d N β plaq)) *
+          (∫ U, g U ∂(ymMeasure G n d N β plaq))| ≤
+      4 * B ^ 2 * hD.α ^ dist :=
+    dobrushin_correlation_decay_direct γ hD
+      (ymMeasure G n d N β plaq) f g (4 * B ^ 2) hC_nn x y dist hCov
+  -- Step 5: translate back to `connected2pt` and rewrite `hD.α`.
+  have hconn :
+      connected2pt G n d N β plaq f g =
+        ∫ U, f U * g U ∂(ymMeasure G n d N β plaq) -
+          (∫ U, f U ∂(ymMeasure G n d N β plaq)) *
+            (∫ U, g U ∂(ymMeasure G n d N β plaq)) := by
+    unfold connected2pt
+    rw [hEq_fg, hEq_f, hEq_g]
+  rw [hconn, ← hα_eq]
+  exact hOut
 
 end
