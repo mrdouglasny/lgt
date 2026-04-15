@@ -478,6 +478,64 @@ theorem integral_indicator_w_fubini_link_split
     (Set.indicator A (fun U => boltzmannWeight G n d N β U plaq))
     hFA_meas hFA_int).symm
 
+/-- Reformulation of `(ymMeasure A).toReal` as an explicit
+`(1/Z)·∫ 1_A · w dph` integral. Follows from
+`ymExpect_eq_integral_ymMeasure` applied to the indicator `1_A`. -/
+theorem ymMeasure_apply_toReal
+    (β : ℝ) (hβ : 0 ≤ β)
+    (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
+    (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
+    (hIntegrable_w : Integrable (fun U => boltzmannWeight G n d N β U plaq)
+        (productHaar G d N))
+    (hw_meas : Measurable (fun U => boltzmannWeight G n d N β U plaq))
+    (A : Set (GaugeConnection G d N)) (hA : MeasurableSet A) :
+    ((ymMeasure G n d N β plaq) A).toReal =
+      (∫ U, Set.indicator A
+              (fun U => boltzmannWeight G n d N β U plaq) U
+          ∂(productHaar G d N))
+        / partitionFn G n d N β plaq := by
+  haveI : IsProbabilityMeasure (ymMeasure G n d N β plaq) :=
+    ymMeasure_isProbabilityMeasure G n d N β hβ plaq
+      hTrace_upper hTrace_lower hIntegrable_w hw_meas
+  -- (ymMeasure A).toReal = ∫ 1_A ∂ymMeasure.
+  have h1 : ((ymMeasure G n d N β plaq) A).toReal
+      = ∫ U, Set.indicator A (fun _ => (1 : ℝ)) U ∂(ymMeasure G n d N β plaq) := by
+    rw [show (fun _ : GaugeConnection G d N => (1 : ℝ)) = (1 : GaugeConnection G d N → ℝ)
+        from rfl,
+      integral_indicator_one hA]
+    rfl
+  -- ∫ 1_A ∂ymMeasure = ymExpect 1_A via the bridge.
+  have hind_meas : Measurable (Set.indicator A (fun _ : GaugeConnection G d N => (1 : ℝ))) :=
+    measurable_const.indicator hA
+  have hindw_int : Integrable
+      (fun U : GaugeConnection G d N =>
+        Set.indicator A (fun _ => (1 : ℝ)) U
+        * boltzmannWeight G n d N β U plaq)
+      (productHaar G d N) := by
+    -- Bounded by |w| everywhere (indicator in [0,1]); reduce to hIntegrable_w.
+    refine hIntegrable_w.mono (hind_meas.mul hw_meas).aestronglyMeasurable ?_
+    refine Filter.Eventually.of_forall ?_
+    intro U
+    simp only [Real.norm_eq_abs]
+    rw [abs_mul]
+    refine mul_le_of_le_one_left (abs_nonneg _) ?_
+    by_cases hU : U ∈ A
+    · simp [Set.indicator_of_mem hU]
+    · simp [Set.indicator_of_notMem hU]
+  have h2 := ymExpect_eq_integral_ymMeasure G n d N β hβ plaq
+    hTrace_upper hTrace_lower hIntegrable_w hw_meas
+    (Set.indicator A (fun _ => (1 : ℝ))) hind_meas hindw_int
+  -- ymExpect 1_A = (∫ 1_A · w dph) / Z by definition.
+  unfold ymExpect at h2
+  rw [h1, ← h2]
+  -- The integrand `1_A · w` simplifies to Set.indicator A w.
+  congr 1
+  refine integral_congr_ae (Filter.Eventually.of_forall ?_)
+  intro U
+  by_cases hU : U ∈ A
+  · simp [Set.indicator_of_mem hU]
+  · simp [Set.indicator_of_notMem hU]
+
 /-- **Main DLR identity: `ymMeasure` satisfies DLR for `ymGibbsSpec`.**
 
 For every finite `Λ` and measurable `A`:
