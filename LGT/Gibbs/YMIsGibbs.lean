@@ -336,15 +336,57 @@ theorem integral_indicator_w_fubini_link_split
 For every finite `Λ` and measurable `A`:
 `(ymMeasure A).toReal = ∫ σ, (gibbsCondMeasure Λ σ A).toReal ∂ymMeasure`.
 
+### Proof strategy
+
+LHS: unfold `ymMeasure = ph.withDensity (ofReal (w/Z))` using
+`integral_withDensity_eq_integral_toReal_smul`:
+  `(ymMeasure A).toReal = ∫ U, 1_A(U) · (w(U)/Z) ∂ph
+                       = (1/Z) · ∫ U, 1_A(U) · w(U) ∂ph`
+
+RHS: unfold `gibbsCondMeasure Λ σ = (ph.map (glue Λ · σ)).withDensity
+(ofReal (w/Z(σ)))` using `withDensity_apply` + `lintegral_map`:
+  `(gibbsCondMeasure Λ σ A).toReal
+    = (1/Z(σ)) · ∫ uΛ, 1_A(glue Λ uΛ σ) · w(glue Λ uΛ σ) ∂ph`
+
+Outer σ integral under `ymMeasure = ph.withDensity (w/Z)`:
+  `∫ σ (ν_σ A).toReal ∂ymMeasure
+    = (1/Z) · ∫ σ, (w(σ)/Z(σ)) · [inner(σ)] ∂ph`
+where `inner(σ) := ∫ uΛ, 1_A(glue Λ uΛ σ) · w(glue Λ uΛ σ) ∂ph`.
+
+Reducing LHS = RHS then reduces to the **cancellation identity**:
+  `∫ σ, (w(σ)/Z(σ)) · inner(σ) ∂ph = ∫ σ, inner(σ) ∂ph`
+since RHS via `integral_indicator_w_fubini_link_split` equals
+`∫ U 1_A(U)·w(U) ∂ph`.
+
+### Required sub-lemmas (not yet proved)
+
+**S1** (Fubini reduction of gibbsConditionalZ).
+`gibbsConditionalZ Λ σ = ∫ σΛ : {e // e ∈ Λ} → G,
+    w(Φ.symm (σΛ, σ|_Λᶜ)) dμΛ`
+where `Φ := piEquivPiSubtypeProd (· ∈ Λ)`. Proof: `integral_glue_split_eq`
+style, with `F = w` and integrating the σΛᶜ coordinate against μΛᶜ
+(probability, so integrates to 1).
+
+**S2** (Cancellation identity).
+For any integrable `h : GaugeConnection → ℝ` depending only on σ|_Λᶜ:
+`∫ σ, (w(σ)/gibbsConditionalZ Λ σ) · h(σ) ∂ph = ∫ σ, h(σ) ∂ph`.
+Proof via `piEquivPiSubtypeProd` on σ + Fubini + S1.
+
+**S3** (DLR assembly).
+Combine S2 (with `h := inner`) and
+`integral_indicator_w_fubini_link_split` to finish.
+
+### Status
+
+Left as a single sorry; the sub-lemmas S1/S2 would each add ~50
+lines and can be written following the exact pattern of
+`integral_glue_split_eq` / `glue_measurePreserving`.
+
 Assumes:
 - `hβ`, `hTrace_lower`, `hTrace_upper` — for `Z > 0` and trace bounds
-- `hIntegrable_w` — integrability of the Boltzmann weight
-- `hw_meas` — measurability of the Boltzmann weight
-- `hZcond_pos` — the conditional partition function is positive for
-  every boundary (from strict positivity of `w > 0` and `Haar^Λ` being
-  a probability measure; direct analogue of `partitionFn_pos`).
-- `hw_integrable_cond` — the conditional Boltzmann weight is
-  `Haar^Λ`-integrable for every boundary.
+- `hIntegrable_w`, `hw_meas` — integrability/measurability of `w`
+- `hZcond_pos` — conditional partition functions are positive
+- `hw_integrable_cond` — conditional Boltzmann weight integrability
 -/
 theorem ymMeasure_dlr
     (β : ℝ) (hβ : 0 ≤ β)
@@ -365,10 +407,6 @@ theorem ymMeasure_dlr
     ((ymMeasure G n d N β plaq) A).toReal =
       ∫ σ, (gibbsCondMeasure G n d N plaq β Λ σ A).toReal
         ∂(ymMeasure G n d N β plaq) := by
-  -- Scope sorry: the explicit computation unfolds both measures via
-  -- `withDensity`, applies `partitionFn_eq_integral_gibbsConditionalZ`
-  -- and `integral_indicator_w_fubini_link_split`, and cancels the
-  -- `Z(σ_Λᶜ)` factors. ~150 lines of measure-theoretic bookkeeping.
   sorry
 
 /-- **`ymMeasure` is a Gibbs measure for `ymGibbsSpec`.**
