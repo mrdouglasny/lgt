@@ -118,7 +118,82 @@ theorem glue_measurePreserving (Λ : Finset (LatticeLink d N)) :
         gluedConfig G d N Λ p.1 p.2)
       ((productHaar G d N).prod (productHaar G d N))
       (productHaar G d N) := by
-  sorry
+  classical
+  set γ : (LatticeLink d N → G) × (LatticeLink d N → G) → GaugeConnection G d N :=
+    fun p => gluedConfig G d N Λ p.1 p.2 with hγ_def
+  -- Step 1: γ is measurable.
+  have hγ_meas : Measurable γ := by
+    apply measurable_pi_iff.mpr
+    intro e
+    by_cases he : e ∈ Λ
+    · have : (fun p => γ p e) = fun p => p.1 e := by
+        funext p; simp [γ, gluedConfig, he]
+      rw [this]
+      exact (measurable_pi_apply e).comp measurable_fst
+    · have : (fun p => γ p e) = fun p => p.2 e := by
+        funext p; simp [γ, gluedConfig, he]
+      rw [this]
+      exact (measurable_pi_apply e).comp measurable_snd
+  refine ⟨hγ_meas, ?_⟩
+  -- Step 2: The pushforward equals productHaar. Prove via pi_eq on boxes.
+  show Measure.map γ
+      ((productHaar G d N).prod (productHaar G d N)) = productHaar G d N
+  unfold productHaar
+  refine (Measure.pi_eq (fun s hs => ?_)).symm
+  -- For a box `Set.pi univ s`, compute the pushforward value.
+  -- Preimage: {p | ∀ e, γ p e ∈ s e}
+  --        = {p.1 | ∀ e ∈ Λ, p.1 e ∈ s e} ×ˢ {p.2 | ∀ e ∉ Λ, p.2 e ∈ s e}
+  set aΛ : LatticeLink d N → Set G := fun e => if e ∈ Λ then s e else Set.univ
+  set aΛc : LatticeLink d N → Set G := fun e => if e ∈ Λ then Set.univ else s e
+  have haΛ_meas : ∀ e, MeasurableSet (aΛ e) := by
+    intro e; simp only [aΛ]; split_ifs
+    · exact hs e
+    · exact MeasurableSet.univ
+  have haΛc_meas : ∀ e, MeasurableSet (aΛc e) := by
+    intro e; simp only [aΛc]; split_ifs
+    · exact MeasurableSet.univ
+    · exact hs e
+  have hpre :
+      γ ⁻¹' Set.pi Set.univ s =
+        (Set.pi Set.univ aΛ) ×ˢ (Set.pi Set.univ aΛc) := by
+    ext ⟨u, σ⟩
+    simp only [Set.mem_preimage, Set.mem_pi, Set.mem_univ, true_implies,
+      Set.mem_prod, aΛ, aΛc]
+    constructor
+    · intro h
+      refine ⟨fun e => ?_, fun e => ?_⟩
+      · by_cases he : e ∈ Λ
+        · simp [he]; simpa [γ, gluedConfig, he] using h e
+        · simp [he]
+      · by_cases he : e ∈ Λ
+        · simp [he]
+        · simp [he]; simpa [γ, gluedConfig, he] using h e
+    · rintro ⟨hA, hB⟩ e
+      by_cases he : e ∈ Λ
+      · have := hA e; simp [he] at this; simpa [γ, gluedConfig, he]
+      · have := hB e; simp [he] at this; simpa [γ, gluedConfig, he]
+  -- Compute (map γ (ph × ph))(box) = (ph × ph)(preimage)
+  calc (Measure.map γ
+          ((Measure.pi fun _ : LatticeLink d N => haarG G).prod
+           (Measure.pi fun _ : LatticeLink d N => haarG G))) (Set.univ.pi s)
+      = ((Measure.pi fun _ : LatticeLink d N => haarG G).prod
+          (Measure.pi fun _ : LatticeLink d N => haarG G))
+          (γ ⁻¹' Set.univ.pi s) := by
+        exact Measure.map_apply hγ_meas (MeasurableSet.univ_pi hs)
+    _ = ((Measure.pi fun _ : LatticeLink d N => haarG G).prod
+          (Measure.pi fun _ : LatticeLink d N => haarG G))
+          ((Set.pi Set.univ aΛ) ×ˢ (Set.pi Set.univ aΛc)) := by rw [hpre]
+    _ = (Measure.pi fun _ : LatticeLink d N => haarG G) (Set.pi Set.univ aΛ)
+        * (Measure.pi fun _ : LatticeLink d N => haarG G) (Set.pi Set.univ aΛc) :=
+        Measure.prod_prod _ _
+    _ = (∏ e, haarG G (aΛ e)) * (∏ e, haarG G (aΛc e)) := by
+        rw [Measure.pi_pi, Measure.pi_pi]
+    _ = ∏ e, haarG G (s e) := by
+        rw [← Finset.prod_mul_distrib]
+        refine Finset.prod_congr rfl (fun e _ => ?_)
+        by_cases he : e ∈ Λ
+        · simp [aΛ, aΛc, he, HasHaarProbability.isProb.measure_univ]
+        · simp [aΛ, aΛc, he, HasHaarProbability.isProb.measure_univ]
 
 /-- Reduces the double integral through `glue` to a single
 integral over `productHaar`, given `glue_measurePreserving`.
