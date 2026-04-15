@@ -148,9 +148,16 @@ Replace the identity-function `hBridge → hBridge` with:
    plaquette `p`. Choose representative link per plaquette; bound
    `plaquetteDist p q ≤ C · latticeDist (rep p) (rep q)`.
 
-**Status of dep.** The vendored `.lake/packages/MarkovSemigroups`
-is at `b1664bf` (influenceCoeff marginal-TV fix), predating the
-`_direct` variants. W3' is blocked until the dep is bumped.
+**Status of dep.** Updated to `6eedafc` (2026-04-15). Both
+`dobrushin_correlation_decay_direct` (general I) and
+`dobrushin_correlation_decay_nn_direct` (specialized to
+`LatticeSite d`) are available in
+`MarkovSemigroups/Dobrushin/NeumannSeries.lean`.
+
+**Index-type note.** `ymGibbsSpec` lives on `LatticeLink d N`, not
+`LatticeSite d`, so the NN variant is not directly applicable.
+Use the general `dobrushin_correlation_decay_direct` and supply
+the link-distance manually.
 
 **Difficulty.** MEDIUM. Once the dep lands, W3' is a direct call
 with the `hIterInf` bridge as its only remaining input.
