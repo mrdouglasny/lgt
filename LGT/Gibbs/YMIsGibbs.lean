@@ -536,6 +536,152 @@ theorem ymMeasure_apply_toReal
   · simp [Set.indicator_of_mem hU]
   · simp [Set.indicator_of_notMem hU]
 
+/-- **Helper for DLR identity.** Explicit formula for `(gibbsCondMeasure Λ σ A).toReal`.
+
+Unfolds `gibbsCondMeasure = ((ph).map (glue σ)).withDensity (ofReal (w/Z(σ)))`
+through `withDensity_apply`, `Measure.restrict_map`, `lintegral_map`, and
+`ofReal_integral_eq_lintegral_ofReal`. -/
+theorem gibbsCondMeasure_apply_toReal
+    (β : ℝ)
+    (hw_meas : Measurable (fun U => boltzmannWeight G n d N β U plaq))
+    (Λ : Finset (LatticeLink d N))
+    (σ : GaugeConnection G d N)
+    (hZ_pos : 0 < gibbsConditionalZ G n d N plaq β Λ σ)
+    (hw_integrable_cond :
+        Integrable (fun uΛ : LatticeLink d N → G =>
+            gibbsConditionalWeight G n d N plaq β Λ σ uΛ)
+          (Measure.pi (fun _ : LatticeLink d N => haarG G)))
+    (A : Set (GaugeConnection G d N)) (hA : MeasurableSet A) :
+    (gibbsCondMeasure G n d N plaq β Λ σ A).toReal =
+      (∫ uΛ, Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)
+                (gluedConfig G d N Λ uΛ σ)
+           ∂(productHaar G d N))
+        / gibbsConditionalZ G n d N plaq β Λ σ := by
+  set Z := gibbsConditionalZ G n d N plaq β Λ σ with hZ_def
+  set glue : (LatticeLink d N → G) → GaugeConnection G d N :=
+    fun uΛ => gluedConfig G d N Λ uΛ σ with hglue_def
+  have hglue_meas : Measurable glue := measurable_gluedConfig G d N Λ σ
+  have hZ_ne : Z ≠ 0 := hZ_pos.ne'
+  have hZ_inv_nn : (0 : ℝ) ≤ 1 / Z := by positivity
+  -- Step 1. Unfold gibbsCondMeasure and apply withDensity_apply.
+  have hstep1 :
+      gibbsCondMeasure G n d N plaq β Λ σ A =
+        ∫⁻ U in A, ENNReal.ofReal
+            (boltzmannWeight G n d N β U plaq / Z) ∂((productHaar G d N).map glue) := by
+    unfold gibbsCondMeasure
+    exact withDensity_apply _ hA
+  -- Step 2. Turn ∫⁻ U in A, f U ∂((ph).map glue) into ∫⁻ uΛ in glue⁻¹ A, f (glue uΛ) ∂ph.
+  have hf_meas : Measurable (fun U : GaugeConnection G d N =>
+      ENNReal.ofReal (boltzmannWeight G n d N β U plaq / Z)) :=
+    (hw_meas.div_const Z).ennreal_ofReal
+  have hstep2 :
+      (∫⁻ U in A, ENNReal.ofReal
+            (boltzmannWeight G n d N β U plaq / Z) ∂((productHaar G d N).map glue))
+        = ∫⁻ uΛ : LatticeLink d N → G in glue ⁻¹' A,
+              ENNReal.ofReal (boltzmannWeight G n d N β (glue uΛ) plaq / Z)
+            ∂(Measure.pi (fun _ : LatticeLink d N => haarG G)) := by
+    exact setLIntegral_map hA hf_meas hglue_meas
+  -- Step 3. Convert set-integral to indicator-integral.
+  have hpre_meas : MeasurableSet (glue ⁻¹' A) := hglue_meas hA
+  have hstep3 :
+      (∫⁻ uΛ : LatticeLink d N → G in glue ⁻¹' A,
+            ENNReal.ofReal (boltzmannWeight G n d N β (glue uΛ) plaq / Z)
+          ∂(Measure.pi (fun _ : LatticeLink d N => haarG G)))
+        = ∫⁻ uΛ : LatticeLink d N → G, Set.indicator (glue ⁻¹' A)
+              (fun uΛ => ENNReal.ofReal
+                  (boltzmannWeight G n d N β (glue uΛ) plaq / Z)) uΛ
+            ∂(Measure.pi (fun _ : LatticeLink d N => haarG G)) := by
+    rw [← lintegral_indicator hpre_meas]
+  -- Step 4. The indicator of glue⁻¹ A through ofReal equals ofReal of the real indicator.
+  have hstep4 :
+      (fun uΛ => Set.indicator (glue ⁻¹' A)
+            (fun uΛ => ENNReal.ofReal
+                (boltzmannWeight G n d N β (glue uΛ) plaq / Z)) uΛ)
+        = (fun uΛ => ENNReal.ofReal
+            (Set.indicator A
+              (fun U => boltzmannWeight G n d N β U plaq) (glue uΛ) / Z)) := by
+    funext uΛ
+    by_cases huΛ : uΛ ∈ glue ⁻¹' A
+    · have hglueA : glue uΛ ∈ A := huΛ
+      rw [Set.indicator_of_mem huΛ, Set.indicator_of_mem hglueA]
+    · have hglueA : glue uΛ ∉ A := huΛ
+      rw [Set.indicator_of_notMem huΛ, Set.indicator_of_notMem hglueA]
+      simp [ENNReal.ofReal_zero]
+  -- Step 5. Convert lintegral of ofReal to ofReal of integral.
+  -- Prepare the real-valued integrand and its integrability/nonneg.
+  let realInt : (LatticeLink d N → G) → ℝ := fun uΛ =>
+    Set.indicator A (fun U => boltzmannWeight G n d N β U plaq) (glue uΛ) / Z
+  have hreal_nn : ∀ uΛ, 0 ≤ realInt uΛ := by
+    intro uΛ
+    have hind_nn : 0 ≤ Set.indicator A
+        (fun U => boltzmannWeight G n d N β U plaq) (glue uΛ) := by
+      by_cases huΛ : glue uΛ ∈ A
+      · rw [Set.indicator_of_mem huΛ]
+        exact (boltzmannWeight_pos G n d N β _ plaq).le
+      · rw [Set.indicator_of_notMem huΛ]
+    exact div_nonneg hind_nn hZ_pos.le
+  -- Integrability of realInt: bounded by w (glue uΛ)/Z = gibbsConditionalWeight/Z.
+  have hind_meas : Measurable
+      (fun U : GaugeConnection G d N =>
+        Set.indicator A (fun U => boltzmannWeight G n d N β U plaq) U) :=
+    hw_meas.indicator hA
+  have hind_comp_meas : Measurable (fun uΛ : LatticeLink d N → G =>
+      Set.indicator A (fun U => boltzmannWeight G n d N β U plaq) (glue uΛ)) :=
+    hind_meas.comp hglue_meas
+  have hrealInt_meas : Measurable realInt := hind_comp_meas.div_const _
+  -- Integrability of `gibbsConditionalWeight/Z` on Measure.pi = productHaar.
+  have hw_comp_int : Integrable (fun uΛ : LatticeLink d N → G =>
+      gibbsConditionalWeight G n d N plaq β Λ σ uΛ) (productHaar G d N) := by
+    unfold productHaar; exact hw_integrable_cond
+  have hwZ_int : Integrable (fun uΛ : LatticeLink d N → G =>
+      gibbsConditionalWeight G n d N plaq β Λ σ uΛ / Z) (productHaar G d N) :=
+    hw_comp_int.div_const Z
+  have hrealInt_int : Integrable realInt (productHaar G d N) := by
+    refine hwZ_int.mono hrealInt_meas.aestronglyMeasurable ?_
+    refine Filter.Eventually.of_forall ?_
+    intro uΛ
+    simp only [Real.norm_eq_abs, realInt]
+    have hnonneg : 0 ≤ gibbsConditionalWeight G n d N plaq β Λ σ uΛ / Z := by
+      unfold gibbsConditionalWeight
+      exact div_nonneg (boltzmannWeight_pos G n d N β _ plaq).le hZ_pos.le
+    rw [abs_of_nonneg hnonneg]
+    have hind_bound :
+        Set.indicator A (fun U => boltzmannWeight G n d N β U plaq) (glue uΛ)
+          ≤ gibbsConditionalWeight G n d N plaq β Λ σ uΛ := by
+      unfold gibbsConditionalWeight
+      by_cases huΛ : glue uΛ ∈ A
+      · rw [Set.indicator_of_mem huΛ]
+      · rw [Set.indicator_of_notMem huΛ]
+        exact (boltzmannWeight_pos G n d N β _ plaq).le
+    have hind_nn : 0 ≤ Set.indicator A
+        (fun U => boltzmannWeight G n d N β U plaq) (glue uΛ) := by
+      by_cases huΛ : glue uΛ ∈ A
+      · rw [Set.indicator_of_mem huΛ]
+        exact (boltzmannWeight_pos G n d N β _ plaq).le
+      · rw [Set.indicator_of_notMem huΛ]
+    rw [abs_of_nonneg (div_nonneg hind_nn hZ_pos.le)]
+    exact div_le_div_of_nonneg_right hind_bound hZ_pos.le
+  -- Now apply ofReal_integral_eq_lintegral_ofReal (backward).
+  have hstep5 :
+      (∫⁻ uΛ, ENNReal.ofReal (realInt uΛ) ∂(productHaar G d N))
+        = ENNReal.ofReal (∫ uΛ, realInt uΛ ∂(productHaar G d N)) :=
+    (MeasureTheory.ofReal_integral_eq_lintegral_ofReal hrealInt_int
+      (Filter.Eventually.of_forall hreal_nn)).symm
+  -- Chain the steps and take toReal.
+  rw [hstep1, hstep2, hstep3, hstep4]
+  change
+    (∫⁻ uΛ, ENNReal.ofReal (realInt uΛ) ∂(productHaar G d N)).toReal = _
+  rw [hstep5]
+  rw [ENNReal.toReal_ofReal (by
+    -- ∫ realInt ≥ 0.
+    exact integral_nonneg hreal_nn)]
+  -- Finally divide out the constant 1/Z (or Z).
+  show (∫ uΛ, realInt uΛ ∂(productHaar G d N)) = _
+  show (∫ uΛ, Set.indicator A
+            (fun U => boltzmannWeight G n d N β U plaq) (glue uΛ) / Z
+          ∂(productHaar G d N)) = _
+  rw [integral_div]
+
 /-- **Main DLR identity: `ymMeasure` satisfies DLR for `ymGibbsSpec`.**
 
 For every finite `Λ` and measurable `A`:
@@ -611,11 +757,164 @@ theorem ymMeasure_dlr
             gibbsConditionalWeight G n d N plaq β Λ σ uΛ)
           (Measure.pi (fun _ : LatticeLink d N => haarG G)))
     (Λ : Finset (LatticeLink d N))
+    (hZ_meas : Measurable (fun σ : GaugeConnection G d N =>
+        gibbsConditionalZ G n d N plaq β Λ σ))
+    (hinner_meas : ∀ (A : Set (GaugeConnection G d N)), MeasurableSet A →
+        Measurable (fun σ : GaugeConnection G d N =>
+          ∫ uΛ, Set.indicator A
+              (fun U => boltzmannWeight G n d N β U plaq)
+              (gluedConfig G d N Λ uΛ σ) ∂(productHaar G d N)))
+    (hindA_fub_int : ∀ (A : Set (GaugeConnection G d N)), MeasurableSet A →
+        Integrable
+          (Set.indicator A (fun U => boltzmannWeight G n d N β U plaq))
+          (productHaar G d N))
+    (hinner_w_over_Z_int : ∀ (A : Set (GaugeConnection G d N)), MeasurableSet A →
+        Integrable (fun σ : GaugeConnection G d N =>
+            (∫ uΛ, Set.indicator A
+                (fun U => boltzmannWeight G n d N β U plaq)
+                (gluedConfig G d N Λ uΛ σ) ∂(productHaar G d N))
+              / gibbsConditionalZ G n d N plaq β Λ σ
+            * boltzmannWeight G n d N β σ plaq)
+          (productHaar G d N))
     (A : Set (GaugeConnection G d N)) (hA : MeasurableSet A) :
     ((ymMeasure G n d N β plaq) A).toReal =
       ∫ σ, (gibbsCondMeasure G n d N plaq β Λ σ A).toReal
         ∂(ymMeasure G n d N β plaq) := by
-  sorry
+  classical
+  -- Setup common abbreviations.
+  set w : GaugeConnection G d N → ℝ :=
+    fun U => boltzmannWeight G n d N β U plaq with hw_def
+  set Z : ℝ := partitionFn G n d N β plaq with hZ_def
+  set Zσ : GaugeConnection G d N → ℝ :=
+    fun σ => gibbsConditionalZ G n d N plaq β Λ σ with hZσ_def
+  set indA : GaugeConnection G d N → ℝ :=
+    fun U => Set.indicator A w U with hindA_def
+  set inner : GaugeConnection G d N → ℝ :=
+    fun σ => ∫ uΛ, indA (gluedConfig G d N Λ uΛ σ) ∂(productHaar G d N)
+    with hinner_def
+  have hZ_pos : 0 < Z :=
+    partitionFn_pos G n d N β hβ plaq hTrace_upper hTrace_lower hIntegrable_w
+  have hZ_ne : Z ≠ 0 := hZ_pos.ne'
+  have hZσ_pos : ∀ σ, 0 < Zσ σ := fun σ => hZcond_pos Λ σ
+  -- Step A. LHS = (∫ U indA U ∂ph) / Z.
+  have hLHS :
+      ((ymMeasure G n d N β plaq) A).toReal =
+        (∫ U, indA U ∂(productHaar G d N)) / Z := by
+    exact ymMeasure_apply_toReal G n d N plaq β hβ hTrace_upper hTrace_lower
+      hIntegrable_w hw_meas A hA
+  -- Step B. Pointwise: (gibbsCondMeasure Λ σ A).toReal = inner σ / Zσ σ.
+  have hpointwise : ∀ σ,
+      (gibbsCondMeasure G n d N plaq β Λ σ A).toReal = inner σ / Zσ σ := by
+    intro σ
+    have := gibbsCondMeasure_apply_toReal G n d N plaq β hw_meas Λ σ
+      (hZcond_pos Λ σ) (hw_integrable_cond Λ σ) A hA
+    simpa [inner, indA, w, Zσ] using this
+  -- Step C. Rewrite the RHS integrand.
+  have hRHS_rewrite :
+      (∫ σ, (gibbsCondMeasure G n d N plaq β Λ σ A).toReal
+          ∂(ymMeasure G n d N β plaq))
+        = ∫ σ, inner σ / Zσ σ ∂(ymMeasure G n d N β plaq) := by
+    refine integral_congr_ae ?_
+    exact Filter.Eventually.of_forall hpointwise
+  -- Step D. Convert ymMeasure-integral to productHaar-integral via ymExpect.
+  -- Set up measurability/integrability.
+  have hZσ_meas : Measurable Zσ := hZ_meas
+  have hZσ_ne : ∀ σ, Zσ σ ≠ 0 := fun σ => (hZσ_pos σ).ne'
+  have hinner_meas' : Measurable inner := hinner_meas A hA
+  have hinner_over_Zσ_meas : Measurable (fun σ => inner σ / Zσ σ) :=
+    hinner_meas'.div hZσ_meas
+  -- Integrability of (inner / Zσ) * w given as hypothesis.
+  have hfw_int : Integrable
+      (fun σ => (inner σ / Zσ σ) * w σ) (productHaar G d N) := by
+    have := hinner_w_over_Z_int A hA
+    simpa [inner, indA, w, Zσ] using this
+  -- Apply ymExpect_eq_integral_ymMeasure.
+  have hymExp :
+      ymExpect G n d N β plaq (fun σ => inner σ / Zσ σ)
+        = ∫ σ, inner σ / Zσ σ ∂(ymMeasure G n d N β plaq) :=
+    ymExpect_eq_integral_ymMeasure G n d N β hβ plaq
+      hTrace_upper hTrace_lower hIntegrable_w hw_meas
+      (fun σ => inner σ / Zσ σ) hinner_over_Zσ_meas hfw_int
+  -- Unfold ymExpect.
+  have hRHS_unfold :
+      (∫ σ, inner σ / Zσ σ ∂(ymMeasure G n d N β plaq))
+        = (∫ σ, (inner σ / Zσ σ) * w σ ∂(productHaar G d N)) / Z := by
+    rw [← hymExp]
+    unfold ymExpect
+    rfl
+  -- Step E. Apply cancellation_identity with h := inner.
+  -- inner respects glue: glue uΛ (glue vΛ σ) = glue ... with σ|_Λᶜ unchanged.
+  have hinner_outside : ∀ (uΛ : LatticeLink d N → G) (σ : GaugeConnection G d N),
+      inner (gluedConfig G d N Λ uΛ σ) = inner σ := by
+    intro uΛ σ
+    -- inner σ = ∫ vΛ, indA (glue vΛ σ) ∂ph.
+    -- For any uΛ, gluedConfig Λ vΛ (gluedConfig Λ uΛ σ) = gluedConfig Λ vΛ σ
+    -- because the inner glue is overwritten on Λ.
+    have hglue_idemp : ∀ vΛ : LatticeLink d N → G,
+        gluedConfig G d N Λ vΛ (gluedConfig G d N Λ uΛ σ)
+          = gluedConfig G d N Λ vΛ σ := by
+      intro vΛ
+      funext e
+      by_cases he : e ∈ Λ
+      · simp [gluedConfig, he]
+      · simp [gluedConfig, he]
+    show (∫ vΛ, indA (gluedConfig G d N Λ vΛ (gluedConfig G d N Λ uΛ σ))
+          ∂(productHaar G d N))
+        = ∫ vΛ, indA (gluedConfig G d N Λ vΛ σ) ∂(productHaar G d N)
+    refine integral_congr_ae (Filter.Eventually.of_forall ?_)
+    intro vΛ
+    show indA (gluedConfig G d N Λ vΛ (gluedConfig G d N Λ uΛ σ))
+        = indA (gluedConfig G d N Λ vΛ σ)
+    rw [hglue_idemp vΛ]
+  -- Rewrite hfw_int to shape `h · w / Z`.
+  have hfw_int' : Integrable
+      (fun U : GaugeConnection G d N =>
+        inner U / gibbsConditionalZ G n d N plaq β Λ U
+          * boltzmannWeight G n d N β U plaq)
+      (productHaar G d N) := by
+    simpa [Zσ, w] using hfw_int
+  have hcanc :=
+    cancellation_identity G n d N plaq β Λ inner hinner_outside hinner_meas'
+      hw_meas (fun σ => hZσ_pos σ) hZσ_meas hfw_int'
+  -- hcanc : ∫ σ, inner σ * w σ / Zσ σ ∂ph = ∫ σ, inner σ ∂ph.
+  -- Massage: ∫ (inner σ / Zσ σ) * w σ = ∫ inner σ * w σ / Zσ σ.
+  have hshape :
+      (∫ σ, (inner σ / Zσ σ) * w σ ∂(productHaar G d N))
+        = ∫ σ, inner σ * w σ / Zσ σ ∂(productHaar G d N) := by
+    refine integral_congr_ae (Filter.Eventually.of_forall ?_)
+    intro σ; ring
+  -- Step F. Apply integral_indicator_w_fubini_link_split.
+  have hfubA :
+      (∫ U, indA U ∂(productHaar G d N))
+        = ∫ σ, (∫ uΛ, indA (gluedConfig G d N Λ uΛ σ)
+                  ∂(Measure.pi (fun _ : LatticeLink d N => haarG G)))
+              ∂(productHaar G d N) :=
+    integral_indicator_w_fubini_link_split G n d N plaq β Λ A hA hw_meas
+      (hindA_fub_int A hA)
+  -- Assemble.
+  rw [hRHS_rewrite, hRHS_unfold, hshape, hcanc]
+  -- Goal: LHS_toReal = (∫ σ inner σ ∂ph) / Z.
+  -- Via integral_indicator_w_fubini_link_split and inner's definition.
+  rw [hLHS]
+  -- Split the `/Z` and reduce to equality of integrals.
+  have hinnerInt :
+      (∫ σ, inner σ ∂(productHaar G d N))
+        = ∫ U, indA U ∂(productHaar G d N) := by
+    have hrewr :
+        (fun σ : GaugeConnection G d N => inner σ)
+          = fun σ : GaugeConnection G d N =>
+              ∫ uΛ : LatticeLink d N → G,
+                indA (gluedConfig G d N Λ uΛ σ)
+                ∂(Measure.pi (fun _ : LatticeLink d N => haarG G)) := by
+      funext σ; rfl
+    -- Use hrewr on inner's shape, match hfubA.
+    calc (∫ σ, inner σ ∂(productHaar G d N))
+        = ∫ σ, (∫ uΛ : LatticeLink d N → G,
+                  indA (gluedConfig G d N Λ uΛ σ)
+                  ∂(Measure.pi (fun _ : LatticeLink d N => haarG G)))
+              ∂(productHaar G d N) := by rw [hrewr]
+      _ = ∫ U, indA U ∂(productHaar G d N) := hfubA.symm
+  rw [hinnerInt]
 
 /-- **`ymMeasure` is a Gibbs measure for `ymGibbsSpec`.**
 
@@ -644,6 +943,28 @@ theorem ymMeasure_isGibbs
         MeasurableSet A →
         Measurable (fun σ : GaugeConnection G d N =>
           (gibbsCondMeasure G n d N plaq β Λ σ A).toReal))
+    (hZcond_meas : ∀ Λ : Finset (LatticeLink d N),
+        Measurable (fun σ : GaugeConnection G d N =>
+          gibbsConditionalZ G n d N plaq β Λ σ))
+    (hinner_meas : ∀ (Λ : Finset (LatticeLink d N))
+        (A : Set (GaugeConnection G d N)), MeasurableSet A →
+        Measurable (fun σ : GaugeConnection G d N =>
+          ∫ uΛ, Set.indicator A
+              (fun U => boltzmannWeight G n d N β U plaq)
+              (gluedConfig G d N Λ uΛ σ) ∂(productHaar G d N)))
+    (hindA_fub_int : ∀ (A : Set (GaugeConnection G d N)), MeasurableSet A →
+        Integrable
+          (Set.indicator A (fun U => boltzmannWeight G n d N β U plaq))
+          (productHaar G d N))
+    (hinner_w_over_Z_int : ∀ (Λ : Finset (LatticeLink d N))
+        (A : Set (GaugeConnection G d N)), MeasurableSet A →
+        Integrable (fun σ : GaugeConnection G d N =>
+            (∫ uΛ, Set.indicator A
+                (fun U => boltzmannWeight G n d N β U plaq)
+                (gluedConfig G d N Λ uΛ σ) ∂(productHaar G d N))
+              / gibbsConditionalZ G n d N plaq β Λ σ
+            * boltzmannWeight G n d N β σ plaq)
+          (productHaar G d N))
     (hμ_prob : IsProbabilityMeasure (ymMeasure G n d N β plaq)) :
     @IsGibbsMeasure _ _ _ _
       (ymGibbsSpec G n d N plaq β
@@ -655,6 +976,8 @@ theorem ymMeasure_isGibbs
     (ymMeasure G n d N β plaq) hμ_prob
     (fun Λ A hA =>
       ymMeasure_dlr G n d N plaq β hβ hTrace_upper hTrace_lower
-        hIntegrable_w hw_meas hZcond_pos hw_integrable_cond Λ A hA)
+        hIntegrable_w hw_meas hZcond_pos hw_integrable_cond Λ
+        (hZcond_meas Λ) (hinner_meas Λ) hindA_fub_int
+        (hinner_w_over_Z_int Λ) A hA)
 
 end
