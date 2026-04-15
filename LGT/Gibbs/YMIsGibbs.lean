@@ -282,6 +282,76 @@ theorem partitionFn_eq_integral_gibbsConditionalZ
   exact (integral_glue_split_eq G d N Λ
     (fun U => boltzmannWeight G n d N β U plaq) hw_meas hw_int).symm
 
+/-- **Identity A.** For any observable `h` that depends on `σ`
+only through `σ|_Λᶜ`:
+```
+∫ σ h(σ) · Z_Λ(σ) ∂productHaar = ∫ U h(U) · w(U) ∂productHaar
+```
+
+Direct consequence of `integral_glue_split_eq` applied to
+`F(U) := h(U) · w(U)`: the inner integral over `uΛ` produces
+`h(σ) · gibbsConditionalZ Λ σ` (since `h` is constant along the
+glued `Λ`-fibre). -/
+theorem integral_smul_condZ_eq_integral_smul_w
+    (β : ℝ) (Λ : Finset (LatticeLink d N))
+    (h : GaugeConnection G d N → ℝ)
+    (hh_outside : ∀ (uΛ : LatticeLink d N → G)
+        (σ : GaugeConnection G d N),
+        h (gluedConfig G d N Λ uΛ σ) = h σ)
+    (hh_meas : Measurable h)
+    (hw_meas : Measurable (fun U => boltzmannWeight G n d N β U plaq))
+    (hhw_int : Integrable
+        (fun U => h U * boltzmannWeight G n d N β U plaq)
+        (productHaar G d N)) :
+    ∫ σ, h σ * gibbsConditionalZ G n d N plaq β Λ σ
+        ∂(productHaar G d N) =
+    ∫ U, h U * boltzmannWeight G n d N β U plaq
+        ∂(productHaar G d N) := by
+  have hhw_meas : Measurable
+      (fun U => h U * boltzmannWeight G n d N β U plaq) :=
+    hh_meas.mul hw_meas
+  have hsplit := integral_glue_split_eq G d N Λ
+    (fun U => h U * boltzmannWeight G n d N β U plaq)
+    hhw_meas hhw_int
+  -- LHS via split: outer σ integral of inner `h · w` through glue.
+  -- The integrand `h(glue uΛ σ) · w(glue uΛ σ) = h(σ) · w(glue uΛ σ)`
+  -- since h is constant along glue fibres.
+  -- Key step: for fixed σ, the inner integral equals h(σ) · Z_Λ(σ).
+  have hrewrite :
+      ∀ σ : GaugeConnection G d N,
+        (∫ uΛ, h (gluedConfig G d N Λ uΛ σ)
+                * boltzmannWeight G n d N β (gluedConfig G d N Λ uΛ σ) plaq
+              ∂(productHaar G d N))
+        = h σ * gibbsConditionalZ G n d N plaq β Λ σ := by
+    intro σ
+    -- Substitute h(glue _ σ) = h(σ) inside the integrand via integral_congr.
+    have heq :
+        ∫ uΛ, h (gluedConfig G d N Λ uΛ σ)
+                * boltzmannWeight G n d N β (gluedConfig G d N Λ uΛ σ) plaq
+            ∂(productHaar G d N) =
+        ∫ uΛ, h σ
+                * boltzmannWeight G n d N β (gluedConfig G d N Λ uΛ σ) plaq
+            ∂(productHaar G d N) := by
+      refine integral_congr_ae (Filter.Eventually.of_forall ?_)
+      intro uΛ
+      show h (gluedConfig G d N Λ uΛ σ)
+              * boltzmannWeight G n d N β (gluedConfig G d N Λ uΛ σ) plaq
+            = h σ
+              * boltzmannWeight G n d N β (gluedConfig G d N Λ uΛ σ) plaq
+      rw [hh_outside uΛ σ]
+    rw [heq, MeasureTheory.integral_const_mul]
+    rfl
+  calc ∫ σ, h σ * gibbsConditionalZ G n d N plaq β Λ σ
+          ∂(productHaar G d N)
+      = ∫ σ, (∫ uΛ, h (gluedConfig G d N Λ uΛ σ)
+                    * boltzmannWeight G n d N β
+                        (gluedConfig G d N Λ uΛ σ) plaq
+                  ∂(productHaar G d N)) ∂(productHaar G d N) := by
+        refine integral_congr_ae (Filter.Eventually.of_forall ?_)
+        intro σ; exact (hrewrite σ).symm
+    _ = ∫ U, h U * boltzmannWeight G n d N β U plaq
+            ∂(productHaar G d N) := hsplit
+
 /-- **Key identity.** Fubini on `Haar^Λ × Haar^Λᶜ` for the
 indicator × Boltzmann integrand:
 ```
