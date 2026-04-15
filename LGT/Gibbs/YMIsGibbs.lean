@@ -428,29 +428,29 @@ Reducing LHS = RHS then reduces to the **cancellation identity**:
 since RHS via `integral_indicator_w_fubini_link_split` equals
 `∫ U 1_A(U)·w(U) ∂ph`.
 
-### Required sub-lemmas (not yet proved)
+### Progress (2026-04-15)
 
-**S1** (Fubini reduction of gibbsConditionalZ).
-`gibbsConditionalZ Λ σ = ∫ σΛ : {e // e ∈ Λ} → G,
-    w(Φ.symm (σΛ, σ|_Λᶜ)) dμΛ`
-where `Φ := piEquivPiSubtypeProd (· ∈ Λ)`. Proof: `integral_glue_split_eq`
-style, with `F = w` and integrating the σΛᶜ coordinate against μΛᶜ
-(probability, so integrates to 1).
+**Identity A** (proven as `integral_smul_condZ_eq_integral_smul_w`):
+`∫ σ h(σ) · Z_Λ(σ) dph = ∫ U h(U) · w(U) dph` for h respecting
+glue.
 
-**S2** (Cancellation identity).
-For any integrable `h : GaugeConnection → ℝ` depending only on σ|_Λᶜ:
-`∫ σ, (w(σ)/gibbsConditionalZ Λ σ) · h(σ) ∂ph = ∫ σ, h(σ) ∂ph`.
-Proof via `piEquivPiSubtypeProd` on σ + Fubini + S1.
+**S2** (Cancellation identity, not yet proved but derivable from
+Identity A via the trivial `1 = Z(σ)/Z(σ)` substitution).
+For h depending only on σ|_Λᶜ:
+`∫ σ h(σ) · w(σ)/Z_Λ(σ) dph = ∫ σ h(σ) dph`.
+Proof: `∫ σ h σ dph = ∫ σ (h/Z) · Z dph = ∫ U (h/Z) · w dph` (by A)
+`= ∫ σ h · w/Z dph`. Needs integrability of `h/Z · w` (OK since
+Z is bounded away from 0 by `hZcond_pos` and compactness).
 
-**S3** (DLR assembly).
-Combine S2 (with `h := inner`) and
-`integral_indicator_w_fubini_link_split` to finish.
+**S3** (DLR assembly): combine S2 (with `h(σ) := inner(σ)` from
+`integral_indicator_w_fubini_link_split`) after unfolding `ymMeasure`
+and `gibbsCondMeasure` via `withDensity` + `integral_map`.
 
 ### Status
 
-Left as a single sorry; the sub-lemmas S1/S2 would each add ~50
-lines and can be written following the exact pattern of
-`integral_glue_split_eq` / `glue_measurePreserving`.
+Single sorry remaining. Next pass: prove S2 (~20 lines from
+Identity A), then S3 DLR assembly (~80 lines of `withDensity` +
+`lintegral_map` bookkeeping).
 
 Assumes:
 - `hβ`, `hTrace_lower`, `hTrace_upper` — for `Z > 0` and trace bounds
