@@ -213,4 +213,127 @@ theorem plaqObs_bounded (p : LatticePlaquette d N) (U : GaugeConnection G d N)
 def plaquetteDist (p q : LatticePlaquette d N) : ℕ :=
   ∑ i : Fin d, min (p.site i - q.site i).val (q.site i - p.site i).val
 
+/-! ## The Yang-Mills measure as a `Measure` on gauge configurations
+
+We package the finite-volume Boltzmann-weighted probability
+distribution as an honest `Measure`, so it plugs into the abstract
+`IsGibbsMeasure` framework in `markov-semigroups`. This is W1' of
+`PLAN_PHASE3.md`. -/
+
+/-- The Yang-Mills probability measure:
+`μ_YM = (1/Z) · exp(-S) · productHaar`. -/
+def ymMeasure (β : ℝ) (plaq : Finset (LatticePlaquette d N)) :
+    Measure (GaugeConnection G d N) :=
+  (productHaar G d N).withDensity
+    (fun U => ENNReal.ofReal (ymDensity G n d N β plaq U))
+
+/-- `ymDensity` is nonnegative. -/
+theorem ymDensity_nonneg (β : ℝ) (hβ : 0 ≤ β)
+    (plaq : Finset (LatticePlaquette d N))
+    (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
+    (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
+    (hIntegrable : Integrable (fun U => boltzmannWeight G n d N β U plaq)
+        (productHaar G d N))
+    (U : GaugeConnection G d N) :
+    0 ≤ ymDensity G n d N β plaq U := by
+  unfold ymDensity
+  have hZ : 0 < partitionFn G n d N β plaq :=
+    partitionFn_pos G n d N β hβ plaq hTrace_upper hTrace_lower hIntegrable
+  exact div_nonneg (boltzmannWeight_pos G n d N β U plaq).le hZ.le
+
+/-- `ymExpect f = ∫ f ∂ymMeasure` for integrable `f`.
+
+This is the bridge: ratios of Haar integrals become a single
+integral against `ymMeasure`. -/
+theorem ymExpect_eq_integral_ymMeasure
+    (β : ℝ) (hβ : 0 ≤ β)
+    (plaq : Finset (LatticePlaquette d N))
+    (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
+    (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
+    (hIntegrable_w : Integrable (fun U => boltzmannWeight G n d N β U plaq)
+        (productHaar G d N))
+    (hw_meas : Measurable (fun U => boltzmannWeight G n d N β U plaq))
+    (f : GaugeConnection G d N → ℝ)
+    (hf_meas : Measurable f)
+    (hfw_integrable : Integrable (fun U => f U * boltzmannWeight G n d N β U plaq)
+        (productHaar G d N)) :
+    ymExpect G n d N β plaq f = ∫ U, f U ∂(ymMeasure G n d N β plaq) := by
+  have hZ_pos : 0 < partitionFn G n d N β plaq :=
+    partitionFn_pos G n d N β hβ plaq hTrace_upper hTrace_lower hIntegrable_w
+  have hZ_ne : partitionFn G n d N β plaq ≠ 0 := hZ_pos.ne'
+  -- Integral of f against `withDensity (ofReal (w/Z))` = ∫ f · (w/Z) ∂productHaar
+  have hdens_meas : Measurable
+      (fun U => ENNReal.ofReal (ymDensity G n d N β plaq U)) := by
+    refine ENNReal.measurable_ofReal.comp ?_
+    unfold ymDensity
+    exact hw_meas.div_const _
+  have hdens_nn : ∀ U, 0 ≤ ymDensity G n d N β plaq U :=
+    fun U => ymDensity_nonneg G n d N β hβ plaq hTrace_upper hTrace_lower
+      hIntegrable_w U
+  -- Rewrite ∫ f d(withDensity (ofReal dens)) = ∫ f · dens dHaar.
+  have hstep :
+      ∫ U, f U ∂(ymMeasure G n d N β plaq) =
+        ∫ U, ymDensity G n d N β plaq U * f U ∂(productHaar G d N) := by
+    unfold ymMeasure
+    rw [integral_withDensity_eq_integral_toReal_smul hdens_meas
+          (Filter.Eventually.of_forall (fun _ => ENNReal.ofReal_lt_top)) f]
+    refine integral_congr_ae ?_
+    refine Filter.Eventually.of_forall (fun U => ?_)
+    simp [ENNReal.toReal_ofReal (hdens_nn U), smul_eq_mul]
+  rw [hstep]
+  -- ymDensity · f = f · w / Z, and integral / Z = integral-of-f·w / Z = ymExpect.
+  have hrewrite :
+      ∫ U, ymDensity G n d N β plaq U * f U ∂(productHaar G d N) =
+        (∫ U, f U * boltzmannWeight G n d N β U plaq ∂(productHaar G d N)) /
+          partitionFn G n d N β plaq := by
+    unfold ymDensity
+    rw [show (fun U => boltzmannWeight G n d N β U plaq /
+          partitionFn G n d N β plaq * f U)
+        = (fun U => (f U * boltzmannWeight G n d N β U plaq) /
+          partitionFn G n d N β plaq) from funext (fun U => by ring)]
+    rw [integral_div]
+  rw [hrewrite]
+  rfl
+
+/-- `ymMeasure` is a probability measure. -/
+theorem ymMeasure_isProbabilityMeasure
+    (β : ℝ) (hβ : 0 ≤ β)
+    (plaq : Finset (LatticePlaquette d N))
+    (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
+    (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
+    (hIntegrable_w : Integrable (fun U => boltzmannWeight G n d N β U plaq)
+        (productHaar G d N))
+    (hw_meas : Measurable (fun U => boltzmannWeight G n d N β U plaq)) :
+    IsProbabilityMeasure (ymMeasure G n d N β plaq) := by
+  -- total mass = ∫ 1 ∂ymMeasure = ymExpect 1 = 1.
+  constructor
+  have hZ_pos : 0 < partitionFn G n d N β plaq :=
+    partitionFn_pos G n d N β hβ plaq hTrace_upper hTrace_lower hIntegrable_w
+  have hZ_ne : partitionFn G n d N β plaq ≠ 0 := hZ_pos.ne'
+  have hone_integrable :
+      Integrable (fun U => (fun _ : GaugeConnection G d N => (1 : ℝ)) U *
+          boltzmannWeight G n d N β U plaq) (productHaar G d N) := by
+    simpa using hIntegrable_w
+  have hone_meas :
+      Measurable (fun _ : GaugeConnection G d N => (1 : ℝ)) := measurable_const
+  have hEq := ymExpect_eq_integral_ymMeasure G n d N β hβ plaq
+    hTrace_upper hTrace_lower hIntegrable_w hw_meas
+    (fun _ => (1 : ℝ)) hone_meas hone_integrable
+  have hOne := ymExpect_one G n d N β plaq hZ_ne
+  -- So ∫ 1 ∂ymMeasure = 1, hence the measure of univ is 1.
+  have hInt : ∫ _, (1 : ℝ) ∂(ymMeasure G n d N β plaq) = 1 := by rw [← hEq]; exact hOne
+  -- Turn ∫ 1 = 1 into (ymMeasure univ) = 1.
+  have : ((ymMeasure G n d N β plaq) Set.univ).toReal = 1 := by
+    have := hInt
+    simpa [integral_const, Measure.restrict_univ] using this
+  -- Upgrade toReal = 1 to the ENNReal value = 1.
+  have hlt : (ymMeasure G n d N β plaq) Set.univ < ⊤ := by
+    -- If univ had measure ⊤, toReal would be 0, contradicting 1.
+    by_contra h
+    push_neg at h
+    have htop : (ymMeasure G n d N β plaq) Set.univ = ⊤ := le_antisymm le_top h
+    rw [htop] at this
+    norm_num at this
+  exact (ENNReal.toReal_eq_one_iff _).1 this
+
 end
