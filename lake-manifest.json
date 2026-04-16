@@ -15,7 +15,7 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "6eedafcadb081642a4154442361c17126651d27e",
+   "rev": "f6f3e5c0a0ef53a1cbbbdf8e0041d9445f22e342",
    "name": "MarkovSemigroups",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
