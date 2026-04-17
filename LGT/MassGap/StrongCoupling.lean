@@ -611,6 +611,130 @@ theorem condDist_cylinder_eq_of_agree_on_support
     exact sub_eq_zero.mp (abs_eq_zero.mp h_abs_zero)
   linarith
 
+/-! ## Off-plaquette locality of the Boltzmann conditional
+
+When links x and y do not share a plaquette, the Boltzmann weight
+factorizes so that the density ratio `w/Z` is the same for any two
+boundary conditions σ, τ differing only at y. This makes the
+x-marginal of the conditional independent of σ(y). -/
+
+/-- A link is on the boundary of a plaquette. -/
+private abbrev linkOnBdry (d N : ℕ) (ℓ : LatticeLink d N) (p : LatticePlaquette d N) : Prop :=
+  ℓ ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks
+
+/-- When x, y don't share a plaquette, the plaquette holonomy of
+`gluedConfig {x} u σ` equals `gluedConfig {x} u τ` for plaquettes
+containing x, and equals `σ` (resp. `τ`) for plaquettes not containing x. -/
+private theorem holonomy_glue_eq_of_on_bdry
+    (plaq : Finset (LatticePlaquette d N))
+    (x y : LatticeLink d N)
+    (h_no_shared : ¬ sharesPlaquette d N plaq x y)
+    (σ τ : GaugeConnection G d N) (h_diff : ∀ z, z ≠ y → σ z = τ z)
+    (u : LatticeLink d N → G)
+    (p : LatticePlaquette d N) (hp : p ∈ plaq)
+    (hx : linkOnBdry d N x p) :
+    plaquetteHolonomy (gluedConfig G d N ({x} : Finset _) u σ) p =
+    plaquetteHolonomy (gluedConfig G d N ({x} : Finset _) u τ) p := by
+  -- Each boundary link of p agrees between gluedConfig u σ and gluedConfig u τ.
+  simp only [plaquetteHolonomy]
+  -- For each boundary link i:
+  -- If p.boundaryLinks i ∈ {x}, gluedConfig gives u(p.boundaryLinks i) in both cases.
+  -- If p.boundaryLinks i ∉ {x}, gluedConfig gives σ/τ, and we need σ = τ there.
+  -- Since p.boundaryLinks i ≠ y (else sharesPlaquette x y), h_diff gives σ = τ.
+  suffices ∀ i : Fin 4,
+      gluedConfig G d N ({x} : Finset _) u σ (p.boundaryLinks i) =
+      gluedConfig G d N ({x} : Finset _) u τ (p.boundaryLinks i) by
+    rw [this 0, this 1, this 2, this 3]
+  intro i
+  by_cases hi : p.boundaryLinks i ∈ ({x} : Finset _)
+  · rw [gluedConfig_eq_inside G d N _ u σ _ hi, gluedConfig_eq_inside G d N _ u τ _ hi]
+  · rw [gluedConfig_eq_outside G d N _ u σ _ hi, gluedConfig_eq_outside G d N _ u τ _ hi]
+    apply h_diff; intro hiy; subst hiy
+    -- x is on boundary of p, so ∃ j with p.boundaryLinks j = x
+    have : ∃ j, p.boundaryLinks j = x := by
+      unfold linkOnBdry at hx
+      simp only [Finset.mem_image, Finset.mem_univ, true_and] at hx
+      exact hx
+    obtain ⟨j, hj⟩ := this
+    exact h_no_shared ⟨p, hp, j, i, hj, rfl⟩
+
+private theorem holonomy_glue_eq_of_not_on_bdry
+    (x : LatticeLink d N)
+    (σ : GaugeConnection G d N) (u : LatticeLink d N → G)
+    (p : LatticePlaquette d N) (hx : ¬ linkOnBdry d N x p) :
+    plaquetteHolonomy (gluedConfig G d N ({x} : Finset _) u σ) p =
+    plaquetteHolonomy σ p := by
+  simp only [plaquetteHolonomy]
+  suffices ∀ i : Fin 4,
+      gluedConfig G d N ({x} : Finset _) u σ (p.boundaryLinks i) = σ (p.boundaryLinks i) by
+    rw [this 0, this 1, this 2, this 3]
+  intro i
+  apply gluedConfig_eq_outside; simp only [Finset.mem_singleton]
+  intro h; apply hx; show x ∈ _
+  simp only [Finset.mem_image, Finset.mem_univ, true_and]
+  exact ⟨i, h⟩
+
+set_option maxHeartbeats 800000 in
+/-- **Boltzmann weight factorization identity.**
+
+When x, y don't share a plaquette and σ, τ differ only at y:
+`w(gluedConfig u σ) * Z_τ = w(gluedConfig u τ) * Z_σ`.
+
+This implies the density ratio `w/Z` is the same, which in turn
+implies the x-marginals of the conditional measures are equal. -/
+theorem boltzmannWeight_factor_eq
+    (plaq : Finset (LatticePlaquette d N))
+    (β : ℝ) (x y : LatticeLink d N)
+    (h_no_shared : ¬ sharesPlaquette d N plaq x y)
+    (σ τ : GaugeConnection G d N) (h_diff : ∀ z, z ≠ y → σ z = τ z)
+    (u : LatticeLink d N → G) :
+    boltzmannWeight G n d N β (gluedConfig G d N ({x} : Finset _) u σ) plaq *
+      gibbsConditionalZ G n d N plaq β ({x} : Finset _) τ =
+    boltzmannWeight G n d N β (gluedConfig G d N ({x} : Finset _) u τ) plaq *
+      gibbsConditionalZ G n d N plaq β ({x} : Finset _) σ := by
+  -- Rewrite wilsonAction by splitting plaquettes into those containing x and those not.
+  have h_action : ∀ (ρ : GaugeConnection G d N) (v : LatticeLink d N → G),
+      wilsonAction G n d N β (gluedConfig G d N ({x} : Finset _) v ρ) plaq =
+      (∑ p ∈ plaq.filter (fun p => linkOnBdry d N x p),
+          β * wilsonPlaquetteCost G n (plaquetteHolonomy
+            (gluedConfig G d N ({x} : Finset _) v ρ) p))
+        + ∑ p ∈ plaq.filter (fun p => ¬ linkOnBdry d N x p),
+          β * wilsonPlaquetteCost G n (plaquetteHolonomy ρ p) := by
+    intro ρ v; unfold wilsonAction
+    rw [← Finset.sum_filter_add_sum_filter_not plaq (fun p => linkOnBdry d N x p)]
+    congr 1; apply Finset.sum_congr rfl; intro p hp
+    rw [Finset.mem_filter] at hp
+    rw [holonomy_glue_eq_of_not_on_bdry G d N x ρ v p hp.2]
+  -- For plaquettes containing x, the sum is the same for σ and τ.
+  have h_x_eq : ∀ v,
+      ∑ p ∈ plaq.filter (fun p => linkOnBdry d N x p),
+        β * wilsonPlaquetteCost G n (plaquetteHolonomy
+          (gluedConfig G d N ({x} : Finset _) v σ) p) =
+      ∑ p ∈ plaq.filter (fun p => linkOnBdry d N x p),
+        β * wilsonPlaquetteCost G n (plaquetteHolonomy
+          (gluedConfig G d N ({x} : Finset _) v τ) p) := by
+    intro v; apply Finset.sum_congr rfl; intro p hp
+    rw [Finset.mem_filter] at hp
+    rw [holonomy_glue_eq_of_on_bdry G d N plaq x y h_no_shared σ τ h_diff v p hp.1 hp.2]
+  -- Abbreviations
+  set Ax := fun v => ∑ p ∈ plaq.filter (fun p => linkOnBdry d N x p),
+      β * wilsonPlaquetteCost G n (plaquetteHolonomy
+        (gluedConfig G d N ({x} : Finset _) v σ) p)
+  set Rσ := ∑ p ∈ plaq.filter (fun p => ¬ linkOnBdry d N x p),
+      β * wilsonPlaquetteCost G n (plaquetteHolonomy σ p)
+  set Rτ := ∑ p ∈ plaq.filter (fun p => ¬ linkOnBdry d N x p),
+      β * wilsonPlaquetteCost G n (plaquetteHolonomy τ p)
+  -- Rewrite everything using the action split
+  have hσ : ∀ v, wilsonAction G n d N β
+      (gluedConfig G d N ({x} : Finset _) v σ) plaq = Ax v + Rσ := h_action σ
+  have hτ : ∀ v, wilsonAction G n d N β
+      (gluedConfig G d N ({x} : Finset _) v τ) plaq = Ax v + Rτ := by
+    intro v; rw [h_action τ v, (h_x_eq v).symm]
+  -- Unfold definitions and use the split
+  simp only [boltzmannWeight, gibbsConditionalZ, gibbsConditionalWeight]
+  simp_rw [hσ, hτ, neg_add, Real.exp_add, MeasureTheory.integral_mul_const]
+  ring
+
 /-! ## The strong coupling wrapper theorem
 
 Discharges measure-theoretic hypotheses (including 3 measurability
