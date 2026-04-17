@@ -65,6 +65,10 @@ instance instBorelSpaceGaugeConnection :
   exact (@Pi.borelSpace (LatticeLink d N) (fun _ => G) _ (fun _ => inferInstance)
     (fun _ => inferInstance) (fun _ => inferInstance) (fun _ => inferInstance)).measurable_eq
 
+instance instFirstCountableGaugeConnection :
+    FirstCountableTopology (GaugeConnection G d N) :=
+  show FirstCountableTopology (LatticeLink d N → G) from inferInstance
+
 /-! ## Continuity and measurability from representation continuity
 
 These lemmas derive measurability of `boltzmannWeight` and `plaqObs`
@@ -735,6 +739,222 @@ theorem boltzmannWeight_factor_eq
   simp_rw [hσ, hτ, neg_add, Real.exp_add, MeasureTheory.integral_mul_const]
   ring
 
+/-! ## Continuity of parametric integrals (Fubini plumbing)
+
+The key observation: `gluedConfig Λ uΛ σ` is continuous in σ (for each
+fixed uΛ), because at each coordinate it's either constant (`uΛ e` when
+`e ∈ Λ`) or `σ e` (continuous projection). Combined with
+`continuous_boltzmannWeight`, this gives:
+
+- `σ ↦ boltzmannWeight(gluedConfig Λ uΛ σ)` is continuous in σ for each uΛ
+- By `continuous_of_dominated` (bounded by 1, integrable on prob measure),
+  `σ ↦ ∫ uΛ, boltzmannWeight(gluedConfig Λ uΛ σ) = gibbsConditionalZ Λ σ`
+  is continuous, hence measurable. -/
+
+/-- `gluedConfig Λ uΛ` is continuous in σ: at each coordinate, it's
+either constant (for `e ∈ Λ`) or the projection `σ e` (for `e ∉ Λ`). -/
+theorem continuous_gluedConfig_sigma (Λ : Finset (LatticeLink d N))
+    (uΛ : LatticeLink d N → G) :
+    Continuous (fun σ : GaugeConnection G d N => gluedConfig G d N Λ uΛ σ) := by
+  apply continuous_pi; intro e
+  by_cases he : e ∈ Λ
+  · -- e ∈ Λ: gluedConfig gives uΛ e, constant in σ
+    have : (fun σ : GaugeConnection G d N => gluedConfig G d N Λ uΛ σ e) =
+        fun _ => uΛ e := by
+      funext σ; simp [gluedConfig, he]
+    rw [this]; exact continuous_const
+  · -- e ∉ Λ: gluedConfig gives σ e, a continuous projection
+    have : (fun σ : GaugeConnection G d N => gluedConfig G d N Λ uΛ σ e) =
+        fun σ => σ e := by
+      funext σ; simp [gluedConfig, he]
+    rw [this]; exact continuous_apply e
+
+/-- The conditional Boltzmann weight is continuous in σ for each fixed uΛ. -/
+theorem continuous_gibbsConditionalWeight_sigma
+    (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
+    (β : ℝ) (plaq : Finset (LatticePlaquette d N))
+    (Λ : Finset (LatticeLink d N)) (uΛ : LatticeLink d N → G) :
+    Continuous (fun σ : GaugeConnection G d N =>
+      gibbsConditionalWeight G n d N plaq β Λ σ uΛ) := by
+  unfold gibbsConditionalWeight
+  exact (continuous_boltzmannWeight G n d N hRep_cont β plaq).comp
+    (continuous_gluedConfig_sigma G d N Λ uΛ)
+
+/-- `gibbsConditionalZ` is continuous in σ. Proved via `continuous_of_dominated`:
+the integrand is continuous in σ (for each uΛ), bounded by 1, and 1 is integrable
+on the probability measure `productHaar`. -/
+theorem continuous_gibbsConditionalZ
+    (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
+    (β : ℝ) (hβ : 0 ≤ β) (plaq : Finset (LatticePlaquette d N))
+    (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
+    (Λ : Finset (LatticeLink d N)) :
+    Continuous (fun σ => gibbsConditionalZ G n d N plaq β Λ σ) := by
+  unfold gibbsConditionalZ
+  apply continuous_of_dominated (μ := Measure.pi (fun _ : LatticeLink d N => haarG G))
+  · -- AEStronglyMeasurable for each σ
+    intro σ
+    exact (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq |>.comp
+      (measurable_gluedConfig G d N Λ σ)).aestronglyMeasurable
+  · -- Bounded by 1
+    intro σ; apply Filter.Eventually.of_forall; intro uΛ
+    simp only [gibbsConditionalWeight]
+    rw [Real.norm_of_nonneg (boltzmannWeight_pos G n d N β _ plaq).le]
+    exact boltzmannWeight_le_one G n d N β hβ _ plaq hTrace_upper
+  · -- Bound 1 is integrable on probability measure
+    exact integrable_const (1 : ℝ)
+  · -- Pointwise continuity in σ for a.e. uΛ
+    apply Filter.Eventually.of_forall; intro uΛ
+    exact continuous_gibbsConditionalWeight_sigma G n d N hRep_cont β plaq Λ uΛ
+
+/-- Measurability of `gibbsConditionalZ` follows from continuity. -/
+theorem measurable_gibbsConditionalZ
+    (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
+    (β : ℝ) (hβ : 0 ≤ β) (plaq : Finset (LatticePlaquette d N))
+    (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
+    (Λ : Finset (LatticeLink d N)) :
+    Measurable (fun σ => gibbsConditionalZ G n d N plaq β Λ σ) :=
+  (continuous_gibbsConditionalZ G n d N hRep_cont β hβ plaq hTrace_upper Λ).measurable
+
+set_option linter.unusedVariables false in
+/-- Measurability of `σ ↦ ∫ uΛ, 1_A(gluedConfig uΛ σ) * w(gluedConfig uΛ σ)`.
+Follows from `StronglyMeasurable.integral_prod_right'` via joint measurability. -/
+theorem measurable_inner_integral
+    (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
+    (β : ℝ) (hβ : 0 ≤ β) (plaq : Finset (LatticePlaquette d N))
+    (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
+    (Λ : Finset (LatticeLink d N))
+    (A : Set (GaugeConnection G d N)) (hA : MeasurableSet A) :
+    Measurable (fun σ : GaugeConnection G d N =>
+      ∫ uΛ, Set.indicator A
+          (fun U => boltzmannWeight G n d N β U plaq)
+          (gluedConfig G d N Λ uΛ σ) ∂(productHaar G d N)) := by
+  -- The integrand is measurable in uΛ for each σ, bounded by 1.
+  -- For measurability: use StronglyMeasurable.integral_prod_right
+  -- The function (uΛ, σ) ↦ 1_A(glue uΛ σ) * w(glue uΛ σ) is measurable.
+  unfold productHaar
+  have hw_meas := measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq
+  -- Use the fact that bounded measurable ⟹ strongly measurable integral
+  -- and StronglyMeasurable.integral_prod_right for the parametric integral.
+  -- The uncurried function f(σ, uΛ) = 1_A(glue uΛ σ) * w(glue uΛ σ) is measurable.
+  -- gluedConfig is measurable jointly (σ, uΛ) ↦ glue uΛ σ.
+  have hglue_joint : Measurable (fun (p : (LatticeLink d N → G) × (LatticeLink d N → G)) =>
+      gluedConfig G d N Λ p.2 p.1) := by
+    apply measurable_pi_iff.mpr; intro e
+    by_cases he : e ∈ Λ
+    · have : (fun p : (LatticeLink d N → G) × (LatticeLink d N → G) =>
+          gluedConfig G d N Λ p.2 p.1 e) = fun p => p.2 e := by
+        funext p; simp [gluedConfig, he]
+      rw [this]; exact (measurable_pi_apply e).comp measurable_snd
+    · have : (fun p : (LatticeLink d N → G) × (LatticeLink d N → G) =>
+          gluedConfig G d N Λ p.2 p.1 e) = fun p => p.1 e := by
+        funext p; simp [gluedConfig, he]
+      rw [this]; exact (measurable_pi_apply e).comp measurable_fst
+  -- f(σ, uΛ) = 1_A(glue uΛ σ) * w(glue uΛ σ) is measurable
+  have hf_meas : Measurable (fun (p : (LatticeLink d N → G) × (LatticeLink d N → G)) =>
+      Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)
+        (gluedConfig G d N Λ p.2 p.1)) :=
+    (hw_meas.indicator hA).comp hglue_joint
+  -- Use StronglyMeasurable.integral_prod_right (needs product measure, not Prod)
+  -- Actually we need to convert to the right form. Use measurability from continuity approach.
+  -- Alternative: prove measurability directly using AEStronglyMeasurable.integral
+  -- For now, use Measurable.stronglyMeasurable and integral_prod_right.
+  -- The measures are: σ lives on (LatticeLink d N → G) and uΛ on (LatticeLink d N → G).
+  -- These are the same type! So we have f : (α × α) → ℝ measurable, and we integrate
+  -- over the second coordinate. By StronglyMeasurable.integral_prod_right', this gives
+  -- a strongly measurable function, hence measurable.
+  exact (hf_meas.stronglyMeasurable.integral_prod_right').measurable
+
+/-- Measurability of `σ ↦ (gibbsCondMeasure Λ σ A).toReal`.
+This follows from measurability of the numerator integral and
+the partition function Z(σ). -/
+theorem measurable_gibbsCondMeasure_toReal
+    (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
+    (β : ℝ) (hβ : 0 ≤ β) (plaq : Finset (LatticePlaquette d N))
+    (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
+    (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
+    (Λ : Finset (LatticeLink d N))
+    (A : Set (GaugeConnection G d N)) (hA : MeasurableSet A) :
+    Measurable (fun σ : GaugeConnection G d N =>
+      (gibbsCondMeasure G n d N plaq β Λ σ A).toReal) := by
+  have hw_meas := measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq
+  -- Show: (gibbsCondMeasure ... σ A).toReal = inner(σ) / Z(σ) for each σ
+  have hfun_eq : (fun σ => (gibbsCondMeasure G n d N plaq β Λ σ A).toReal) =
+      fun σ => (∫ uΛ, Set.indicator A
+            (fun U => boltzmannWeight G n d N β U plaq)
+            (gluedConfig G d N Λ uΛ σ)
+         ∂(productHaar G d N))
+        / gibbsConditionalZ G n d N plaq β Λ σ := by
+    funext σ
+    exact gibbsCondMeasure_apply_toReal G n d N plaq β hw_meas Λ σ
+      (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower hw_meas Λ σ)
+      (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper hw_meas Λ σ)
+      A hA
+  rw [hfun_eq]
+  -- inner is measurable and Z is measurable
+  exact (measurable_inner_integral G n d N hRep_cont β hβ plaq hTrace_upper Λ A hA).div
+    (measurable_gibbsConditionalZ G n d N hRep_cont β hβ plaq hTrace_upper Λ)
+
+/-- Integrability of `σ ↦ (inner(σ)/Z(σ)) * w(σ)` on productHaar.
+All three factors are bounded: inner ≤ 1, 1/Z ≤ 1/c for some c > 0,
+w ≤ 1. The product is bounded measurable on a probability measure. -/
+theorem integrable_inner_w_over_Z
+    (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
+    (β : ℝ) (hβ : 0 ≤ β) (plaq : Finset (LatticePlaquette d N))
+    (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
+    (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
+    (Λ : Finset (LatticeLink d N))
+    (A : Set (GaugeConnection G d N)) (hA : MeasurableSet A) :
+    Integrable (fun σ : GaugeConnection G d N =>
+        (∫ uΛ, Set.indicator A
+            (fun U => boltzmannWeight G n d N β U plaq)
+            (gluedConfig G d N Λ uΛ σ) ∂(productHaar G d N))
+          / gibbsConditionalZ G n d N plaq β Λ σ
+        * boltzmannWeight G n d N β σ plaq) (productHaar G d N) := by
+  have hw_meas := measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq
+  -- Strategy: rewrite as (gibbsCondMeasure σ A).toReal * w(σ), both bounded by 1.
+  -- Step 1: Show the function equals condMeasure.toReal * w
+  have hfun_eq : (fun σ => (∫ uΛ, Set.indicator A
+          (fun U => boltzmannWeight G n d N β U plaq)
+          (gluedConfig G d N Λ uΛ σ) ∂(productHaar G d N))
+        / gibbsConditionalZ G n d N plaq β Λ σ
+      * boltzmannWeight G n d N β σ plaq) =
+    fun σ => (gibbsCondMeasure G n d N plaq β Λ σ A).toReal *
+      boltzmannWeight G n d N β σ plaq := by
+    funext σ
+    rw [← gibbsCondMeasure_apply_toReal G n d N plaq β hw_meas Λ σ
+      (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower hw_meas Λ σ)
+      (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper hw_meas Λ σ)
+      A hA]
+  rw [hfun_eq]
+  -- Step 2: Measurability
+  have hmeas_condDist := measurable_gibbsCondMeasure_toReal G n d N hRep_cont β hβ plaq
+    hTrace_upper hTrace_lower Λ A hA
+  -- Step 3: Bounded by 1 on probability measure
+  haveI : IsProbabilityMeasure (productHaar G d N) := by
+    unfold productHaar
+    exact MeasureTheory.Measure.pi.instIsProbabilityMeasure _
+  apply Integrable.of_bound (hmeas_condDist.mul hw_meas).aestronglyMeasurable (1 : ℝ)
+  apply Filter.Eventually.of_forall; intro σ
+  -- (gibbsCondMeasure σ A).toReal ∈ [0, 1]
+  have hcm_nn : 0 ≤ (gibbsCondMeasure G n d N plaq β Λ σ A).toReal :=
+    ENNReal.toReal_nonneg
+  have hcm_le : (gibbsCondMeasure G n d N plaq β Λ σ A).toReal ≤ 1 := by
+    apply ENNReal.toReal_le_of_le_ofReal zero_le_one
+    calc gibbsCondMeasure G n d N plaq β Λ σ A
+        ≤ gibbsCondMeasure G n d N plaq β Λ σ Set.univ :=
+          OuterMeasure.mono _ (Set.subset_univ _)
+      _ = 1 := gibbsCondMeasure_total G n d N plaq β Λ σ
+          (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower hw_meas Λ σ)
+          hw_meas
+          (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper hw_meas Λ σ)
+      _ = ENNReal.ofReal 1 := by simp
+  -- w ∈ (0, 1]
+  have hw_pos := boltzmannWeight_pos G n d N β σ plaq
+  have hw_le := boltzmannWeight_le_one G n d N β hβ σ plaq hTrace_upper
+  -- product ≤ 1
+  rw [Real.norm_of_nonneg (mul_nonneg hcm_nn hw_pos.le)]
+  exact mul_le_one₀ hcm_le hw_pos.le hw_le
+
 /-! ## The strong coupling wrapper theorem
 
 Discharges measure-theoretic hypotheses (including 3 measurability
@@ -754,28 +974,6 @@ theorem ym_mass_gap_strong_coupling
     (p q : LatticePlaquette d N)
     -- Core continuity (implies measurability of boltzmannWeight and plaqObs):
     (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
-    -- Parametrised-integral measurability (genuine measure theory):
-    (hmeas_condDist : ∀ (Λ : Finset (LatticeLink d N))
-        (A : Set (GaugeConnection G d N)), MeasurableSet A →
-        Measurable (fun σ : GaugeConnection G d N =>
-          (gibbsCondMeasure G n d N plaq β Λ σ A).toReal))
-    (hZcond_meas : ∀ Λ : Finset (LatticeLink d N),
-        Measurable (fun σ : GaugeConnection G d N =>
-          gibbsConditionalZ G n d N plaq β Λ σ))
-    (hinner_meas : ∀ (Λ : Finset (LatticeLink d N))
-        (A : Set (GaugeConnection G d N)), MeasurableSet A →
-        Measurable (fun σ : GaugeConnection G d N =>
-          ∫ uΛ, Set.indicator A
-              (fun U => boltzmannWeight G n d N β U plaq)
-              (gluedConfig G d N Λ uΛ σ) ∂(productHaar G d N)))
-    (hinner_w_over_Z_int : ∀ (Λ : Finset (LatticeLink d N))
-        (A : Set (GaugeConnection G d N)), MeasurableSet A →
-        Integrable (fun σ : GaugeConnection G d N =>
-            (∫ uΛ, Set.indicator A
-                (fun U => boltzmannWeight G n d N β U plaq)
-                (gluedConfig G d N Λ uΛ σ) ∂(productHaar G d N))
-              / gibbsConditionalZ G n d N plaq β Λ σ
-            * boltzmannWeight G n d N β σ plaq) (productHaar G d N))
     -- Dobrushin influence bounds (physics/combinatorics):
     (hInfluence : ∀ x y : LatticeLink d N,
       influenceCoeff
@@ -785,7 +983,8 @@ theorem ym_mass_gap_strong_coupling
           (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq)
           (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper
             (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
-          hmeas_condDist) x y ≤
+          (fun Λ A hA => measurable_gibbsCondMeasure_toReal G n d N
+            hRep_cont β hβ plaq hTrace_upper hTrace_lower Λ A hA)) x y ≤
         (if sharesPlaquette d N plaq x y then influenceBound n β else 0))
     -- Plaquette-per-link bound (combinatorial fact about the lattice):
     -- each link lies on at most `maxPlaquettesPerLink d = 2(d-1)` plaquettes.
@@ -823,6 +1022,34 @@ theorem ym_mass_gap_strong_coupling
           gibbsConditionalWeight G n d N plaq β Λ σ uΛ)
         (Measure.pi (fun _ : LatticeLink d N => haarG G)) :=
     gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper hw_meas
+  -- Discharge the 4 Fubini/parametrised-integral hypotheses
+  have hmeas_condDist : ∀ (Λ : Finset (LatticeLink d N))
+      (A : Set (GaugeConnection G d N)), MeasurableSet A →
+      Measurable (fun σ : GaugeConnection G d N =>
+        (gibbsCondMeasure G n d N plaq β Λ σ A).toReal) :=
+    fun Λ A hA => measurable_gibbsCondMeasure_toReal G n d N
+      hRep_cont β hβ plaq hTrace_upper hTrace_lower Λ A hA
+  have hZcond_meas : ∀ Λ : Finset (LatticeLink d N),
+      Measurable (fun σ : GaugeConnection G d N =>
+        gibbsConditionalZ G n d N plaq β Λ σ) :=
+    fun Λ => measurable_gibbsConditionalZ G n d N hRep_cont β hβ plaq hTrace_upper Λ
+  have hinner_meas : ∀ (Λ : Finset (LatticeLink d N))
+      (A : Set (GaugeConnection G d N)), MeasurableSet A →
+      Measurable (fun σ : GaugeConnection G d N =>
+        ∫ uΛ, Set.indicator A
+            (fun U => boltzmannWeight G n d N β U plaq)
+            (gluedConfig G d N Λ uΛ σ) ∂(productHaar G d N)) :=
+    fun Λ A hA => measurable_inner_integral G n d N hRep_cont β hβ plaq hTrace_upper Λ A hA
+  have hinner_w_over_Z_int : ∀ (Λ : Finset (LatticeLink d N))
+      (A : Set (GaugeConnection G d N)), MeasurableSet A →
+      Integrable (fun σ : GaugeConnection G d N =>
+          (∫ uΛ, Set.indicator A
+              (fun U => boltzmannWeight G n d N β U plaq)
+              (gluedConfig G d N Λ uΛ σ) ∂(productHaar G d N))
+            / gibbsConditionalZ G n d N plaq β Λ σ
+          * boltzmannWeight G n d N β σ plaq) (productHaar G d N) :=
+    fun Λ A hA => integrable_inner_w_over_Z G n d N hRep_cont β hβ plaq
+      hTrace_upper hTrace_lower Λ A hA
   have hindA_fub_int : ∀ (A : Set (GaugeConnection G d N)), MeasurableSet A →
       Integrable (Set.indicator A (fun U => boltzmannWeight G n d N β U plaq))
         (productHaar G d N) :=
