@@ -572,12 +572,14 @@ theorem ym_mass_gap_strong_coupling
             (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
           hmeas_condDist) x y ≤
         (if sharesPlaquette d N plaq x y then influenceBound n β else 0))
-    (hMaxNeighborsCol : ∀ y : LatticeLink d N,
-      ((Finset.univ : Finset (LatticeLink d N)).filter
-        (fun x => sharesPlaquette d N plaq x y)).card ≤ maxNeighbors d)
-    (hMaxNeighborsRow : ∀ x : LatticeLink d N,
-      ((Finset.univ : Finset (LatticeLink d N)).filter
-        (fun y => sharesPlaquette d N plaq x y)).card ≤ maxNeighbors d)
+    -- Plaquette-per-link bound (combinatorial fact about the lattice):
+    -- each link lies on at most `maxPlaquettesPerLink d = 2(d-1)` plaquettes.
+    -- This implies the neighbor-count bounds `hMaxNeighborsCol/Row`
+    -- via `maxNeighborsCol_of_plaqPerLink` / `maxNeighborsRow_of_plaqPerLink`.
+    (hPlaqPerLink : ∀ ℓ : LatticeLink d N,
+      (plaq.filter
+        (fun p => ℓ ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card
+          ≤ maxPlaquettesPerLink d)
     -- Local dependence:
     (h_dep_F : ∀ (z : LatticeLink d N)
         (A : Set (GaugeConnection G d N)), MeasurableSet A →
@@ -679,6 +681,19 @@ theorem ym_mass_gap_strong_coupling
   have h_triangle := ymLinkDist_triangle d N plaq
   have h_support := ymLinkDist_support G n d N plaq β hZcond_pos
     hw_meas hw_integrable_cond hmeas_condDist hInfluence
+  -- Derive neighbor-count bounds from plaquette-per-link bound.
+  -- Since maxNeighbors d = 4 * maxPlaquettesPerLink d, the hLoose
+  -- condition 4 * M ≤ maxNeighbors d is le_refl.
+  have hMaxNeighborsCol : ∀ y : LatticeLink d N,
+      ((Finset.univ : Finset (LatticeLink d N)).filter
+        (fun x => sharesPlaquette d N plaq x y)).card ≤ maxNeighbors d :=
+    fun y => (maxNeighborsCol_of_plaqPerLink d N plaq
+      (maxPlaquettesPerLink d) hPlaqPerLink y).trans le_rfl
+  have hMaxNeighborsRow : ∀ x : LatticeLink d N,
+      ((Finset.univ : Finset (LatticeLink d N)).filter
+        (fun y => sharesPlaquette d N plaq x y)).card ≤ maxNeighbors d :=
+    fun x => (maxNeighborsRow_of_plaqPerLink d N plaq
+      (maxPlaquettesPerLink d) hPlaqPerLink x).trans le_rfl
   -- Apply the upstream theorem
   exact ym_mass_gap_2pt_via_multisite G n d N hd hn β hβ hβ_small
     hTrace_lower hTrace_upper plaq p q
