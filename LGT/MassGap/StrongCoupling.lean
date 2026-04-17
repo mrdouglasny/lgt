@@ -520,6 +520,97 @@ theorem plaqObs_cond_integrable
       plaqObs_bounded G n d N q U (fun g => abs_le.mpr
         ⟨by linarith [hTrace_lower g], hTrace_upper g⟩)))
 
+/-! ## Cylinder-set local dependence of `condDist`
+
+The z-marginal of `γ.condDist {z} σ` depends on σ only through
+coordinates with nonzero influence coefficient. If σ and τ agree
+on the support of `influenceCoeff γ z ·`, then the z-marginals
+agree on every cylinder set `(· z) ⁻¹' B`.
+
+Proof: build a chain from σ to τ by flipping one coordinate at a
+time (only coordinates with `influenceCoeff = 0`). Each flip
+preserves the z-marginal by `condDist_lipschitz_at_site_cylinder`. -/
+
+/-- Interpolating configuration: agrees with τ on T, with σ elsewhere. -/
+private def interpConfig {I S : Type*} (σ τ : I → S)
+    (T : Finset I) [DecidableEq I] : I → S :=
+  fun i => if i ∈ T then τ i else σ i
+
+private theorem interpConfig_empty {I S : Type*} [DecidableEq I]
+    (σ τ : I → S) : interpConfig σ τ ∅ = σ := by
+  ext i; simp [interpConfig]
+
+private theorem interpConfig_diff_only_at {I S : Type*} [DecidableEq I]
+    (σ τ : I → S) (T : Finset I) (w : I) (_hw : w ∉ T) (i : I) (hi : i ≠ w) :
+    interpConfig σ τ (insert w T) i = interpConfig σ τ T i := by
+  simp only [interpConfig]
+  congr 1
+  exact propext ⟨fun h => (Finset.mem_insert.mp h).resolve_left hi,
+    fun h => Finset.mem_insert_of_mem h⟩
+
+private theorem interpConfig_eq_tau_of_agree {I S : Type*} [DecidableEq I]
+    [Fintype I] (σ τ : I → S) (S' : Finset I)
+    (hagree : ∀ i ∈ S', σ i = τ i) :
+    interpConfig σ τ (Finset.univ \ S') = τ := by
+  ext i
+  simp only [interpConfig, Finset.mem_sdiff, Finset.mem_univ, true_and]
+  by_cases h : i ∈ S'
+  · simp [h, hagree i h]
+  · simp [h]
+
+/-- The z-marginal of `condDist {z}` is invariant under changes
+to coordinates with zero influence coefficient. Chain argument
+by Finset induction on the "complement of the support." -/
+theorem condDist_cylinder_eq_of_agree_on_support
+    {I S : Type*} [DecidableEq I] [Fintype I]
+    [MeasurableSpace S] [MeasurableSpace (I → S)]
+    (γ : GibbsSpec I S) (z : I)
+    (B : Set S) (hB : MeasurableSet B)
+    (hfinsupp : (Function.support (influenceCoeff γ z ·)).Finite)
+    (σ τ : I → S)
+    (hagree : ∀ w ∈ hfinsupp.toFinset, σ w = τ w) :
+    (γ.condDist {z} σ ((· z) ⁻¹' B)).toReal =
+    (γ.condDist {z} τ ((· z) ⁻¹' B)).toReal := by
+  -- Let F = hfinsupp.toFinset (the support of influenceCoeff γ z ·)
+  set F := hfinsupp.toFinset with hF_def
+  -- We induct over T = Finset.univ \ F, showing the z-marginal is preserved
+  -- at each step of the interpolation chain.
+  suffices h : ∀ T : Finset I, T ⊆ Finset.univ \ F →
+      (γ.condDist {z} σ ((· z) ⁻¹' B)).toReal =
+      (γ.condDist {z} (interpConfig σ τ T) ((· z) ⁻¹' B)).toReal by
+    have hfull := h (Finset.univ \ F) (Finset.Subset.refl _)
+    rw [interpConfig_eq_tau_of_agree σ τ F hagree] at hfull
+    exact hfull
+  intro T
+  refine Finset.induction_on T (fun _ => by rw [interpConfig_empty]) ?_
+  intro w T' hw ih hT_sub
+  -- T' ⊆ univ \ F
+  have hT'_sub : T' ⊆ Finset.univ \ F :=
+    (Finset.subset_insert w T').trans hT_sub
+  -- w ∈ univ \ F, so w ∉ F, so influenceCoeff γ z w = 0
+  have hw_mem : w ∈ Finset.univ \ F := hT_sub (Finset.mem_insert_self w T')
+  have hw_notF : w ∉ F := (Finset.mem_sdiff.mp hw_mem).2
+  have hw_zero : influenceCoeff γ z w = 0 := by
+    have hnn := influenceCoeff_nonneg γ z w
+    by_contra hne
+    exact hw_notF (hfinsupp.mem_toFinset.mpr (Function.mem_support.mpr hne))
+  -- By IH, condDist {z} σ agrees with condDist {z} (interpConfig σ τ T')
+  have ih_eq := ih hT'_sub
+  -- interpConfig σ τ (insert w T') and interpConfig σ τ T' differ only at w
+  have hdiff_w : ∀ i, i ≠ w →
+      interpConfig σ τ (insert w T') i = interpConfig σ τ T' i :=
+    fun i hi => interpConfig_diff_only_at σ τ T' w hw i hi
+  -- By condDist_lipschitz_at_site_cylinder with influenceCoeff = 0:
+  have hlip := condDist_lipschitz_at_site_cylinder γ z w
+    (interpConfig σ τ T') (interpConfig σ τ (insert w T'))
+    (fun i hi => (hdiff_w i hi).symm) B hB
+  rw [hw_zero] at hlip
+  have heq : (γ.condDist {z} (interpConfig σ τ T') ((· z) ⁻¹' B)).toReal =
+      (γ.condDist {z} (interpConfig σ τ (insert w T')) ((· z) ⁻¹' B)).toReal := by
+    have h_abs_zero := le_antisymm hlip (abs_nonneg _)
+    exact sub_eq_zero.mp (abs_eq_zero.mp h_abs_zero)
+  linarith
+
 /-! ## The strong coupling wrapper theorem
 
 Discharges measure-theoretic hypotheses (including 3 measurability
@@ -579,35 +670,7 @@ theorem ym_mass_gap_strong_coupling
     (hPlaqPerLink : ∀ ℓ : LatticeLink d N,
       (plaq.filter
         (fun p => ℓ ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card
-          ≤ maxPlaquettesPerLink d)
-    -- Cylinder-set local dependence:
-    -- the z-marginal of condDist at {z} depends only on the influence support.
-    (h_dep_F : ∀ (z : LatticeLink d N)
-        (B : Set G), MeasurableSet B →
-        ∀ (σ τ : GaugeConnection G d N),
-          (∀ w ∈ (influenceCoeff_finsupp G n d N plaq β
-            (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq)
-            (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower
-              (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
-            (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper
-              (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
-            hmeas_condDist z).toFinset, σ w = τ w) →
-          ((ymGibbsSpec G n d N plaq β
-              (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower
-                (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
-              (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq)
-              (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper
-                (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
-              hmeas_condDist).condDist
-            {z} σ ((· z) ⁻¹' B)).toReal =
-          ((ymGibbsSpec G n d N plaq β
-              (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower
-                (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
-              (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq)
-              (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper
-                (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
-              hmeas_condDist).condDist
-            {z} τ ((· z) ⁻¹' B)).toReal) :
+          ≤ maxPlaquettesPerLink d) :
     |connected2pt G n d N β plaq (plaqObs G n d N p) (plaqObs G n d N q)| ≤
       2 * (↑n : ℝ) * (↑n : ℝ) *
         ∑ x ∈ ((Finset.univ : Finset (Fin 4)).image
@@ -703,6 +766,11 @@ theorem ym_mass_gap_strong_coupling
     hPlaqObs_p_meas hPlaqObs_q_meas hPlaqObs_p_int hPlaqObs_q_int hPlaqObs_pq_int
     hPlaqObs_pw_int hPlaqObs_qw_int hPlaqObs_pqw_int
     hInfluence hMaxNeighborsCol hMaxNeighborsRow hPlaqObs_q_cond_int
-    (ymLinkDist d N plaq) h_refl h_triangle h_support hfinsupp h_dep_F
+    (ymLinkDist d N plaq) h_refl h_triangle h_support hfinsupp
+    (fun z B hB σ τ hagree =>
+      condDist_cylinder_eq_of_agree_on_support
+        (ymGibbsSpec G n d N plaq β hZcond_pos hw_meas
+          hw_integrable_cond hmeas_condDist)
+        z B hB (hfinsupp z) σ τ hagree)
 
 end
