@@ -955,6 +955,204 @@ theorem integrable_inner_w_over_Z
   rw [Real.norm_of_nonneg (mul_nonneg hcm_nn hw_pos.le)]
   exact mul_le_one₀ hcm_le hw_pos.le hw_le
 
+/-! ## Off-plaquette influence: influenceCoeff = 0
+
+When links x and y do not share a plaquette, the x-marginal of
+`gibbsCondMeasure {x} σ` is the same for any two boundary conditions
+σ, τ differing only at y. The proof uses `boltzmannWeight_factor_eq`
+to show the density-weighted integrals are proportional, and then
+that the normalised marginals agree. -/
+
+/-- **Off-plaquette influence is zero.**
+
+When `¬sharesPlaquette d N plaq x y`, the influence coefficient
+`influenceCoeff (ymGibbsSpec ...) x y = 0`.
+
+The proof: for any σ, τ differing only at y, `boltzmannWeight_factor_eq`
+gives `w(glue u σ) / Z_σ = w(glue u τ) / Z_τ` for all u. Since the
+x-component of `gluedConfig {x} u σ` is `u(x)` (independent of σ),
+the marginals at x are equal, giving tvDist = 0 and hence
+influenceCoeff = 0 (every element of the defining sSup set is 0). -/
+theorem influenceCoeff_zero_off_plaquette
+    (plaq : Finset (LatticePlaquette d N))
+    (β : ℝ)
+    (hZ_pos : ∀ Λ σ, 0 < gibbsConditionalZ G n d N plaq β Λ σ)
+    (hw_meas : Measurable fun U => boltzmannWeight G n d N β U plaq)
+    (hw_integrable : ∀ (Λ : Finset (LatticeLink d N))
+        (σ : GaugeConnection G d N),
+        Integrable (fun uΛ : LatticeLink d N → G =>
+            gibbsConditionalWeight G n d N plaq β Λ σ uΛ)
+          (Measure.pi (fun _ : LatticeLink d N => haarG G)))
+    (hmeas_condDist : ∀ (Λ : Finset (LatticeLink d N))
+      (A : Set (GaugeConnection G d N)),
+      MeasurableSet A →
+      Measurable (fun σ : GaugeConnection G d N =>
+        ((gibbsCondMeasure G n d N plaq β Λ σ) A).toReal))
+    (x y : LatticeLink d N)
+    (h_no_shared : ¬ sharesPlaquette d N plaq x y) :
+    influenceCoeff
+      (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
+      x y = 0 := by
+  -- Strategy: show every element of the defining sSup set is 0.
+  -- For each σ, τ differing only at y with ¬sharesPlaquette x y,
+  -- the Boltzmann factorization identity implies the conditional measures
+  -- at {x} have equal x-marginals, so tvDist = 0.
+  set γ := ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist
+  -- Show: for all σ, τ differing only at y, the x-marginals of the conditional are equal.
+  suffices h_marg_all : ∀ (σ τ : GaugeConnection G d N),
+      (∀ z, z ≠ y → σ z = τ z) →
+      ∀ (B : Set G), MeasurableSet B →
+        (gibbsCondMeasure G n d N plaq β ({x} : Finset _) σ
+            ((fun U : GaugeConnection G d N => U x) ⁻¹' B)) =
+        (gibbsCondMeasure G n d N plaq β ({x} : Finset _) τ
+            ((fun U : GaugeConnection G d N => U x) ⁻¹' B)) by
+    -- From h_marg_all, derive marginal equality, then tvDist = 0, then influenceCoeff = 0.
+    unfold influenceCoeff
+    -- Every element of the defining set is 0
+    have hall : ∀ c ∈ {c : ℝ | ∃ (σ τ : GaugeConnection G d N),
+        (∀ z, z ≠ y → σ z = τ z) ∧
+        c = tvDist (marginalAtSite (γ.condDist {x} σ) x)
+                   (marginalAtSite (γ.condDist {x} τ) x)}, c = 0 := by
+      rintro c ⟨σ, τ, hdiff, hc⟩
+      rw [hc]
+      -- The marginals are equal measures on G
+      have hmarg_eq : marginalAtSite (γ.condDist {x} σ) x =
+          marginalAtSite (γ.condDist {x} τ) x := by
+        apply Measure.ext; intro B hB
+        show (γ.condDist {x} σ).map (· x) B = (γ.condDist {x} τ).map (· x) B
+        rw [Measure.map_apply (measurable_pi_apply x) hB,
+            Measure.map_apply (measurable_pi_apply x) hB]
+        exact h_marg_all σ τ hdiff B hB
+      -- tvDist of equal measures is 0
+      -- Rewrite using marginal equality: both marginals are the same measure
+      have : tvDist (marginalAtSite (γ.condDist {x} σ) x)
+                    (marginalAtSite (γ.condDist {x} τ) x) = 0 := by
+        -- The two measures are equal, so every set difference is 0
+        unfold tvDist
+        have hset_eq : {c : ℝ | ∃ A : Set G, MeasurableSet A ∧
+            c = |(marginalAtSite (γ.condDist {x} σ) x A).toReal -
+                 (marginalAtSite (γ.condDist {x} τ) x A).toReal|} = {0} := by
+          ext c
+          simp only [Set.mem_setOf_eq, Set.mem_singleton_iff]
+          constructor
+          · rintro ⟨A, _, hcA⟩; rw [hcA, hmarg_eq]; simp
+          · intro hc; exact ⟨Set.univ, MeasurableSet.univ, by rw [hc, hmarg_eq]; simp⟩
+        rw [hset_eq, csSup_singleton]
+      linarith
+    -- We now need: sSup (defining set) = 0.
+    -- This follows from: influenceCoeff_nonneg (gives ≥ 0) and hall (every element = 0 ≤ 0).
+    -- Revert to the folded form and use the existing nonneg lemma.
+    change influenceCoeff γ x y = 0
+    exact le_antisymm
+      (by -- influenceCoeff ≤ 0 because every element of the defining set is 0 (hence ≤ 0)
+          unfold influenceCoeff
+          apply csSup_le
+          · -- Nonempty: take σ = τ = constant 1 config
+            exact ⟨_, fun _ => (1 : G), fun _ => (1 : G), fun _ _ => rfl, rfl⟩
+          · intro c hc; exact le_of_eq (hall c hc))
+      (influenceCoeff_nonneg γ x y)
+  -- Prove the key fact: conditional measure equality on cylinder sets
+  intro σ τ hdiff B hB
+  set A := (fun U : GaugeConnection G d N => U x) ⁻¹' B with hA_def
+  have hA : MeasurableSet A := (measurable_pi_apply x) hB
+  -- Use gibbsCondMeasure_apply_toReal for both sides
+  have h_toReal_σ := gibbsCondMeasure_apply_toReal G n d N plaq β
+    hw_meas ({x} : Finset _) σ (hZ_pos {x} σ) (hw_integrable {x} σ) A hA
+  have h_toReal_τ := gibbsCondMeasure_apply_toReal G n d N plaq β
+    hw_meas ({x} : Finset _) τ (hZ_pos {x} τ) (hw_integrable {x} τ) A hA
+  -- Pointwise factor identity for indicator-weighted Boltzmann weights
+  have h_pointwise : ∀ u : LatticeLink d N → G,
+      Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)
+          (gluedConfig G d N ({x} : Finset _) u σ) *
+        gibbsConditionalZ G n d N plaq β ({x} : Finset _) τ =
+      Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)
+          (gluedConfig G d N ({x} : Finset _) u τ) *
+        gibbsConditionalZ G n d N plaq β ({x} : Finset _) σ := by
+    intro u
+    have hx_mem : x ∈ ({x} : Finset (LatticeLink d N)) := Finset.mem_singleton_self x
+    have hglue_σ_x := gluedConfig_eq_inside G d N _ u σ x hx_mem
+    have hglue_τ_x := gluedConfig_eq_inside G d N _ u τ x hx_mem
+    have hmem_iff : gluedConfig G d N ({x} : Finset _) u σ ∈ A ↔
+        gluedConfig G d N ({x} : Finset _) u τ ∈ A := by
+      simp only [hA_def, Set.mem_preimage, hglue_σ_x, hglue_τ_x]
+    by_cases hmem : gluedConfig G d N ({x} : Finset _) u σ ∈ A
+    · rw [Set.indicator_of_mem hmem, Set.indicator_of_mem (hmem_iff.mp hmem)]
+      exact boltzmannWeight_factor_eq G n d N plaq β x y h_no_shared σ τ hdiff u
+    · rw [Set.indicator_of_notMem hmem,
+        Set.indicator_of_notMem (fun h => hmem (hmem_iff.mpr h))]
+      simp
+  -- Integrate to get (∫ ind σ) * Z_τ = (∫ ind τ) * Z_σ
+  have h_integral_factor :
+      (∫ u, Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)
+          (gluedConfig G d N ({x} : Finset _) u σ) ∂(productHaar G d N)) *
+        gibbsConditionalZ G n d N plaq β ({x} : Finset _) τ =
+      (∫ u, Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)
+          (gluedConfig G d N ({x} : Finset _) u τ) ∂(productHaar G d N)) *
+        gibbsConditionalZ G n d N plaq β ({x} : Finset _) σ := by
+    rw [← integral_mul_const, ← integral_mul_const]
+    exact integral_congr_ae (Filter.Eventually.of_forall h_pointwise)
+  -- Show .toReal values equal, then lift to ENNReal
+  have hZ_σ_pos := hZ_pos ({x} : Finset _) σ
+  have hZ_τ_pos := hZ_pos ({x} : Finset _) τ
+  have h_toReal_eq : (gibbsCondMeasure G n d N plaq β ({x} : Finset _) σ A).toReal =
+      (gibbsCondMeasure G n d N plaq β ({x} : Finset _) τ A).toReal := by
+    rw [h_toReal_σ, h_toReal_τ]
+    rw [div_eq_div_iff hZ_σ_pos.ne' hZ_τ_pos.ne']
+    linarith [h_integral_factor]
+  -- The conditional measures are probability measures
+  haveI : IsProbabilityMeasure (gibbsCondMeasure G n d N plaq β ({x} : Finset _) σ) :=
+    (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist).isProb {x} σ
+  haveI : IsProbabilityMeasure (gibbsCondMeasure G n d N plaq β ({x} : Finset _) τ) :=
+    (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist).isProb {x} τ
+  exact (ENNReal.toReal_eq_toReal_iff'
+    (measure_ne_top _ _) (measure_ne_top _ _)).mp h_toReal_eq
+
+/-! ## Combining influence bounds into hInfluence
+
+The off-plaquette case (`influenceCoeff = 0` when `¬sharesPlaquette`) is
+fully proved via `boltzmannWeight_factor_eq`. The on-plaquette case
+(`influenceCoeff ≤ influenceBound n β`) requires the standard Boltzmann
+TV estimate (min-coupling bound), which we accept as a hypothesis
+`hOnPlaq` in the combinator `influenceCoeff_le_bound`. -/
+
+/-- **Full influence coefficient bound.**
+
+Combines the off-plaquette zero-influence theorem
+(`influenceCoeff_zero_off_plaquette`) with an assumed on-plaquette
+TV bound to produce the full `hInfluence` hypothesis. -/
+theorem influenceCoeff_le_bound
+    (plaq : Finset (LatticePlaquette d N))
+    (β : ℝ)
+    (hZ_pos : ∀ Λ σ, 0 < gibbsConditionalZ G n d N plaq β Λ σ)
+    (hw_meas : Measurable fun U => boltzmannWeight G n d N β U plaq)
+    (hw_integrable : ∀ (Λ : Finset (LatticeLink d N))
+        (σ : GaugeConnection G d N),
+        Integrable (fun uΛ : LatticeLink d N → G =>
+            gibbsConditionalWeight G n d N plaq β Λ σ uΛ)
+          (Measure.pi (fun _ : LatticeLink d N => haarG G)))
+    (hmeas_condDist : ∀ (Λ : Finset (LatticeLink d N))
+      (A : Set (GaugeConnection G d N)),
+      MeasurableSet A →
+      Measurable (fun σ : GaugeConnection G d N =>
+        ((gibbsCondMeasure G n d N plaq β Λ σ) A).toReal))
+    -- On-plaquette Boltzmann TV bound (standard Dobrushin estimate):
+    (hOnPlaq : ∀ x y : LatticeLink d N, sharesPlaquette d N plaq x y →
+      influenceCoeff
+        (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
+        x y ≤ influenceBound n β)
+    (x y : LatticeLink d N) :
+    influenceCoeff
+      (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
+      x y ≤ (if sharesPlaquette d N plaq x y then influenceBound n β else 0) := by
+  by_cases hshare : sharesPlaquette d N plaq x y
+  · -- On-plaquette: use the assumed TV bound
+    rw [if_pos hshare]
+    exact hOnPlaq x y hshare
+  · -- Off-plaquette: influenceCoeff = 0
+    rw [if_neg hshare]
+    exact le_of_eq (influenceCoeff_zero_off_plaquette G n d N plaq β hZ_pos hw_meas
+      hw_integrable hmeas_condDist x y hshare)
+
 /-! ## The strong coupling wrapper theorem
 
 Discharges measure-theoretic hypotheses (including 3 measurability
@@ -974,8 +1172,10 @@ theorem ym_mass_gap_strong_coupling
     (p q : LatticePlaquette d N)
     -- Core continuity (implies measurability of boltzmannWeight and plaqObs):
     (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
-    -- Dobrushin influence bounds (physics/combinatorics):
-    (hInfluence : ∀ x y : LatticeLink d N,
+    -- On-plaquette Boltzmann TV bound (the only remaining physics input):
+    -- When links share a plaquette, the marginal influence is ≤ 1 - exp(-2nβ).
+    -- This is the standard Dobrushin estimate from the min-coupling bound.
+    (hOnPlaq : ∀ x y : LatticeLink d N, sharesPlaquette d N plaq x y →
       influenceCoeff
         (ymGibbsSpec G n d N plaq β
           (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower
@@ -985,7 +1185,7 @@ theorem ym_mass_gap_strong_coupling
             (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
           (fun Λ A hA => measurable_gibbsCondMeasure_toReal G n d N
             hRep_cont β hβ plaq hTrace_upper hTrace_lower Λ A hA)) x y ≤
-        (if sharesPlaquette d N plaq x y then influenceBound n β else 0))
+        influenceBound n β)
     -- Plaquette-per-link bound (combinatorial fact about the lattice):
     -- each link lies on at most `maxPlaquettesPerLink d = 2(d-1)` plaquettes.
     -- This implies the neighbor-count bounds `hMaxNeighborsCol/Row`
@@ -1091,6 +1291,15 @@ theorem ym_mass_gap_strong_coupling
   -- Discharge conditional integrability of plaqObs q
   have hPlaqObs_q_cond_int := plaqObs_cond_integrable G n d N β hβ plaq
     hTrace_upper hTrace_lower hw_meas p q hPlaqObs_q_meas
+  -- Construct the full influence bound from the on-plaquette hypothesis
+  -- and the off-plaquette zero-influence theorem.
+  have hInfluence : ∀ x y : LatticeLink d N,
+      influenceCoeff
+        (ymGibbsSpec G n d N plaq β hZcond_pos hw_meas
+          hw_integrable_cond hmeas_condDist) x y ≤
+        (if sharesPlaquette d N plaq x y then influenceBound n β else 0) :=
+    influenceCoeff_le_bound G n d N plaq β hZcond_pos hw_meas
+      hw_integrable_cond hmeas_condDist hOnPlaq
   -- Discharge link distance structure
   have h_refl := ymLinkDist_refl d N plaq
   have h_triangle := ymLinkDist_triangle d N plaq
