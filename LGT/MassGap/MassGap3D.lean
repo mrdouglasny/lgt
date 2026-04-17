@@ -334,17 +334,18 @@ theorem ym_mass_gap_2pt_via_multisite
         (Function.support (fun w => influenceCoeff
           (ymGibbsSpec G n d N plaq β hZcond_pos hw_meas
             hw_integrable_cond hmeas_condDist) z w)).Finite)
-    -- DLR-at-z measurability-style local dependence of `γ.condDist`.
+    -- Cylinder-set local dependence of `γ.condDist`:
+    -- the z-marginal of condDist at {z} depends only on the influence support.
     (h_dep_F : ∀ (z : LatticeLink d N)
-        (A : Set (GaugeConnection G d N)), MeasurableSet A →
+        (B : Set G), MeasurableSet B →
         ∀ (σ τ : GaugeConnection G d N),
           (∀ w ∈ (hfinsupp z).toFinset, σ w = τ w) →
           ((ymGibbsSpec G n d N plaq β hZcond_pos hw_meas
               hw_integrable_cond hmeas_condDist).condDist
-            {z} σ A).toReal =
+            {z} σ ((· z) ⁻¹' B)).toReal =
           ((ymGibbsSpec G n d N plaq β hZcond_pos hw_meas
               hw_integrable_cond hmeas_condDist).condDist
-            {z} τ A).toReal) :
+            {z} τ ((· z) ⁻¹' B)).toReal) :
     |connected2pt G n d N β plaq (plaqObs G n d N p) (plaqObs G n d N q)| ≤
       2 * (↑n : ℝ) * (↑n : ℝ) *
         ∑ x ∈ ((Finset.univ : Finset (Fin 4)).image

@@ -580,9 +580,10 @@ theorem ym_mass_gap_strong_coupling
       (plaq.filter
         (fun p => ℓ ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card
           ≤ maxPlaquettesPerLink d)
-    -- Local dependence:
+    -- Cylinder-set local dependence:
+    -- the z-marginal of condDist at {z} depends only on the influence support.
     (h_dep_F : ∀ (z : LatticeLink d N)
-        (A : Set (GaugeConnection G d N)), MeasurableSet A →
+        (B : Set G), MeasurableSet B →
         ∀ (σ τ : GaugeConnection G d N),
           (∀ w ∈ (influenceCoeff_finsupp G n d N plaq β
             (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq)
@@ -598,7 +599,7 @@ theorem ym_mass_gap_strong_coupling
               (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper
                 (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
               hmeas_condDist).condDist
-            {z} σ A).toReal =
+            {z} σ ((· z) ⁻¹' B)).toReal =
           ((ymGibbsSpec G n d N plaq β
               (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower
                 (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
@@ -606,7 +607,7 @@ theorem ym_mass_gap_strong_coupling
               (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper
                 (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
               hmeas_condDist).condDist
-            {z} τ A).toReal) :
+            {z} τ ((· z) ⁻¹' B)).toReal) :
     |connected2pt G n d N β plaq (plaqObs G n d N p) (plaqObs G n d N q)| ≤
       2 * (↑n : ℝ) * (↑n : ℝ) *
         ∑ x ∈ ((Finset.univ : Finset (Fin 4)).image
