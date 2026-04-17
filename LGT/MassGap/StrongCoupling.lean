@@ -13,10 +13,12 @@ influence coefficient bounds, link distance structure).
 
 ## Main result
 
-`ym_mass_gap_strong_coupling` takes ~17 hypotheses instead of ~28.
-The ~11 discharged ones are all consequences of:
-- boltzmannWeight is measurable and bounded by 1 (for β ≥ 0)
-- plaqObs is measurable and bounded by n
+`ym_mass_gap_strong_coupling` takes ~15 hypotheses instead of ~28.
+The ~13 discharged ones are all consequences of:
+- `Continuous (HasGaugeTrace.rep)` implies measurability of
+  boltzmannWeight and plaqObs (via continuity chain)
+- boltzmannWeight is bounded by 1 (for β ≥ 0)
+- plaqObs is bounded by n
 - productHaar / ymMeasure are probability measures
 - LatticeLink d N is a Fintype
 
@@ -36,10 +38,102 @@ noncomputable section
 variable (G : Type*) (n : ℕ) [Group G] [HasGaugeTrace G n]
 variable [TopologicalSpace G] [IsTopologicalGroup G] [CompactSpace G] [T2Space G]
 variable [MeasurableSpace G] [BorelSpace G]
+variable [SecondCountableTopology G]
 variable (d N : ℕ)
 
 variable [HasHaarProbability G] [Fintype (LatticeLink d N)]
 variable [DecidableEq (LatticeLink d N)]
+
+/-! ## Topology and Borel structure on GaugeConnection -/
+
+instance instTopologicalSpaceGaugeConnection :
+    TopologicalSpace (GaugeConnection G d N) := Pi.topologicalSpace
+
+instance instBorelSpaceGaugeConnection :
+    BorelSpace (GaugeConnection G d N) := by
+  constructor
+  show instMeasurableSpaceGaugeConnection G d N =
+    @borel (GaugeConnection G d N) (instTopologicalSpaceGaugeConnection G d N)
+  show @MeasurableSpace.pi (LatticeLink d N) (fun _ => G) (fun _ => inferInstance) =
+    @borel (LatticeLink d N → G)
+      (@Pi.topologicalSpace (LatticeLink d N) (fun _ => G) (fun _ => inferInstance))
+  exact (@Pi.borelSpace (LatticeLink d N) (fun _ => G) _ (fun _ => inferInstance)
+    (fun _ => inferInstance) (fun _ => inferInstance) (fun _ => inferInstance)).measurable_eq
+
+/-! ## Continuity and measurability from representation continuity
+
+These lemmas derive measurability of `boltzmannWeight` and `plaqObs`
+from `Continuous (HasGaugeTrace.rep)` via the chain:
+  rep continuous → gaugeTrace continuous → gaugeReTr continuous
+  → wilsonPlaquetteCost continuous → wilsonAction continuous
+  → boltzmannWeight continuous → measurable
+  → plaquetteHolonomy continuous (from topological group ops)
+  → plaqObs continuous → measurable -/
+
+set_option linter.unusedSectionVars false in
+/-- Link evaluation is continuous in the product topology. -/
+theorem continuous_evalLink (l : LatticeLink d N) :
+    Continuous (fun U : GaugeConnection G d N => U l) :=
+  show Continuous (fun U : LatticeLink d N → G => U l) from continuous_apply l
+
+set_option linter.unusedSectionVars false in
+/-- gaugeReTr is continuous when the representation is continuous. -/
+theorem continuous_gaugeReTr
+    (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n))) :
+    Continuous (gaugeReTr G n) := by
+  unfold gaugeReTr gaugeTrace
+  exact Complex.continuous_re.comp
+    (continuous_finset_sum _ (fun i _ => (continuous_apply_apply i i).comp hRep_cont))
+
+set_option linter.unusedSectionVars false in
+/-- Plaquette holonomy is continuous (product of continuous group operations). -/
+theorem continuous_plaquetteHolonomy (p : LatticePlaquette d N) :
+    Continuous (fun U : GaugeConnection G d N => plaquetteHolonomy U p) := by
+  unfold plaquetteHolonomy
+  exact ((continuous_evalLink G d N (p.boundaryLinks 0) |>.mul
+          (continuous_evalLink G d N (p.boundaryLinks 1))).mul
+        (continuous_evalLink G d N (p.boundaryLinks 2) |>.inv)).mul
+       (continuous_evalLink G d N (p.boundaryLinks 3) |>.inv)
+
+set_option linter.unusedSectionVars false in
+/-- plaqObs is continuous when the representation is continuous. -/
+theorem continuous_plaqObs
+    (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
+    (p : LatticePlaquette d N) :
+    Continuous (plaqObs G n d N p) := by
+  unfold plaqObs
+  exact (continuous_gaugeReTr G n hRep_cont).comp
+    (continuous_plaquetteHolonomy G d N p)
+
+set_option linter.unusedSectionVars false in
+/-- boltzmannWeight is continuous when the representation is continuous. -/
+theorem continuous_boltzmannWeight
+    (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
+    (β : ℝ) (plaq : Finset (LatticePlaquette d N)) :
+    Continuous (fun U => boltzmannWeight G n d N β U plaq) := by
+  unfold boltzmannWeight wilsonAction
+  exact continuous_exp.comp (continuous_neg.comp
+    (continuous_finset_sum _ fun p _ => by
+      unfold wilsonPlaquetteCost
+      exact continuous_const.mul (continuous_const.sub
+        ((continuous_gaugeReTr G n hRep_cont).comp
+          (continuous_plaquetteHolonomy G d N p)))))
+
+set_option linter.unusedSectionVars false in
+/-- boltzmannWeight is measurable when the representation is continuous. -/
+theorem measurable_boltzmannWeight_of_rep
+    (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
+    (β : ℝ) (plaq : Finset (LatticePlaquette d N)) :
+    Measurable (fun U => boltzmannWeight G n d N β U plaq) :=
+  (continuous_boltzmannWeight G n d N hRep_cont β plaq).measurable
+
+set_option linter.unusedSectionVars false in
+/-- plaqObs is measurable when the representation is continuous. -/
+theorem measurable_plaqObs_of_rep
+    (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
+    (p : LatticePlaquette d N) :
+    Measurable (plaqObs G n d N p) :=
+  (continuous_plaqObs G n d N hRep_cont p).measurable
 
 /-! ## Helper lemmas: deriving integrability from boundedness -/
 
@@ -283,8 +377,9 @@ theorem influenceCoeff_finsupp
 
 /-! ## The strong coupling wrapper theorem
 
-Discharges 11 measure-theoretic hypotheses, passing through only
-the genuinely hard ones. -/
+Discharges 13 measure-theoretic hypotheses (including 3 measurability
+facts derived from `hRep_cont`), passing through only the genuinely
+hard ones. -/
 
 set_option maxHeartbeats 800000 in
 theorem ym_mass_gap_strong_coupling
@@ -297,10 +392,8 @@ theorem ym_mass_gap_strong_coupling
     (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
     (plaq : Finset (LatticePlaquette d N))
     (p q : LatticePlaquette d N)
-    -- Core measurability (requires continuity of rep, not proved here):
-    (hw_meas : Measurable (fun U => boltzmannWeight G n d N β U plaq))
-    (hPlaqObs_p_meas : Measurable (plaqObs G n d N p))
-    (hPlaqObs_q_meas : Measurable (plaqObs G n d N q))
+    -- Core continuity (implies measurability of boltzmannWeight and plaqObs):
+    (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
     -- Parametrised-integral measurability (genuine measure theory):
     (hmeas_condDist : ∀ (Λ : Finset (LatticeLink d N))
         (A : Set (GaugeConnection G d N)), MeasurableSet A →
@@ -327,9 +420,11 @@ theorem ym_mass_gap_strong_coupling
     (hInfluence : ∀ x y : LatticeLink d N,
       influenceCoeff
         (ymGibbsSpec G n d N plaq β
-          (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower hw_meas)
-          hw_meas
-          (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper hw_meas)
+          (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower
+            (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
+          (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq)
+          (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper
+            (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
           hmeas_condDist) x y ≤
         (if sharesPlaquette d N plaq x y then influenceBound n β else 0))
     (hMaxNeighborsCol : ∀ y : LatticeLink d N,
@@ -360,28 +455,37 @@ theorem ym_mass_gap_strong_coupling
     (h_support : ∀ u v, dLink u v > 1 →
         influenceCoeff
           (ymGibbsSpec G n d N plaq β
-            (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower hw_meas)
-            hw_meas
-            (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper hw_meas)
+            (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower
+              (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
+            (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq)
+            (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper
+              (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
             hmeas_condDist) u v = 0)
     -- Local dependence:
     (h_dep_F : ∀ (z : LatticeLink d N)
         (A : Set (GaugeConnection G d N)), MeasurableSet A →
         ∀ (σ τ : GaugeConnection G d N),
-          (∀ w ∈ (influenceCoeff_finsupp G n d N plaq β hw_meas
-            (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower hw_meas)
-            (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper hw_meas)
+          (∀ w ∈ (influenceCoeff_finsupp G n d N plaq β
+            (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq)
+            (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower
+              (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
+            (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper
+              (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
             hmeas_condDist z).toFinset, σ w = τ w) →
           ((ymGibbsSpec G n d N plaq β
-              (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower hw_meas)
-              hw_meas
-              (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper hw_meas)
+              (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower
+                (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
+              (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq)
+              (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper
+                (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
               hmeas_condDist).condDist
             {z} σ A).toReal =
           ((ymGibbsSpec G n d N plaq β
-              (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower hw_meas)
-              hw_meas
-              (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper hw_meas)
+              (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower
+                (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
+              (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq)
+              (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper
+                (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
               hmeas_condDist).condDist
             {z} τ A).toReal) :
     |connected2pt G n d N β plaq (plaqObs G n d N p) (plaqObs G n d N q)| ≤
@@ -392,6 +496,13 @@ theorem ym_mass_gap_strong_coupling
                 (LatticePlaquette.boundaryLinks q)),
             (dobrushinColumnSum n d β) ^ dLink y x /
               (1 - dobrushinColumnSum n d β) := by
+  -- Derive measurability from representation continuity
+  have hw_meas : Measurable (fun U => boltzmannWeight G n d N β U plaq) :=
+    measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq
+  have hPlaqObs_p_meas : Measurable (plaqObs G n d N p) :=
+    measurable_plaqObs_of_rep G n d N hRep_cont p
+  have hPlaqObs_q_meas : Measurable (plaqObs G n d N q) :=
+    measurable_plaqObs_of_rep G n d N hRep_cont q
   -- Derive the easy hypotheses
   have hIntegrable_w : Integrable (fun U => boltzmannWeight G n d N β U plaq)
       (productHaar G d N) :=
