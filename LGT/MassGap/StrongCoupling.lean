@@ -7,20 +7,25 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Discharges the measure-theoretic "plumbing" hypotheses of
 `ym_mass_gap_2pt_via_multisite` (integrability, boundedness,
 indicator-integrability, conditional partition function positivity,
-finite support) from first principles — leaving only the genuinely
+finite support), the link distance structure, and conditional
+integrability from first principles — leaving only the genuinely
 hard analytic hypotheses (parametrised-integral measurability,
-influence coefficient bounds, link distance structure).
+influence coefficient bounds, local dependence).
 
 ## Main result
 
-`ym_mass_gap_strong_coupling` takes ~15 hypotheses instead of ~28.
-The ~13 discharged ones are all consequences of:
+`ym_mass_gap_strong_coupling` takes ~10 hypotheses instead of ~28.
+The ~18 discharged ones are all consequences of:
 - `Continuous (HasGaugeTrace.rep)` implies measurability of
   boltzmannWeight and plaqObs (via continuity chain)
-- boltzmannWeight is bounded by 1 (for β ≥ 0)
+- boltzmannWeight is bounded by 1 (for beta >= 0)
 - plaqObs is bounded by n
 - productHaar / ymMeasure are probability measures
 - LatticeLink d N is a Fintype
+- Concrete link distance `ymLinkDist` (0/1/2 based on plaquette
+  adjacency) satisfies reflexivity, triangle inequality, and
+  support property
+- Bounded measurable functions are integrable on probability measures
 
 ## References
 
@@ -375,11 +380,151 @@ theorem influenceCoeff_finsupp
         hw_integrable_cond hmeas_condDist) z w)).Finite :=
   Set.Finite.subset (Set.toFinite _) (Set.subset_univ _)
 
+/-! ## Link distance structure
+
+A crude distance on `LatticeLink d N` based on plaquette adjacency:
+- `ymLinkDist e₁ e₂ = 0` when `e₁ = e₂`
+- `ymLinkDist e₁ e₂ = 1` when they share a plaquette
+- `ymLinkDist e₁ e₂ = 2` otherwise
+
+All values lie in `{0, 1, 2}`, making the triangle inequality
+and support property trivial by case analysis. -/
+
+/-- Crude metric on links: 0 if equal, 1 if plaquette-neighbors, 2 otherwise.
+Uses classical decidability (via `open Classical`). -/
+def ymLinkDist (plaq : Finset (LatticePlaquette d N))
+    (e₁ e₂ : LatticeLink d N) : ℕ :=
+  if e₁ = e₂ then 0
+  else if sharesPlaquette d N plaq e₁ e₂ then 1
+  else 2
+
+omit [Fintype (LatticeLink d N)] in
+theorem ymLinkDist_refl (plaq : Finset (LatticePlaquette d N))
+    (e : LatticeLink d N) :
+    ymLinkDist d N plaq e e = 0 := by
+  simp [ymLinkDist]
+
+omit [Fintype (LatticeLink d N)] in
+theorem ymLinkDist_triangle (plaq : Finset (LatticePlaquette d N))
+    (x y z : LatticeLink d N) :
+    ymLinkDist d N plaq x y ≤ ymLinkDist d N plaq x z + ymLinkDist d N plaq z y := by
+  simp only [ymLinkDist]
+  -- All values are in {0, 1, 2}; case split on equality conditions.
+  by_cases hxy : x = y
+  · -- x = y: LHS = 0 ≤ RHS
+    simp [hxy]
+  · by_cases hxz : x = z
+    · subst hxz; simp [hxy]
+    · by_cases hzy : z = y
+      · subst hzy; simp [hxy]
+      · -- x ≠ z, z ≠ y: each summand ≥ 1, so RHS ≥ 2 ≥ LHS
+        simp only [hxz, hzy, hxy, ↓reduceIte]
+        have h1 : 1 ≤ (if sharesPlaquette d N plaq x z then 1 else 2) := by
+          split_ifs <;> omega
+        have h2 : 1 ≤ (if sharesPlaquette d N plaq z y then 1 else 2) := by
+          split_ifs <;> omega
+        have h3 : (if sharesPlaquette d N plaq x y then 1 else 2) ≤ 2 := by
+          split_ifs <;> omega
+        omega
+
+omit [SecondCountableTopology G] in
+/-- The distance-support property: links at distance > 1 have zero
+influence coefficient. Follows from `hInfluence` (which bounds
+influence by 0 off-plaquette) and nonnegativity of `influenceCoeff`. -/
+theorem ymLinkDist_support (plaq : Finset (LatticePlaquette d N))
+    (β : ℝ)
+    (hZ_pos : ∀ Λ σ, 0 < gibbsConditionalZ G n d N plaq β Λ σ)
+    (hw_meas : Measurable fun U => boltzmannWeight G n d N β U plaq)
+    (hw_integrable : ∀ (Λ : Finset (LatticeLink d N))
+        (σ : GaugeConnection G d N),
+        Integrable (fun uΛ : LatticeLink d N → G =>
+            gibbsConditionalWeight G n d N plaq β Λ σ uΛ)
+          (Measure.pi (fun _ : LatticeLink d N => haarG G)))
+    (hmeas_condDist : ∀ (Λ : Finset (LatticeLink d N))
+        (A : Set (GaugeConnection G d N)), MeasurableSet A →
+        Measurable (fun σ : GaugeConnection G d N =>
+          (gibbsCondMeasure G n d N plaq β Λ σ A).toReal))
+    (hInfluence : ∀ x y : LatticeLink d N,
+      influenceCoeff
+        (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
+        x y ≤ (if sharesPlaquette d N plaq x y then influenceBound n β else 0))
+    (u v : LatticeLink d N) (h : ymLinkDist d N plaq u v > 1) :
+    influenceCoeff
+      (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
+      u v = 0 := by
+  -- ymLinkDist > 1 means the value is 2, which means ¬ sharesPlaquette
+  unfold ymLinkDist at h
+  split_ifs at h with h1 h2
+  · omega
+  · omega
+  · -- ¬ sharesPlaquette, so hInfluence gives influenceCoeff ≤ 0
+    have hle := hInfluence u v
+    simp only [↓reduceIte, h2] at hle
+    exact le_antisymm hle (influenceCoeff_nonneg _ u v)
+
+/-! ## Conditional integrability of bounded observables
+
+A bounded measurable function is integrable on any probability measure.
+We use this to discharge `hPlaqObs_q_cond_int`. -/
+
+omit [T2Space G] in
+/-- `plaqObs q` is integrable on any `condFiniteSupportMeasure` of
+`ymMeasure` — bounded + measurable on a probability measure. -/
+theorem plaqObs_cond_integrable
+    [MeasurableSingletonClass G] [Countable G] [Inhabited G]
+    (β : ℝ) (hβ : 0 ≤ β)
+    (plaq : Finset (LatticePlaquette d N))
+    (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
+    (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
+    (hw_meas : Measurable (fun U => boltzmannWeight G n d N β U plaq))
+    (p q : LatticePlaquette d N)
+    (hPlaqObs_q_meas : Measurable (plaqObs G n d N q)) :
+    ∀ a : ((Finset.univ : Finset (Fin 4)).image
+        (LatticePlaquette.boundaryLinks p)) → G,
+    ymMeasure G n d N β plaq
+        (CovarianceBoundMultisite.multiFiber
+          ((Finset.univ : Finset (Fin 4)).image
+            (LatticePlaquette.boundaryLinks p))
+          (CovarianceBoundMultisite.extendOnFinset _ a)) ≠ 0 →
+    Integrable (plaqObs G n d N q)
+      (CovarianceBoundMultisite.condFiniteSupportMeasure
+        (ymMeasure G n d N β plaq)
+        ((Finset.univ : Finset (Fin 4)).image
+          (LatticePlaquette.boundaryLinks p))
+        (CovarianceBoundMultisite.extendOnFinset _ a)) := by
+  intro a hne
+  -- ymMeasure is a probability measure, so μ(fiber) ≤ 1 < ⊤
+  haveI : IsProbabilityMeasure (ymMeasure G n d N β plaq) :=
+    ymMeasure_isProbabilityMeasure G n d N β hβ plaq hTrace_upper hTrace_lower
+      (boltzmannWeight_integrable G n d N β hβ plaq hTrace_upper hw_meas) hw_meas
+  have hne_top : ymMeasure G n d N β plaq
+      (CovarianceBoundMultisite.multiFiber
+        ((Finset.univ : Finset (Fin 4)).image (LatticePlaquette.boundaryLinks p))
+        (CovarianceBoundMultisite.extendOnFinset _ a)) ≠ ⊤ :=
+    ne_top_of_le_ne_top (by simp [measure_ne_top]) (measure_mono (Set.subset_univ _))
+  -- Bounded + ae-measurable on finite measure → integrable.
+  -- The condFiniteSupportMeasure is a probability measure, so it's finite.
+  haveI : IsProbabilityMeasure
+      (CovarianceBoundMultisite.condFiniteSupportMeasure
+        (ymMeasure G n d N β plaq)
+        ((Finset.univ : Finset (Fin 4)).image (LatticePlaquette.boundaryLinks p))
+        (CovarianceBoundMultisite.extendOnFinset _ a)) :=
+    CovarianceBoundMultisite.isProbabilityMeasure_condFiniteSupportMeasure
+      _ _ _ hne hne_top
+  exact Integrable.of_bound (μ := CovarianceBoundMultisite.condFiniteSupportMeasure
+        (ymMeasure G n d N β plaq)
+        ((Finset.univ : Finset (Fin 4)).image (LatticePlaquette.boundaryLinks p))
+        (CovarianceBoundMultisite.extendOnFinset _ a))
+    hPlaqObs_q_meas.aestronglyMeasurable (↑n : ℝ)
+    (Filter.Eventually.of_forall (fun U =>
+      plaqObs_bounded G n d N q U (fun g => abs_le.mpr
+        ⟨by linarith [hTrace_lower g], hTrace_upper g⟩)))
+
 /-! ## The strong coupling wrapper theorem
 
-Discharges 13 measure-theoretic hypotheses (including 3 measurability
-facts derived from `hRep_cont`), passing through only the genuinely
-hard ones. -/
+Discharges measure-theoretic hypotheses (including 3 measurability
+facts derived from `hRep_cont`), link distance, and conditional
+integrability — leaving only the genuinely hard ones. -/
 
 set_option maxHeartbeats 800000 in
 theorem ym_mass_gap_strong_coupling
@@ -433,34 +578,6 @@ theorem ym_mass_gap_strong_coupling
     (hMaxNeighborsRow : ∀ x : LatticeLink d N,
       ((Finset.univ : Finset (LatticeLink d N)).filter
         (fun y => sharesPlaquette d N plaq x y)).card ≤ maxNeighbors d)
-    -- Conditional integrability of plaqObs q:
-    (hPlaqObs_q_cond_int :
-        ∀ a : ((Finset.univ : Finset (Fin 4)).image
-            (LatticePlaquette.boundaryLinks p)) → G,
-        ymMeasure G n d N β plaq
-            (CovarianceBoundMultisite.multiFiber
-              ((Finset.univ : Finset (Fin 4)).image
-                (LatticePlaquette.boundaryLinks p))
-              (CovarianceBoundMultisite.extendOnFinset _ a)) ≠ 0 →
-        Integrable (plaqObs G n d N q)
-          (CovarianceBoundMultisite.condFiniteSupportMeasure
-            (ymMeasure G n d N β plaq)
-            ((Finset.univ : Finset (Fin 4)).image
-              (LatticePlaquette.boundaryLinks p))
-            (CovarianceBoundMultisite.extendOnFinset _ a)))
-    -- Link distance structure:
-    (dLink : LatticeLink d N → LatticeLink d N → ℕ)
-    (h_refl : ∀ x, dLink x x = 0)
-    (h_triangle : ∀ x y z, dLink x y ≤ dLink x z + dLink z y)
-    (h_support : ∀ u v, dLink u v > 1 →
-        influenceCoeff
-          (ymGibbsSpec G n d N plaq β
-            (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower
-              (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
-            (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq)
-            (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper
-              (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
-            hmeas_condDist) u v = 0)
     -- Local dependence:
     (h_dep_F : ∀ (z : LatticeLink d N)
         (A : Set (GaugeConnection G d N)), MeasurableSet A →
@@ -494,7 +611,7 @@ theorem ym_mass_gap_strong_coupling
                 (LatticePlaquette.boundaryLinks p)),
           ∑ y ∈ ((Finset.univ : Finset (Fin 4)).image
                 (LatticePlaquette.boundaryLinks q)),
-            (dobrushinColumnSum n d β) ^ dLink y x /
+            (dobrushinColumnSum n d β) ^ ymLinkDist d N plaq y x /
               (1 - dobrushinColumnSum n d β) := by
   -- Derive measurability from representation continuity
   have hw_meas : Measurable (fun U => boltzmannWeight G n d N β U plaq) :=
@@ -554,6 +671,14 @@ theorem ym_mass_gap_strong_coupling
           hw_integrable_cond hmeas_condDist) z w)).Finite :=
     influenceCoeff_finsupp G n d N plaq β hw_meas
       hZcond_pos hw_integrable_cond hmeas_condDist
+  -- Discharge conditional integrability of plaqObs q
+  have hPlaqObs_q_cond_int := plaqObs_cond_integrable G n d N β hβ plaq
+    hTrace_upper hTrace_lower hw_meas p q hPlaqObs_q_meas
+  -- Discharge link distance structure
+  have h_refl := ymLinkDist_refl d N plaq
+  have h_triangle := ymLinkDist_triangle d N plaq
+  have h_support := ymLinkDist_support G n d N plaq β hZcond_pos
+    hw_meas hw_integrable_cond hmeas_condDist hInfluence
   -- Apply the upstream theorem
   exact ym_mass_gap_2pt_via_multisite G n d N hd hn β hβ hβ_small
     hTrace_lower hTrace_upper plaq p q
@@ -562,6 +687,6 @@ theorem ym_mass_gap_strong_coupling
     hPlaqObs_p_meas hPlaqObs_q_meas hPlaqObs_p_int hPlaqObs_q_int hPlaqObs_pq_int
     hPlaqObs_pw_int hPlaqObs_qw_int hPlaqObs_pqw_int
     hInfluence hMaxNeighborsCol hMaxNeighborsRow hPlaqObs_q_cond_int
-    dLink h_refl h_triangle h_support hfinsupp h_dep_F
+    (ymLinkDist d N plaq) h_refl h_triangle h_support hfinsupp h_dep_F
 
 end
