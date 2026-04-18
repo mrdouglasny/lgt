@@ -212,11 +212,11 @@ on the YM Gibbs specification, with:
   ℓ¹ distance on the link graph), together with the nearest-neighbor
   support hypothesis `h_support`.
 
-Since `covariance_bound_gibbs_multisite_general_nn_dist` requires
-`[Countable S]` and `[MeasurableSingletonClass S]` on the spin space,
-we include those as typeclass hypotheses. These hold e.g. for finite
-discretizations of G, which is the regime in which the conditional
-integrability / measurability assumptions below can also be discharged.
+Since `covariance_bound_gibbs_multisite_general_nn_dist_nocount` requires
+`[MeasurableSingletonClass S]`, `[MeasurableEq S]`, and
+`[MeasurableEq (SpinConfig I S)]` on the spin space, we include those as
+typeclass hypotheses. These hold for metrizable spaces (e.g. U(n))
+since the diagonal is closed, hence Borel-measurable.
 
 The full list of hypotheses is the intentional "conditional-theorem"
 shape: a Gibbs-spec-compatible input (hypotheses discharging
@@ -228,7 +228,7 @@ pieces yet to be discharged to give a fully unconditional theorem. -/
 set_option maxHeartbeats 400000 in
 theorem ym_mass_gap_2pt_via_multisite
     [DecidableEq (LatticeLink d N)]
-    [Inhabited G] [Countable G] [MeasurableSingletonClass G]
+    [Inhabited G] [MeasurableSingletonClass G] [MeasurableEq G]
     [MeasurableEq (SpinConfig (LatticeLink d N) G)]
     (hd : 2 ≤ d) (hn : 1 ≤ n)
     (β : ℝ) (hβ : 0 ≤ β)
@@ -463,7 +463,7 @@ theorem ym_mass_gap_2pt_via_multisite
       2 * (↑n : ℝ) * (↑n : ℝ) *
         ∑ x ∈ N_f, ∑ y ∈ N_g,
           hD.α ^ dLink y x / (1 - hD.α) :=
-    CovarianceBoundMultisite.covariance_bound_gibbs_multisite_general_nn_dist
+    CovarianceBoundMultisite.covariance_bound_gibbs_multisite_general_nn_dist_nocount
       (I := LatticeLink d N) (S := G) γ hD
       (ymMeasure G n d N β plaq) hμ
       (plaqObs G n d N p) (plaqObs G n d N q)

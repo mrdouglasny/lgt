@@ -477,7 +477,7 @@ omit [T2Space G] in
 /-- `plaqObs q` is integrable on any `condFiniteSupportMeasure` of
 `ymMeasure` — bounded + measurable on a probability measure. -/
 theorem plaqObs_cond_integrable
-    [MeasurableSingletonClass G] [Countable G] [Inhabited G]
+    [MeasurableSingletonClass G] [Inhabited G]
     (β : ℝ) (hβ : 0 ≤ β)
     (plaq : Finset (LatticePlaquette d N))
     (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
@@ -1518,7 +1518,7 @@ The off-plaquette case (`influenceCoeff = 0` when `¬sharesPlaquette`) is
 fully proved via `boltzmannWeight_factor_eq`. The on-plaquette case
 (`influenceCoeff ≤ influenceBound n β`) is derived from the cylinder ratio
 bound `gibbsCondMeasure_cylinder_ratio` via
-`influenceCoeff_le_of_cylinder_ratio_bound` from MarkovSemigroups.
+`influenceCoeff_le_of_cylinder_ratio_bound_nocount` (local, without `[Countable]`).
 The combinator `influenceCoeff_le_bound` then packages both cases. -/
 
 /-- **Full influence coefficient bound.**
@@ -1559,6 +1559,87 @@ theorem influenceCoeff_le_bound
     exact le_of_eq (influenceCoeff_zero_off_plaquette G n d N plaq β hZ_pos hw_meas
       hw_integrable hmeas_condDist x y hshare)
 
+/-! ## Local `_nocount` version of `influenceCoeff_le_of_cylinder_ratio_bound`
+
+The upstream lemma `influenceCoeff_le_of_cylinder_ratio_bound` in
+`MarkovSemigroups.Dobrushin.Uniqueness` carries `[Countable S]` in its
+signature, but its proof only uses `[MeasurableSingletonClass S]`.
+We reproduce it here without `Countable` so that
+`ym_mass_gap_strong_coupling` can drop the `[Countable G]` hypothesis. -/
+
+private lemma abs_sub_le_one_sub_exp_neg'
+    {p q C : ℝ} (hC : 0 ≤ C)
+    (_ : 0 ≤ q) (hq1 : q ≤ 1)
+    (h1 : Real.exp (-C) * q ≤ p)
+    (h2 : Real.exp (-C) * (1 - q) ≤ 1 - p) :
+    |p - q| ≤ 1 - Real.exp (-C) := by
+  have hexp_le : Real.exp (-C) ≤ 1 := by
+    rw [Real.exp_neg]; exact inv_le_one_of_one_le₀ (Real.one_le_exp hC)
+  rw [abs_le]
+  constructor
+  · have : q * (1 - Real.exp (-C)) ≤ 1 - Real.exp (-C) :=
+      mul_le_of_le_one_left (sub_nonneg.mpr hexp_le) hq1
+    nlinarith
+  · have : (1 - q) * (1 - Real.exp (-C)) ≤ 1 - Real.exp (-C) :=
+      mul_le_of_le_one_left (sub_nonneg.mpr hexp_le) (by linarith)
+    nlinarith
+
+private lemma prob_compl_toReal_eq' {X : Type*} [MeasurableSpace X]
+    (μ : Measure X) [IsProbabilityMeasure μ]
+    (A : Set X) (hA : MeasurableSet A) :
+    (μ Aᶜ).toReal = 1 - (μ A).toReal := by
+  rw [prob_compl_eq_one_sub hA,
+      ENNReal.toReal_sub_of_le (prob_le_one (s := A)) ENNReal.one_ne_top]
+  simp
+
+/-- Local version of `influenceCoeff_le_of_cylinder_ratio_bound` without
+`[Countable S]`. The upstream version carries `[Countable S]` but only
+uses `[MeasurableSingletonClass S]` in its proof. -/
+theorem influenceCoeff_le_of_cylinder_ratio_bound_nocount
+    {I : Type*} [DecidableEq I] {S : Type*} [MeasurableSpace S]
+    (γ : GibbsSpec I S) (x y : I)
+    (C : ℝ) (hC : 0 ≤ C)
+    (hRatio : ∀ (σ τ : SpinConfig I S),
+      (∀ z, z ≠ y → σ z = τ z) →
+      ∀ (B : Set S), MeasurableSet B →
+        (γ.condDist {x} τ ((fun σ => σ x) ⁻¹' B)).toReal ≤
+          Real.exp C * (γ.condDist {x} σ ((fun σ => σ x) ⁻¹' B)).toReal) :
+    influenceCoeff γ x y ≤ 1 - Real.exp (-C) := by
+  unfold influenceCoeff
+  by_cases hne : {c : ℝ | ∃ (σ τ : SpinConfig I S),
+    (∀ z, z ≠ y → σ z = τ z) ∧
+    c = tvDist (marginalAtSite (γ.condDist {x} σ) x)
+               (marginalAtSite (γ.condDist {x} τ) x)}.Nonempty
+  · apply csSup_le hne
+    rintro c ⟨σ, τ, hdiff, rfl⟩
+    apply csSup_le (tvDist_set_nonempty _ _)
+    rintro c' ⟨B, hB, rfl⟩
+    rw [marginalAtSite_apply _ _ hB, marginalAtSite_apply _ _ hB]
+    set A := (fun σ' : SpinConfig I S => σ' x) ⁻¹' B
+    have hA_meas : MeasurableSet A := (measurable_pi_apply x) hB
+    have hexp_inv :
+        Real.exp (-C) * (γ.condDist {x} τ A).toReal ≤
+          (γ.condDist {x} σ A).toReal := by
+      rw [Real.exp_neg, inv_mul_le_iff₀ (Real.exp_pos C)]
+      exact hRatio σ τ hdiff B hB
+    have hexp_compl :
+        Real.exp (-C) * (1 - (γ.condDist {x} τ A).toReal) ≤
+          1 - (γ.condDist {x} σ A).toReal := by
+      rw [Real.exp_neg, inv_mul_le_iff₀ (Real.exp_pos C)]
+      have hBc : MeasurableSet Bᶜ := hB.compl
+      have := hRatio σ τ hdiff Bᶜ hBc
+      rwa [Set.preimage_compl,
+           prob_compl_toReal_eq' _ _ hA_meas,
+           prob_compl_toReal_eq' _ _ hA_meas] at this
+    exact abs_sub_le_one_sub_exp_neg' hC
+      ENNReal.toReal_nonneg (condDist_toReal_le_one γ x τ _)
+      hexp_inv hexp_compl
+  · simp only [Set.not_nonempty_iff_eq_empty] at hne
+    rw [hne, Real.sSup_empty]
+    have : Real.exp (-C) ≤ 1 := by
+      rw [Real.exp_neg]; exact inv_le_one_of_one_le₀ (Real.one_le_exp hC)
+    linarith
+
 /-! ## The strong coupling wrapper theorem
 
 Discharges measure-theoretic hypotheses (including 3 measurability
@@ -1567,7 +1648,7 @@ integrability — leaving only the genuinely hard ones. -/
 
 set_option maxHeartbeats 800000 in
 theorem ym_mass_gap_strong_coupling
-    [Inhabited G] [Countable G] [MeasurableSingletonClass G]
+    [Inhabited G] [MeasurableSingletonClass G] [MeasurableEq G]
     [MeasurableEq (SpinConfig (LatticeLink d N) G)]
     (hd : 2 ≤ d) (hn : 1 ≤ n)
     (β : ℝ) (hβ : 0 ≤ β)
@@ -1691,7 +1772,7 @@ theorem ym_mass_gap_strong_coupling
   have hPlaqObs_q_cond_int := plaqObs_cond_integrable G n d N β hβ plaq
     hTrace_upper hTrace_lower hw_meas p q hPlaqObs_q_meas
   -- Derive the on-plaquette influence bound from the cylinder ratio
-  -- hypothesis via influenceCoeff_le_of_cylinder_ratio_bound.
+  -- hypothesis via influenceCoeff_le_of_cylinder_ratio_bound_nocount.
   have hOnPlaq : ∀ x y : LatticeLink d N, sharesPlaquette d N plaq x y →
       influenceCoeff
         (ymGibbsSpec G n d N plaq β hZcond_pos hw_meas
@@ -1700,7 +1781,7 @@ theorem ym_mass_gap_strong_coupling
     -- Apply the upstream cylinder ratio → influence bound theorem.
     -- C = 4 * n * β, and influenceBound n β = 1 - exp(-4nβ).
     have hC : (0 : ℝ) ≤ 4 * ↑n * β := by positivity
-    have hkey := influenceCoeff_le_of_cylinder_ratio_bound
+    have hkey := influenceCoeff_le_of_cylinder_ratio_bound_nocount
       (ymGibbsSpec G n d N plaq β hZcond_pos hw_meas hw_integrable_cond hmeas_condDist)
       x y (4 * ↑n * β) hC
       (fun σ τ hdiff B hB => by
@@ -1782,23 +1863,14 @@ hypotheses (they are true for U(n) but require nontrivial proofs):
 - `SecondCountableTopology` (compact metrizable implies second-countable)
 - `HasHaarProbability` (existence of normalized Haar measure)
 
-### The `[Countable G]` limitation
+### Measurability hypotheses
 
-The upstream Dobrushin uniqueness machinery in `MarkovSemigroups`
-(`CovarianceBoundMultisite`, `CondTVBridge`) requires `[Countable S]`
-where `S` is the spin space. For lattice gauge theory, `S = G` (the
-gauge group). Since `U(n)` is uncountable for `n ≥ 1`, this hypothesis
-**cannot** be discharged.
-
-This is a known limitation of the current formalization chain. The
-`[Countable G]` assumption appears in the theorem statement to make
-this gap explicit. The theorem applies as stated to:
-- Finite subgroups of U(n) (e.g., lattice discretizations Zₘ ⊂ U(1))
-- Any countable dense subgroup (though this requires separate analysis)
-
-Removing the `[Countable G]` requirement from the Dobrushin machinery
-is a separate project that would involve generalizing the coupling
-arguments to continuous state spaces. -/
+The `_nocount` variants in `MarkovSemigroups` replace the former
+`[Countable S]` requirement with `[MeasurableEq S]` and
+`[MeasurableEq (SpinConfig I S)]`. For U(n) these are true
+(metrizable spaces have closed diagonal, hence Borel-measurable
+equality) but not yet formalized in Mathlib, so they appear as
+explicit hypotheses. -/
 
 noncomputable section UNMassGap
 
@@ -1825,11 +1897,9 @@ with a rate controlled by the Dobrushin column sum.
 - `[SecondCountableTopology ...]`: compact metrizable ⟹ second-countable
 - `[HasHaarProbability ...]`: normalized Haar measure exists on compact groups
 
-**Known limitation (see module docstring):**
-- `[Countable ...]`: required by upstream Dobrushin machinery but FALSE
-  for U(n). This restricts applicability to finite/countable gauge groups.
-- `[MeasurableSingletonClass ...]` and `[MeasurableEq ...]`: consequences
-  of `[Countable ...]`. -/
+**Measurability hypotheses (true for U(n) but not yet in Mathlib):**
+- `[MeasurableSingletonClass ...]` and `[MeasurableEq ...]`: follow from
+  metrizability (diagonal is closed in the product topology, hence Borel). -/
 theorem ym_mass_gap_UN
     (n : ℕ) (hn : 1 ≤ n)
     (d N : ℕ) (hd : 2 ≤ d) [NeZero N]
@@ -1839,9 +1909,9 @@ theorem ym_mass_gap_UN
     [HasHaarProbability (unitaryGroup (Fin n) ℂ)]
     [Fintype (LatticeLink d N)]
     [DecidableEq (LatticeLink d N)]
-    -- Countable limitation (see docstring):
-    [Countable (unitaryGroup (Fin n) ℂ)]
+    -- Measurability instances (true for U(n): metrizable → diagonal closed → Borel measurable):
     [MeasurableSingletonClass (unitaryGroup (Fin n) ℂ)]
+    [MeasurableEq (unitaryGroup (Fin n) ℂ)]
     [MeasurableEq (SpinConfig (LatticeLink d N) (unitaryGroup (Fin n) ℂ))]
     -- Coupling and plaquette data:
     (β : ℝ) (hβ : 0 ≤ β)
