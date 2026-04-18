@@ -1107,14 +1107,417 @@ theorem influenceCoeff_zero_off_plaquette
   exact (ENNReal.toReal_eq_toReal_iff'
     (measure_ne_top _ _) (measure_ne_top _ _)).mp h_toReal_eq
 
+/-! ## On-plaquette cylinder ratio bound
+
+When links x, y share a plaquette, the conditional measure at {x}
+satisfies a density ratio bound: for σ, τ differing only at y,
+
+  condDist(τ)(B) ≤ exp(4nβ) · condDist(σ)(B)
+
+The proof factors the Boltzmann weight as exp(-Ax) · exp(-R) where
+Ax sums plaquettes containing x and R sums the rest. Since R is
+constant with respect to the integration variable u (the link value
+being sampled), it cancels in the conditional measure ratio, leaving
+only the Ax ratio to bound. Among plaquettes containing x, only
+those also containing y contribute to the Ax oscillation between σ
+and τ (at most 2nβ per shared plaquette), giving the density ratio
+exp(2nβ) and conditional ratio exp(4nβ). -/
+
+/-- When a plaquette contains x but NOT y, the holonomy of
+`gluedConfig {x} u σ` and `gluedConfig {x} u τ` agree (for σ, τ
+differing only at y). This is the per-plaquette version of
+`holonomy_glue_eq_of_on_bdry` without the global `¬sharesPlaquette`
+hypothesis. -/
+private theorem holonomy_glue_eq_of_on_bdry_not_y
+    (x y : LatticeLink d N)
+    (σ τ : GaugeConnection G d N) (h_diff : ∀ z, z ≠ y → σ z = τ z)
+    (u : LatticeLink d N → G)
+    (p : LatticePlaquette d N)
+    (hx : linkOnBdry d N x p)
+    (hy : ¬ linkOnBdry d N y p) :
+    plaquetteHolonomy (gluedConfig G d N ({x} : Finset _) u σ) p =
+    plaquetteHolonomy (gluedConfig G d N ({x} : Finset _) u τ) p := by
+  simp only [plaquetteHolonomy]
+  suffices ∀ i : Fin 4,
+      gluedConfig G d N ({x} : Finset _) u σ (p.boundaryLinks i) =
+      gluedConfig G d N ({x} : Finset _) u τ (p.boundaryLinks i) by
+    rw [this 0, this 1, this 2, this 3]
+  intro i
+  by_cases hi : p.boundaryLinks i ∈ ({x} : Finset _)
+  · rw [gluedConfig_eq_inside G d N _ u σ _ hi, gluedConfig_eq_inside G d N _ u τ _ hi]
+  · rw [gluedConfig_eq_outside G d N _ u σ _ hi, gluedConfig_eq_outside G d N _ u τ _ hi]
+    apply h_diff; intro hiy
+    exact absurd (show linkOnBdry d N y p from by
+      unfold linkOnBdry
+      simp only [Finset.mem_image, Finset.mem_univ, true_and]
+      exact ⟨i, hiy⟩) hy
+
+set_option maxHeartbeats 800000 in
+/-- **On-plaquette x-action oscillation bound.**
+
+When σ, τ differ only at y, the x-plaquette action of `gluedConfig {x} u σ`
+and `gluedConfig {x} u τ` differ by at most `β · 2n · K` where K is the
+number of plaquettes containing both x and y. This uses the splitting of
+x-plaquettes into those also containing y (bounded oscillation) and those
+not containing y (zero oscillation). -/
+private theorem xAction_oscillation_bound
+    (plaq : Finset (LatticePlaquette d N))
+    (β : ℝ) (hβ : 0 ≤ β)
+    (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
+    (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
+    (x y : LatticeLink d N)
+    (σ τ : GaugeConnection G d N) (h_diff : ∀ z, z ≠ y → σ z = τ z)
+    (u : LatticeLink d N → G)
+    (hK : (plaq.filter (fun p =>
+      x ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks ∧
+      y ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card ≤ 1) :
+    (∑ p ∈ plaq.filter (fun p => linkOnBdry d N x p),
+        β * wilsonPlaquetteCost G n (plaquetteHolonomy
+          (gluedConfig G d N ({x} : Finset _) u τ) p)) ≤
+      (∑ p ∈ plaq.filter (fun p => linkOnBdry d N x p),
+        β * wilsonPlaquetteCost G n (plaquetteHolonomy
+          (gluedConfig G d N ({x} : Finset _) u σ) p)) + β * (2 * ↑n) := by
+  -- Split x-plaquettes into those also containing y and those not.
+  rw [← Finset.sum_filter_add_sum_filter_not
+        (plaq.filter (fun p => linkOnBdry d N x p)) (fun p => linkOnBdry d N y p),
+      ← Finset.sum_filter_add_sum_filter_not
+        (plaq.filter (fun p => linkOnBdry d N x p)) (fun p => linkOnBdry d N y p)]
+  -- For plaquettes containing x but NOT y, the sums are equal.
+  have h_not_y_eq :
+      ∑ p ∈ (plaq.filter (fun p => linkOnBdry d N x p)).filter
+          (fun p => ¬ linkOnBdry d N y p),
+        β * wilsonPlaquetteCost G n (plaquetteHolonomy
+          (gluedConfig G d N ({x} : Finset _) u τ) p) =
+      ∑ p ∈ (plaq.filter (fun p => linkOnBdry d N x p)).filter
+          (fun p => ¬ linkOnBdry d N y p),
+        β * wilsonPlaquetteCost G n (plaquetteHolonomy
+          (gluedConfig G d N ({x} : Finset _) u σ) p) := by
+    apply Finset.sum_congr rfl; intro p hp
+    simp only [Finset.mem_filter] at hp
+    rw [holonomy_glue_eq_of_on_bdry_not_y G d N x y σ τ h_diff u p hp.1.2 hp.2]
+  rw [h_not_y_eq]
+  -- Now need: shared_sum_τ + common ≤ shared_sum_σ + common + β * 2n
+  -- Equivalently: shared_sum_τ ≤ shared_sum_σ + β * 2n
+  linarith [show
+      ∑ p ∈ (plaq.filter (fun p => linkOnBdry d N x p)).filter
+          (fun p => linkOnBdry d N y p),
+        β * wilsonPlaquetteCost G n (plaquetteHolonomy
+          (gluedConfig G d N ({x} : Finset _) u τ) p) -
+      ∑ p ∈ (plaq.filter (fun p => linkOnBdry d N x p)).filter
+          (fun p => linkOnBdry d N y p),
+        β * wilsonPlaquetteCost G n (plaquetteHolonomy
+          (gluedConfig G d N ({x} : Finset _) u σ) p) ≤
+        β * (2 * ↑n) from by
+    -- The difference of sums over shared plaquettes:
+    -- Each term β·cost ∈ [0, β·2n], so difference of sum ≤ β·2n when card ≤ 1.
+    rw [← Finset.sum_sub_distrib]
+    -- The shared plaquettes are those containing both x and y
+    have hfilt_eq : (plaq.filter (fun p => linkOnBdry d N x p)).filter
+        (fun p => linkOnBdry d N y p) =
+        plaq.filter (fun p =>
+          x ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks ∧
+          y ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks) := by
+      simp only [Finset.filter_filter]; congr 1; ext p; simp [linkOnBdry]
+    rw [hfilt_eq]
+    -- With at most 1 shared plaquette, the sum has at most 1 term.
+    -- Each term: β * cost_τ - β * cost_σ = β * (cost_τ - cost_σ) ∈ [-β·2n, β·2n]
+    -- So sum ≤ 1 · β · 2n = β · 2n.
+    have hcard := hK
+    -- Sum over at most 1 element, each in [-β·2n, β·2n]
+    set S := plaq.filter (fun p =>
+      x ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks ∧
+      y ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)
+    -- Each term is bounded by β * 2n
+    have hterm_bound : ∀ p ∈ S, β * wilsonPlaquetteCost G n
+        (plaquetteHolonomy (gluedConfig G d N ({x} : Finset _) u τ) p) -
+      β * wilsonPlaquetteCost G n
+        (plaquetteHolonomy (gluedConfig G d N ({x} : Finset _) u σ) p) ≤
+      β * (2 * ↑n) := by
+      intro p _
+      have hcost_τ : wilsonPlaquetteCost G n
+          (plaquetteHolonomy (gluedConfig G d N ({x} : Finset _) u τ) p) ≤ 2 * ↑n := by
+        unfold wilsonPlaquetteCost
+        linarith [hTrace_lower (plaquetteHolonomy (gluedConfig G d N ({x} : Finset _) u τ) p)]
+      have hcost_σ : 0 ≤ wilsonPlaquetteCost G n
+          (plaquetteHolonomy (gluedConfig G d N ({x} : Finset _) u σ) p) := by
+        unfold wilsonPlaquetteCost
+        linarith [hTrace_upper (plaquetteHolonomy (gluedConfig G d N ({x} : Finset _) u σ) p)]
+      nlinarith
+    -- With card S ≤ 1 and each term ≤ β * 2n: sum ≤ β * 2n
+    rcases Nat.le_one_iff_eq_zero_or_eq_one.mp hcard with hc0 | hc1
+    · -- card = 0 means S = ∅
+      rw [Finset.card_eq_zero.mp hc0, Finset.sum_empty]
+      positivity
+    · -- card = 1 means S = {p} for some p
+      obtain ⟨p, hp⟩ := Finset.card_eq_one.mp hc1
+      rw [hp, Finset.sum_singleton]
+      exact hterm_bound p (hp ▸ Finset.mem_singleton_self p)]
+
+set_option maxHeartbeats 3200000 in
+/-- **Boltzmann weight cross-product inequality (on-plaquette).**
+
+When σ, τ differ only at y and at most 1 plaquette contains both x and y:
+  w(glue u τ) · Z_σ ≤ exp(4nβ) · w(glue u σ) · Z_τ
+Proved via the action decomposition into x-plaquettes (Ax) and rest (R).
+The R-factors cancel in the cross product; the Ax oscillation gives
+exp(2nβ) pointwise and exp(2nβ) from the integral, totalling exp(4nβ). -/
+private theorem boltzmannWeight_factor_le
+    (plaq : Finset (LatticePlaquette d N))
+    (β : ℝ) (hβ : 0 ≤ β)
+    (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
+    (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
+    (x y : LatticeLink d N)
+    (σ τ : GaugeConnection G d N) (h_diff : ∀ z, z ≠ y → σ z = τ z)
+    (hw_integrable : ∀ (Λ : Finset (LatticeLink d N))
+        (σ : GaugeConnection G d N),
+        Integrable (fun uΛ : LatticeLink d N → G =>
+            gibbsConditionalWeight G n d N plaq β Λ σ uΛ)
+          (Measure.pi (fun _ : LatticeLink d N => haarG G)))
+    (hK : (plaq.filter (fun p =>
+      x ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks ∧
+      y ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card ≤ 1)
+    (u : LatticeLink d N → G) :
+    boltzmannWeight G n d N β (gluedConfig G d N ({x} : Finset _) u τ) plaq *
+      gibbsConditionalZ G n d N plaq β ({x} : Finset _) σ ≤
+    Real.exp (4 * ↑n * β) *
+      (boltzmannWeight G n d N β (gluedConfig G d N ({x} : Finset _) u σ) plaq *
+        gibbsConditionalZ G n d N plaq β ({x} : Finset _) τ) := by
+  -- Split the action into x-plaquettes (Ax) and rest (R)
+  have h_action : ∀ (ρ : GaugeConnection G d N) (v : LatticeLink d N → G),
+      wilsonAction G n d N β (gluedConfig G d N ({x} : Finset _) v ρ) plaq =
+      (∑ p ∈ plaq.filter (fun p => linkOnBdry d N x p),
+          β * wilsonPlaquetteCost G n (plaquetteHolonomy
+            (gluedConfig G d N ({x} : Finset _) v ρ) p))
+        + ∑ p ∈ plaq.filter (fun p => ¬ linkOnBdry d N x p),
+          β * wilsonPlaquetteCost G n (plaquetteHolonomy ρ p) := by
+    intro ρ v; unfold wilsonAction
+    rw [← Finset.sum_filter_add_sum_filter_not plaq (fun p => linkOnBdry d N x p)]
+    congr 1; apply Finset.sum_congr rfl; intro p hp
+    rw [Finset.mem_filter] at hp
+    rw [holonomy_glue_eq_of_not_on_bdry G d N x ρ v p hp.2]
+  set Axσ := fun v => ∑ p ∈ plaq.filter (fun p => linkOnBdry d N x p),
+      β * wilsonPlaquetteCost G n (plaquetteHolonomy
+        (gluedConfig G d N ({x} : Finset _) v σ) p)
+  set Axτ := fun v => ∑ p ∈ plaq.filter (fun p => linkOnBdry d N x p),
+      β * wilsonPlaquetteCost G n (plaquetteHolonomy
+        (gluedConfig G d N ({x} : Finset _) v τ) p)
+  set Rσ := ∑ p ∈ plaq.filter (fun p => ¬ linkOnBdry d N x p),
+      β * wilsonPlaquetteCost G n (plaquetteHolonomy σ p)
+  set Rτ := ∑ p ∈ plaq.filter (fun p => ¬ linkOnBdry d N x p),
+      β * wilsonPlaquetteCost G n (plaquetteHolonomy τ p)
+  have hσ : ∀ v, wilsonAction G n d N β
+      (gluedConfig G d N ({x} : Finset _) v σ) plaq = Axσ v + Rσ := h_action σ
+  have hτ : ∀ v, wilsonAction G n d N β
+      (gluedConfig G d N ({x} : Finset _) v τ) plaq = Axτ v + Rτ := h_action τ
+  -- Key: Ax oscillation
+  have hAx12 : ∀ v, Axτ v ≤ Axσ v + β * (2 * ↑n) :=
+    fun v => xAction_oscillation_bound G n d N plaq β hβ hTrace_lower hTrace_upper
+      x y σ τ h_diff v hK
+  have hAx21 : ∀ v, Axσ v ≤ Axτ v + β * (2 * ↑n) :=
+    fun v => xAction_oscillation_bound G n d N plaq β hβ hTrace_lower hTrace_upper
+      x y τ σ (fun z hz => (h_diff z hz).symm) v hK
+  -- Rewrite everything in terms of exp
+  simp only [boltzmannWeight, gibbsConditionalZ, gibbsConditionalWeight]
+  simp_rw [hσ, hτ, neg_add, Real.exp_add, MeasureTheory.integral_mul_const]
+  -- After simplification, LHS and RHS have factor exp(-Rσ) * exp(-Rτ)
+  -- which can be cancelled since it's positive.
+  -- LHS: exp(-Axτ(u)) * exp(-Rτ) * (∫ exp(-Axσ) * exp(-Rσ))
+  -- RHS: exp(4nβ) * (exp(-Axσ(u)) * exp(-Rσ) * (∫ exp(-Axτ) * exp(-Rτ)))
+  -- Factor: both sides have exp(-Rσ) * exp(-Rτ) > 0
+  have hRR_pos : 0 < Real.exp (-Rσ) * Real.exp (-Rτ) :=
+    mul_pos (Real.exp_pos _) (Real.exp_pos _)
+  -- Rearrange to isolate R factors
+  suffices h : Real.exp (-Axτ u) * (∫ v, Real.exp (-Axσ v)
+      ∂Measure.pi (fun _ : LatticeLink d N => haarG G)) ≤
+      Real.exp (4 * ↑n * β) * (Real.exp (-Axσ u) * (∫ v, Real.exp (-Axτ v)
+        ∂Measure.pi (fun _ : LatticeLink d N => haarG G))) by
+    nlinarith [Real.exp_pos (-Rσ), Real.exp_pos (-Rτ)]
+  -- Now prove the R-free inequality using Ax bounds
+  have h1 : Real.exp (-Axτ u) ≤
+      Real.exp (β * (2 * ↑n)) * Real.exp (-Axσ u) := by
+    rw [← Real.exp_add]; apply Real.exp_le_exp_of_le; linarith [hAx21 u]
+  -- Integrability lemmas
+  have hAxσ_int : Integrable (fun v => Real.exp (-Axσ v))
+      (Measure.pi (fun _ => haarG G)) := by
+    have := hw_integrable ({x} : Finset _) σ
+    rwa [show (fun v => gibbsConditionalWeight G n d N plaq β ({x} : Finset _) σ v) =
+        fun v => Real.exp (-Axσ v) * Real.exp (-Rσ) from by
+        ext v; simp [gibbsConditionalWeight, boltzmannWeight, hσ v, neg_add, Real.exp_add, mul_comm],
+      MeasureTheory.integrable_mul_const_iff
+        (isUnit_iff_ne_zero.mpr (Real.exp_pos (-Rσ)).ne')] at this
+  have hAxτ_int : Integrable (fun v => Real.exp (-Axτ v))
+      (Measure.pi (fun _ => haarG G)) := by
+    have := hw_integrable ({x} : Finset _) τ
+    rwa [show (fun v => gibbsConditionalWeight G n d N plaq β ({x} : Finset _) τ v) =
+        fun v => Real.exp (-Axτ v) * Real.exp (-Rτ) from by
+        ext v; simp [gibbsConditionalWeight, boltzmannWeight, hτ v, neg_add, Real.exp_add, mul_comm],
+      MeasureTheory.integrable_mul_const_iff
+        (isUnit_iff_ne_zero.mpr (Real.exp_pos (-Rτ)).ne')] at this
+  have h2 : ∫ v, Real.exp (-Axσ v)
+      ∂Measure.pi (fun _ : LatticeLink d N => haarG G) ≤
+      Real.exp (β * (2 * ↑n)) * ∫ v, Real.exp (-Axτ v)
+        ∂Measure.pi (fun _ : LatticeLink d N => haarG G) := by
+    calc ∫ v, Real.exp (-Axσ v) ∂Measure.pi (fun _ => haarG G)
+        ≤ ∫ v, Real.exp (β * (2 * ↑n)) * Real.exp (-Axτ v)
+            ∂Measure.pi (fun _ => haarG G) := by
+          apply MeasureTheory.integral_mono hAxσ_int (hAxτ_int.const_mul _)
+          intro v; show Real.exp _ ≤ Real.exp _ * Real.exp _
+          rw [← Real.exp_add]; apply Real.exp_le_exp_of_le; linarith [hAx12 v]
+      _ = Real.exp (β * (2 * ↑n)) * ∫ v, Real.exp (-Axτ v)
+            ∂Measure.pi (fun _ => haarG G) := by
+          rw [integral_const_mul]
+  -- Combine
+  have hint_nn : 0 ≤ ∫ v, Real.exp (-Axτ v)
+      ∂Measure.pi (fun _ : LatticeLink d N => haarG G) :=
+    MeasureTheory.integral_nonneg (fun _ => (Real.exp_pos _).le)
+  calc Real.exp (-Axτ u) * ∫ v, Real.exp (-Axσ v) ∂Measure.pi (fun _ => haarG G)
+      ≤ (Real.exp (β * (2 * ↑n)) * Real.exp (-Axσ u)) *
+        (Real.exp (β * (2 * ↑n)) * ∫ v, Real.exp (-Axτ v)
+          ∂Measure.pi (fun _ => haarG G)) :=
+        mul_le_mul h1 h2
+          (MeasureTheory.integral_nonneg (fun _ => (Real.exp_pos _).le))
+          (mul_nonneg (Real.exp_pos _).le (Real.exp_pos _).le)
+    _ = Real.exp (4 * ↑n * β) *
+        (Real.exp (-Axσ u) * ∫ v, Real.exp (-Axτ v) ∂Measure.pi (fun _ => haarG G)) := by
+        have : Real.exp (β * (2 * ↑n)) * Real.exp (β * (2 * ↑n)) =
+            Real.exp (4 * ↑n * β) := by
+          rw [← Real.exp_add]; congr 1; ring
+        calc Real.exp (β * (2 * ↑n)) * Real.exp (-Axσ u) *
+              (Real.exp (β * (2 * ↑n)) *
+                ∫ v, Real.exp (-Axτ v) ∂Measure.pi (fun _ => haarG G))
+            = (Real.exp (β * (2 * ↑n)) * Real.exp (β * (2 * ↑n))) *
+              (Real.exp (-Axσ u) *
+                ∫ v, Real.exp (-Axτ v) ∂Measure.pi (fun _ => haarG G)) := by ring
+          _ = _ := by rw [this]
+
+set_option maxHeartbeats 3200000 in
+/-- **On-plaquette cylinder ratio bound.** -/
+theorem gibbsCondMeasure_cylinder_ratio
+    (plaq : Finset (LatticePlaquette d N))
+    (β : ℝ) (hβ : 0 ≤ β)
+    (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
+    (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
+    (x y : LatticeLink d N)
+    (hw_meas : Measurable fun U => boltzmannWeight G n d N β U plaq)
+    (hZ_pos : ∀ Λ σ, 0 < gibbsConditionalZ G n d N plaq β Λ σ)
+    (hw_integrable : ∀ (Λ : Finset (LatticeLink d N))
+        (σ : GaugeConnection G d N),
+        Integrable (fun uΛ : LatticeLink d N → G =>
+            gibbsConditionalWeight G n d N plaq β Λ σ uΛ)
+          (Measure.pi (fun _ : LatticeLink d N => haarG G)))
+    (hK : (plaq.filter (fun p =>
+      x ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks ∧
+      y ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card ≤ 1)
+    (σ τ : GaugeConnection G d N) (h_diff : ∀ z, z ≠ y → σ z = τ z)
+    (B : Set G) (hB : MeasurableSet B) :
+    (gibbsCondMeasure G n d N plaq β ({x} : Finset _) τ
+      ((fun U : GaugeConnection G d N => U x) ⁻¹' B)).toReal ≤
+    Real.exp (4 * ↑n * β) *
+      (gibbsCondMeasure G n d N plaq β ({x} : Finset _) σ
+        ((fun U : GaugeConnection G d N => U x) ⁻¹' B)).toReal := by
+  set A := (fun U : GaugeConnection G d N => U x) ⁻¹' B with hA_def
+  have hA : MeasurableSet A := (measurable_pi_apply x) hB
+  rw [gibbsCondMeasure_apply_toReal G n d N plaq β hw_meas ({x} : Finset _)
+        σ (hZ_pos {x} σ) (hw_integrable {x} σ) A hA,
+      gibbsCondMeasure_apply_toReal G n d N plaq β hw_meas ({x} : Finset _)
+        τ (hZ_pos {x} τ) (hw_integrable {x} τ) A hA]
+  set Zσ := gibbsConditionalZ G n d N plaq β ({x} : Finset _) σ
+  set Zτ := gibbsConditionalZ G n d N plaq β ({x} : Finset _) τ
+  have hZσ_pos := hZ_pos ({x} : Finset _) σ
+  have hZτ_pos := hZ_pos ({x} : Finset _) τ
+  -- Pointwise cross-product inequality
+  have h_pointwise : ∀ u : LatticeLink d N → G,
+      Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)
+          (gluedConfig G d N ({x} : Finset _) u τ) * Zσ ≤
+      Real.exp (4 * ↑n * β) *
+        (Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)
+          (gluedConfig G d N ({x} : Finset _) u σ) * Zτ) := by
+    intro u
+    have hx_mem : x ∈ ({x} : Finset (LatticeLink d N)) := Finset.mem_singleton_self x
+    have hmem_iff : gluedConfig G d N ({x} : Finset _) u σ ∈ A ↔
+        gluedConfig G d N ({x} : Finset _) u τ ∈ A := by
+      simp only [hA_def, Set.mem_preimage,
+        gluedConfig_eq_inside G d N _ u σ x hx_mem,
+        gluedConfig_eq_inside G d N _ u τ x hx_mem]
+    by_cases hmem : gluedConfig G d N ({x} : Finset _) u σ ∈ A
+    · rw [Set.indicator_of_mem hmem, Set.indicator_of_mem (hmem_iff.mp hmem)]
+      exact boltzmannWeight_factor_le G n d N plaq β hβ hTrace_lower hTrace_upper
+        x y σ τ h_diff hw_integrable hK u
+    · rw [Set.indicator_of_notMem hmem,
+          Set.indicator_of_notMem (fun h => hmem (hmem_iff.mpr h))]
+      simp
+  -- Divide the pointwise bound by (Zσ * Zτ) to get pointwise ratio bound
+  have h_ratio_pointwise : ∀ u : LatticeLink d N → G,
+      Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)
+          (gluedConfig G d N ({x} : Finset _) u τ) / Zτ ≤
+      Real.exp (4 * ↑n * β) *
+        (Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)
+          (gluedConfig G d N ({x} : Finset _) u σ) / Zσ) := by
+    intro u
+    have hp := h_pointwise u
+    have hind_nn : 0 ≤ Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)
+        (gluedConfig G d N ({x} : Finset _) u σ) :=
+      Set.indicator_nonneg (fun _ _ => (boltzmannWeight_pos G n d N β _ plaq).le) _
+    rw [div_le_iff₀ hZτ_pos]
+    calc Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)
+          (gluedConfig G d N ({x} : Finset _) u τ)
+        = Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)
+            (gluedConfig G d N ({x} : Finset _) u τ) * Zσ / Zσ := by
+          rw [mul_div_cancel_right₀ _ hZσ_pos.ne']
+      _ ≤ Real.exp (4 * ↑n * β) *
+            (Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)
+              (gluedConfig G d N ({x} : Finset _) u σ) * Zτ) / Zσ := by
+          apply div_le_div_of_nonneg_right hp hZσ_pos.le
+      _ = Real.exp (4 * ↑n * β) *
+            (Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)
+              (gluedConfig G d N ({x} : Finset _) u σ) / Zσ) * Zτ := by
+          ring
+  -- Integrate the ratio bound
+  calc (∫ u, Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)
+        (gluedConfig G d N ({x} : Finset _) u τ) ∂productHaar G d N) / Zτ
+      = ∫ u, Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)
+          (gluedConfig G d N ({x} : Finset _) u τ) / Zτ ∂productHaar G d N := by
+        rw [integral_div]
+    _ ≤ ∫ u, Real.exp (4 * ↑n * β) *
+          (Set.indicator A (fun U => boltzmannWeight G n d N β U plaq)
+            (gluedConfig G d N ({x} : Finset _) u σ) / Zσ) ∂productHaar G d N := by
+        apply MeasureTheory.integral_mono
+        · -- Integrability of ind/Zτ: bounded on probability measure
+          apply Integrable.div_const
+          exact (integrable_const (1 : ℝ)).mono
+            ((hw_meas.indicator hA).comp
+              (measurable_gluedConfig G d N ({x} : Finset _) τ)).aestronglyMeasurable
+            (Filter.Eventually.of_forall (fun u => by
+              rw [Real.norm_of_nonneg (Set.indicator_nonneg
+                (fun _ _ => (boltzmannWeight_pos G n d N β _ plaq).le) _), norm_one]
+              exact Set.indicator_apply_le'
+                (fun _ => boltzmannWeight_le_one G n d N β hβ _ plaq hTrace_upper)
+                (fun _ => zero_le_one)))
+        · -- Integrability of exp * (ind/Zσ)
+          apply Integrable.const_mul; apply Integrable.div_const
+          exact (integrable_const (1 : ℝ)).mono
+            ((hw_meas.indicator hA).comp
+              (measurable_gluedConfig G d N ({x} : Finset _) σ)).aestronglyMeasurable
+            (Filter.Eventually.of_forall (fun u => by
+              rw [Real.norm_of_nonneg (Set.indicator_nonneg
+                (fun _ _ => (boltzmannWeight_pos G n d N β _ plaq).le) _), norm_one]
+              exact Set.indicator_apply_le'
+                (fun _ => boltzmannWeight_le_one G n d N β hβ _ plaq hTrace_upper)
+                (fun _ => zero_le_one)))
+        · exact h_ratio_pointwise
+    _ = Real.exp (4 * ↑n * β) * ((∫ u, Set.indicator A
+            (fun U => boltzmannWeight G n d N β U plaq)
+            (gluedConfig G d N ({x} : Finset _) u σ) ∂productHaar G d N) / Zσ) := by
+        rw [← integral_div, ← integral_const_mul]
+
 /-! ## Combining influence bounds into hInfluence
 
 The off-plaquette case (`influenceCoeff = 0` when `¬sharesPlaquette`) is
 fully proved via `boltzmannWeight_factor_eq`. The on-plaquette case
 (`influenceCoeff ≤ influenceBound n β`) is derived from the cylinder ratio
-bound `hCylinderRatio` via `influenceCoeff_le_of_cylinder_ratio_bound`
-from MarkovSemigroups. The combinator `influenceCoeff_le_bound` then
-packages both cases. -/
+bound `gibbsCondMeasure_cylinder_ratio` via
+`influenceCoeff_le_of_cylinder_ratio_bound` from MarkovSemigroups.
+The combinator `influenceCoeff_le_bound` then packages both cases. -/
 
 /-- **Full influence coefficient bound.**
 
@@ -1173,19 +1576,13 @@ theorem ym_mass_gap_strong_coupling
     (p q : LatticePlaquette d N)
     -- Core continuity (implies measurability of boltzmannWeight and plaqObs):
     (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
-    -- On-plaquette cylinder ratio bound (Boltzmann density ratio):
-    -- When links share a plaquette and σ, τ differ only at y, the
-    -- x-cylinder probability ratio is bounded by exp(4nβ).
-    -- This follows from the action oscillation ≤ 2nβ (per shared
-    -- plaquette) and the Srest cancellation in the conditional measure.
-    (hCylinderRatio : ∀ x y : LatticeLink d N, sharesPlaquette d N plaq x y →
-      ∀ (σ τ : GaugeConnection G d N), (∀ z, z ≠ y → σ z = τ z) →
-      ∀ (B : Set G), MeasurableSet B →
-        (gibbsCondMeasure G n d N plaq β ({x} : Finset _) τ
-          ((fun U : GaugeConnection G d N => U x) ⁻¹' B)).toReal ≤
-          Real.exp (4 * ↑n * β) *
-            (gibbsCondMeasure G n d N plaq β ({x} : Finset _) σ
-              ((fun U : GaugeConnection G d N => U x) ⁻¹' B)).toReal)
+    -- Shared plaquette bound: any two links share at most 1 plaquette.
+    -- This combinatorial fact about the lattice drives the density ratio
+    -- bound exp(4nβ) used for the on-plaquette influence coefficient.
+    (hSharedPlaqBound : ∀ x y : LatticeLink d N,
+      (plaq.filter (fun p =>
+        x ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks ∧
+        y ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card ≤ 1)
     -- Plaquette-per-link bound (combinatorial fact about the lattice):
     -- each link lies on at most `maxPlaquettesPerLink d = 2(d-1)` plaquettes.
     -- This implies the neighbor-count bounds `hMaxNeighborsCol/Row`
@@ -1311,7 +1708,8 @@ theorem ym_mass_gap_strong_coupling
             Real.exp (4 * ↑n * β) *
               (gibbsCondMeasure G n d N plaq β ({x} : Finset _) σ
                 ((fun U : GaugeConnection G d N => U x) ⁻¹' B)).toReal
-        exact hCylinderRatio x y hshare σ τ hdiff B hB)
+        exact gibbsCondMeasure_cylinder_ratio G n d N plaq β hβ hTrace_lower hTrace_upper
+          x y hw_meas hZcond_pos hw_integrable_cond (hSharedPlaqBound x y) σ τ hdiff B hB)
     -- hkey : influenceCoeff ≤ 1 - exp(-(4 * n * β))
     -- influenceBound n β = 1 - exp(-4 * n * β)
     unfold influenceBound
