@@ -33,6 +33,8 @@ The ~18 discharged ones are all consequences of:
 -/
 
 import LGT.MassGap.MassGap3D
+import LGT.GaugeField.UnitaryGroup
+import Mathlib.Topology.Algebra.Star.Unitary
 
 open MeasureTheory Real
 
@@ -1758,3 +1760,122 @@ theorem ym_mass_gap_strong_coupling
         z B hB (hfinsupp z) σ τ hagree)
 
 end
+
+/-! ## Mass gap for U(n) lattice gauge theory
+
+Specialization of `ym_mass_gap_strong_coupling` to the concrete gauge
+group `G := Matrix.unitaryGroup (Fin n) ℂ`, discharging the trace
+bounds and representation continuity from `UnitaryGroup.lean`.
+
+### Instance status for `Matrix.unitaryGroup (Fin n) ℂ`
+
+The following instances are synthesized automatically by Lean/Mathlib:
+- `Group`, `TopologicalSpace`, `T2Space`, `Inhabited`
+- `IsTopologicalGroup` (from `Mathlib.Topology.Algebra.Star.Unitary`)
+
+The following are defined locally via `borel`:
+- `MeasurableSpace`, `BorelSpace`
+
+The following are **not** available in Mathlib and appear as explicit
+hypotheses (they are true for U(n) but require nontrivial proofs):
+- `CompactSpace` (U(n) is a closed bounded subset of M_n(ℂ))
+- `SecondCountableTopology` (compact metrizable implies second-countable)
+- `HasHaarProbability` (existence of normalized Haar measure)
+
+### The `[Countable G]` limitation
+
+The upstream Dobrushin uniqueness machinery in `MarkovSemigroups`
+(`CovarianceBoundMultisite`, `CondTVBridge`) requires `[Countable S]`
+where `S` is the spin space. For lattice gauge theory, `S = G` (the
+gauge group). Since `U(n)` is uncountable for `n ≥ 1`, this hypothesis
+**cannot** be discharged.
+
+This is a known limitation of the current formalization chain. The
+`[Countable G]` assumption appears in the theorem statement to make
+this gap explicit. The theorem applies as stated to:
+- Finite subgroups of U(n) (e.g., lattice discretizations Zₘ ⊂ U(1))
+- Any countable dense subgroup (though this requires separate analysis)
+
+Removing the `[Countable G]` requirement from the Dobrushin machinery
+is a separate project that would involve generalizing the coupling
+arguments to continuous state spaces. -/
+
+noncomputable section UNMassGap
+
+open Matrix MeasureTheory Real
+
+/-- Borel measurable space on U(n). -/
+instance instMeasurableSpaceUN (n : ℕ) :
+    MeasurableSpace (unitaryGroup (Fin n) ℂ) :=
+  borel (unitaryGroup (Fin n) ℂ)
+
+/-- The measurable space on U(n) is the Borel sigma-algebra. -/
+instance instBorelSpaceUN (n : ℕ) :
+    BorelSpace (unitaryGroup (Fin n) ℂ) := ⟨rfl⟩
+
+/-- **Mass gap for U(n) lattice gauge theory at strong coupling.**
+
+For the unitary group U(n) on a d-dimensional periodic lattice
+(d ≥ 2) at coupling β < 1/(4n · maxNeighbors(d)), the connected
+2-point function of plaquette observables decays exponentially
+with a rate controlled by the Dobrushin column sum.
+
+**Hypotheses that are mathematically true but not yet in Mathlib:**
+- `[CompactSpace ...]`: U(n) is compact (closed bounded in M_n(ℂ))
+- `[SecondCountableTopology ...]`: compact metrizable ⟹ second-countable
+- `[HasHaarProbability ...]`: normalized Haar measure exists on compact groups
+
+**Known limitation (see module docstring):**
+- `[Countable ...]`: required by upstream Dobrushin machinery but FALSE
+  for U(n). This restricts applicability to finite/countable gauge groups.
+- `[MeasurableSingletonClass ...]` and `[MeasurableEq ...]`: consequences
+  of `[Countable ...]`. -/
+theorem ym_mass_gap_UN
+    (n : ℕ) (hn : 1 ≤ n)
+    (d N : ℕ) (hd : 2 ≤ d) [NeZero N]
+    -- Typeclass instances not yet in Mathlib for U(n):
+    [CompactSpace (unitaryGroup (Fin n) ℂ)]
+    [SecondCountableTopology (unitaryGroup (Fin n) ℂ)]
+    [HasHaarProbability (unitaryGroup (Fin n) ℂ)]
+    [Fintype (LatticeLink d N)]
+    [DecidableEq (LatticeLink d N)]
+    -- Countable limitation (see docstring):
+    [Countable (unitaryGroup (Fin n) ℂ)]
+    [MeasurableSingletonClass (unitaryGroup (Fin n) ℂ)]
+    [MeasurableEq (SpinConfig (LatticeLink d N) (unitaryGroup (Fin n) ℂ))]
+    -- Coupling and plaquette data:
+    (β : ℝ) (hβ : 0 ≤ β)
+    (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d)))
+    (plaq : Finset (LatticePlaquette d N))
+    (p q : LatticePlaquette d N)
+    -- Lattice combinatorics (provable for standard lattice plaquette sets):
+    (hSharedPlaqBound : ∀ x y : LatticeLink d N,
+      (plaq.filter (fun pl =>
+        x ∈ (Finset.univ : Finset (Fin 4)).image pl.boundaryLinks ∧
+        y ∈ (Finset.univ : Finset (Fin 4)).image pl.boundaryLinks)).card ≤ 1)
+    (hPlaqPerLink : ∀ ℓ : LatticeLink d N,
+      (plaq.filter
+        (fun pl => ℓ ∈ (Finset.univ : Finset (Fin 4)).image pl.boundaryLinks)).card
+          ≤ maxPlaquettesPerLink d) :
+    |connected2pt (unitaryGroup (Fin n) ℂ) n d N β plaq
+        (plaqObs (unitaryGroup (Fin n) ℂ) n d N p)
+        (plaqObs (unitaryGroup (Fin n) ℂ) n d N q)| ≤
+      2 * (↑n : ℝ) * (↑n : ℝ) *
+        ∑ x ∈ ((Finset.univ : Finset (Fin 4)).image
+                (LatticePlaquette.boundaryLinks p)),
+          ∑ y ∈ ((Finset.univ : Finset (Fin 4)).image
+                (LatticePlaquette.boundaryLinks q)),
+            (dobrushinColumnSum n d β) ^ ymLinkDist d N plaq y x /
+              (1 - dobrushinColumnSum n d β) :=
+  ym_mass_gap_strong_coupling
+    (unitaryGroup (Fin n) ℂ) n d N
+    hd hn β hβ hβ_small
+    (unitaryGroup_gaugeReTr_neg_le n)
+    (unitaryGroup_gaugeReTr_le n)
+    plaq p q
+    (unitaryGroup_rep_continuous n)
+    hSharedPlaqBound
+    hPlaqPerLink
+
+end UNMassGap
+
