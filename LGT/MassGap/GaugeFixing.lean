@@ -178,7 +178,7 @@ theorem dobrushin_correlation_bound
     [DecidableEq (LatticeLink d N)]
     (β : ℝ) (hβ : 0 ≤ β)
     (hd : 2 ≤ d) (hn : 1 ≤ n)
-    (hβ_small : β < 1 / (2 * ↑n * ↑(maxNeighbors d)))
+    (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d)))
     (plaq : Finset (LatticePlaquette d N))
     (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
     (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)

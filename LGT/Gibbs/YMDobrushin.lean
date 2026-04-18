@@ -18,10 +18,10 @@ For the (unfixed) YM specification on links:
 - Neighbor relation: "share a plaquette"
 - Each link has ≤ 6(d-1) plaquette-neighbors (maxNeighbors d)
   (Each plaquette has 4 links; excluding x, 3 others interact.)
-- Each shared plaquette contributes influence ≤ 1 - exp(-2nβ) ≤ 2nβ
-- Dobrushin column sum ≤ 6(d-1) · 2nβ = 12n(d-1)β
+- Each shared plaquette contributes influence ≤ 1 - exp(-4nβ) ≤ 4nβ
+- Dobrushin column sum ≤ 8(d-1) · 4nβ = 32n(d-1)β
 
-For β < 1/(12n(d-1)), the Dobrushin condition holds.
+For β < 1/(32n(d-1)), the Dobrushin condition holds.
 
 ## References
 
@@ -235,7 +235,7 @@ theorem maxNeighborsRow_of_plaqPerLink
 /-! ## Influence coefficient bounds for YM
 
 The key physics input: when a link y changes (others fixed), the
-conditional distribution at link x changes in TV by ≤ 1 - exp(-2nβ)
+conditional distribution at link x changes in TV by ≤ 1 - exp(-4nβ)
 if they share a plaquette, and by 0 otherwise.
 
 Proof sketch (full Mathlib proof requires continuity/Lipschitz
@@ -245,7 +245,7 @@ bounds for the Boltzmann ratio):
   So changing y doesn't change the conditional. TV = 0.
 - If they share: the action change is ≤ β·osc_plaquette = β·2n
   (from |Re Tr| ≤ n). The TV distance between exp(-E₁)dHaar and
-  exp(-E₂)dHaar where |E₁-E₂| ≤ 2nβ is ≤ 1 - exp(-2nβ). -/
+  exp(-E₂)dHaar where |E₁-E₂| ≤ 2nβ is ≤ 1 - exp(-4nβ). -/
 
 /-- **Influence coefficient is zero for non-plaquette-neighbors.**
 
@@ -275,16 +275,16 @@ def ymInfluenceZeroOffPlaquette (β : ℝ) (plaq : Finset (LatticePlaquette d N)
 
 /-- **Influence coefficient bound for plaquette-neighbors.**
 
-For links sharing a plaquette: C(x,y) ≤ 1 - exp(-2nβ).
+For links sharing a plaquette: C(x,y) ≤ 1 - exp(-4nβ).
 
 This is a bridge hypothesis encoding the Boltzmann TV-ratio bound.
 Full proof requires:
 1. The single-link conditional at x is a Boltzmann measure with
    energy E(σ) = β·Σ_{p ∋ x} plaquetteCost(σ).
 2. Changing one neighbor y changes E by at most β·2n per shared plaquette.
-3. For measures exp(-E₁)dμ and exp(-E₂)dμ with |E₁-E₂| ≤ C:
-   d_TV ≤ 1 - exp(-C).
-4. Apply with C = 2nβ. -/
+3. For cylinder-set density ratio exp(2D) with D = 2nβ:
+   `influenceCoeff_le_of_cylinder_ratio_bound` gives d_TV ≤ 1 - exp(-4nβ).
+4. Apply with C = 4nβ (= 2D). -/
 def ymInfluenceBoundOnPlaquette (β : ℝ) (plaq : Finset (LatticePlaquette d N))
     (hZ_pos : ∀ Λ σ, 0 < gibbsConditionalZ G n d N plaq β Λ σ)
     (hw_meas : Measurable fun U => boltzmannWeight G n d N β U plaq)
@@ -319,14 +319,14 @@ The proof requires:
 1. Each `influenceCoeff` bound (from `ymInfluenceZeroOffPlaquette` and
    `ymInfluenceBoundOnPlaquette`)
 2. Finite-support summability (links form a Fintype)
-3. Column sum ≤ 6(d-1) · (1 - exp(-2nβ)) (plaquette counting)
+3. Column sum ≤ 8(d-1) · (1 - exp(-4nβ)) (plaquette counting)
 4. Column sum < 1 (from `dobrushin_sufficient`)
 
 Bridge hypothesis encoding the full construction. -/
 def ymDobrushinCondition
     (β : ℝ) (hβ : 0 ≤ β) (plaq : Finset (LatticePlaquette d N))
     (hd : 2 ≤ d) (hn : 1 ≤ n)
-    (hβ_small : β < 1 / (2 * ↑n * ↑(maxNeighbors d)))
+    (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d)))
     (hZ_pos : ∀ Λ σ, 0 < gibbsConditionalZ G n d N plaq β Λ σ)
     (hw_meas : Measurable fun U => boltzmannWeight G n d N β U plaq)
     (hw_integrable : ∀ (Λ : Finset (LatticeLink d N))
@@ -464,7 +464,7 @@ equals the fixed link. -/
 def ymDobrushinCondition_of_plaqPerLink
     (β : ℝ) (hβ : 0 ≤ β) (plaq : Finset (LatticePlaquette d N))
     (hd : 2 ≤ d) (hn : 1 ≤ n)
-    (hβ_small : β < 1 / (2 * ↑n * ↑(maxNeighbors d)))
+    (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d)))
     (hZ_pos : ∀ Λ σ, 0 < gibbsConditionalZ G n d N plaq β Λ σ)
     (hw_meas : Measurable fun U => boltzmannWeight G n d N β U plaq)
     (hw_integrable : ∀ (Λ : Finset (LatticeLink d N))

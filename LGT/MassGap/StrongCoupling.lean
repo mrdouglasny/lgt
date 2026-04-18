@@ -1111,9 +1111,10 @@ theorem influenceCoeff_zero_off_plaquette
 
 The off-plaquette case (`influenceCoeff = 0` when `¬sharesPlaquette`) is
 fully proved via `boltzmannWeight_factor_eq`. The on-plaquette case
-(`influenceCoeff ≤ influenceBound n β`) requires the standard Boltzmann
-TV estimate (min-coupling bound), which we accept as a hypothesis
-`hOnPlaq` in the combinator `influenceCoeff_le_bound`. -/
+(`influenceCoeff ≤ influenceBound n β`) is derived from the cylinder ratio
+bound `hCylinderRatio` via `influenceCoeff_le_of_cylinder_ratio_bound`
+from MarkovSemigroups. The combinator `influenceCoeff_le_bound` then
+packages both cases. -/
 
 /-- **Full influence coefficient bound.**
 
@@ -1165,27 +1166,26 @@ theorem ym_mass_gap_strong_coupling
     [MeasurableEq (SpinConfig (LatticeLink d N) G)]
     (hd : 2 ≤ d) (hn : 1 ≤ n)
     (β : ℝ) (hβ : 0 ≤ β)
-    (hβ_small : β < 1 / (2 * ↑n * ↑(maxNeighbors d)))
+    (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d)))
     (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
     (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
     (plaq : Finset (LatticePlaquette d N))
     (p q : LatticePlaquette d N)
     -- Core continuity (implies measurability of boltzmannWeight and plaqObs):
     (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
-    -- On-plaquette Boltzmann TV bound (the only remaining physics input):
-    -- When links share a plaquette, the marginal influence is ≤ 1 - exp(-2nβ).
-    -- This is the standard Dobrushin estimate from the min-coupling bound.
-    (hOnPlaq : ∀ x y : LatticeLink d N, sharesPlaquette d N plaq x y →
-      influenceCoeff
-        (ymGibbsSpec G n d N plaq β
-          (gibbsConditionalZ_pos G n d N β hβ plaq hTrace_upper hTrace_lower
-            (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
-          (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq)
-          (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper
-            (measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq))
-          (fun Λ A hA => measurable_gibbsCondMeasure_toReal G n d N
-            hRep_cont β hβ plaq hTrace_upper hTrace_lower Λ A hA)) x y ≤
-        influenceBound n β)
+    -- On-plaquette cylinder ratio bound (Boltzmann density ratio):
+    -- When links share a plaquette and σ, τ differ only at y, the
+    -- x-cylinder probability ratio is bounded by exp(4nβ).
+    -- This follows from the action oscillation ≤ 2nβ (per shared
+    -- plaquette) and the Srest cancellation in the conditional measure.
+    (hCylinderRatio : ∀ x y : LatticeLink d N, sharesPlaquette d N plaq x y →
+      ∀ (σ τ : GaugeConnection G d N), (∀ z, z ≠ y → σ z = τ z) →
+      ∀ (B : Set G), MeasurableSet B →
+        (gibbsCondMeasure G n d N plaq β ({x} : Finset _) τ
+          ((fun U : GaugeConnection G d N => U x) ⁻¹' B)).toReal ≤
+          Real.exp (4 * ↑n * β) *
+            (gibbsCondMeasure G n d N plaq β ({x} : Finset _) σ
+              ((fun U : GaugeConnection G d N => U x) ⁻¹' B)).toReal)
     -- Plaquette-per-link bound (combinatorial fact about the lattice):
     -- each link lies on at most `maxPlaquettesPerLink d = 2(d-1)` plaquettes.
     -- This implies the neighbor-count bounds `hMaxNeighborsCol/Row`
@@ -1291,7 +1291,33 @@ theorem ym_mass_gap_strong_coupling
   -- Discharge conditional integrability of plaqObs q
   have hPlaqObs_q_cond_int := plaqObs_cond_integrable G n d N β hβ plaq
     hTrace_upper hTrace_lower hw_meas p q hPlaqObs_q_meas
-  -- Construct the full influence bound from the on-plaquette hypothesis
+  -- Derive the on-plaquette influence bound from the cylinder ratio
+  -- hypothesis via influenceCoeff_le_of_cylinder_ratio_bound.
+  have hOnPlaq : ∀ x y : LatticeLink d N, sharesPlaquette d N plaq x y →
+      influenceCoeff
+        (ymGibbsSpec G n d N plaq β hZcond_pos hw_meas
+          hw_integrable_cond hmeas_condDist) x y ≤ influenceBound n β := by
+    intro x y hshare
+    -- Apply the upstream cylinder ratio → influence bound theorem.
+    -- C = 4 * n * β, and influenceBound n β = 1 - exp(-4nβ).
+    have hC : (0 : ℝ) ≤ 4 * ↑n * β := by positivity
+    have hkey := influenceCoeff_le_of_cylinder_ratio_bound
+      (ymGibbsSpec G n d N plaq β hZcond_pos hw_meas hw_integrable_cond hmeas_condDist)
+      x y (4 * ↑n * β) hC
+      (fun σ τ hdiff B hB => by
+        -- The condDist of ymGibbsSpec is gibbsCondMeasure.
+        show (gibbsCondMeasure G n d N plaq β ({x} : Finset _) τ
+              ((fun U : GaugeConnection G d N => U x) ⁻¹' B)).toReal ≤
+            Real.exp (4 * ↑n * β) *
+              (gibbsCondMeasure G n d N plaq β ({x} : Finset _) σ
+                ((fun U : GaugeConnection G d N => U x) ⁻¹' B)).toReal
+        exact hCylinderRatio x y hshare σ τ hdiff B hB)
+    -- hkey : influenceCoeff ≤ 1 - exp(-(4 * n * β))
+    -- influenceBound n β = 1 - exp(-4 * n * β)
+    unfold influenceBound
+    convert hkey using 2
+    ring
+  -- Construct the full influence bound from the derived on-plaquette bound
   -- and the off-plaquette zero-influence theorem.
   have hInfluence : ∀ x y : LatticeLink d N,
       influenceCoeff

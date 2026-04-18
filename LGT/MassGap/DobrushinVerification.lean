@@ -24,8 +24,8 @@ After axial gauge fixing (direction 0 links = identity):
 
 - `boltzmann_tv_bound` — TV distance of Boltzmann measures under
   perturbation ≤ 1 - exp(-β · osc) where osc is the oscillation
-- `influence_per_plaquette` — single plaquette contributes influence ≤ 2nβ
-- `dobrushin_column_sum_bound` — column sum ≤ 4n(d-1) · (1-exp(-2nβ))
+- `influence_per_plaquette` — single plaquette contributes influence ≤ 4nβ
+- `dobrushin_column_sum_bound` — column sum ≤ 8(d-1) · (1-exp(-4nβ))
 - `ym_dobrushin_condition` — Dobrushin condition holds when β < β₀
 
 ## References
@@ -74,35 +74,36 @@ plaquette. When they share k plaquettes, the energy oscillation
 is ≤ k · 2n, giving the influence bound. -/
 
 /-- For a single shared plaquette, the influence of link y on link x
-is bounded by 1 - exp(-2nβ) ≤ 2nβ.
+is bounded by 1 - exp(-4nβ) ≤ 4nβ.
 
 Proof: the conditional at x is proportional to
   exp(-β Σ_{p ∋ x} cost(U_p)) dμ_Haar(U_x)
 When U_y changes, only plaquettes containing both x and y are affected.
-The max ratio of Boltzmann weights is exp(β · 2n), giving TV bound
-  C(x,y) ≤ 1 - exp(-β · osc) ≤ 1 - exp(-2nβ) -/
-def influenceBound (β : ℝ) : ℝ := 1 - exp (-2 * n * β)
+The action oscillation D ≤ 2nβ gives a cylinder-set density ratio
+exp(2D) = exp(4nβ), and `influenceCoeff_le_of_cylinder_ratio_bound`
+yields TV bound C(x,y) ≤ 1 - exp(-4nβ). -/
+def influenceBound (β : ℝ) : ℝ := 1 - exp (-4 * n * β)
 
 /-- The influence bound is nonneg for β ≥ 0. -/
 theorem influenceBound_nonneg (β : ℝ) (hβ : 0 ≤ β) :
     0 ≤ influenceBound n β := by
   unfold influenceBound
-  linarith [exp_le_one_iff.mpr (by nlinarith : -2 * ↑n * β ≤ 0)]
+  linarith [exp_le_one_iff.mpr (by nlinarith : -4 * ↑n * β ≤ 0)]
 
 /-- The influence bound is < 1. -/
 theorem influenceBound_lt_one (β : ℝ) :
     influenceBound n β < 1 := by
   unfold influenceBound
-  linarith [exp_pos (-2 * ↑n * β)]
+  linarith [exp_pos (-4 * ↑n * β)]
 
-/-- For small β: 1 - exp(-2nβ) ≤ 2nβ (from 1 - e^{-x} ≤ x for x ≥ 0). -/
+/-- For small β: 1 - exp(-4nβ) ≤ 4nβ (from 1 - e^{-x} ≤ x for x ≥ 0). -/
 theorem influenceBound_le_linear (β : ℝ) (hβ : 0 ≤ β) :
-    influenceBound n β ≤ 2 * n * β := by
+    influenceBound n β ≤ 4 * n * β := by
   unfold influenceBound
-  -- Need: 1 - exp(-x) ≤ x for x ≥ 0, with x = 2nβ
+  -- Need: 1 - exp(-x) ≤ x for x ≥ 0, with x = 4nβ
   -- add_one_le_exp(-x) gives (-x) + 1 ≤ exp(-x), i.e., 1 - x ≤ exp(-x)
   -- rearranging: 1 - exp(-x) ≤ x
-  linarith [add_one_le_exp (-2 * ↑n * β)]
+  linarith [add_one_le_exp (-4 * ↑n * β)]
 
 /-! ## Interaction graph geometry
 
@@ -146,17 +147,17 @@ theorem dobrushinColumnSum_lt_one (d : ℕ) (hd : 2 ≤ d)
     -- The Dobrushin condition is satisfied
     dobrushinColumnSum n d β < 1 := hβ_small
 
-/-- Sufficient condition for Dobrushin: β < 1/(2n · maxNeighbors(d)).
-From the linear bound influenceBound ≤ 2nβ:
-  column sum ≤ maxNeighbors(d) · 2nβ < 1
-  ⟺ β < 1/(2n · maxNeighbors(d)). -/
+/-- Sufficient condition for Dobrushin: β < 1/(4n · maxNeighbors(d)).
+From the linear bound influenceBound ≤ 4nβ:
+  column sum ≤ maxNeighbors(d) · 4nβ < 1
+  ⟺ β < 1/(4n · maxNeighbors(d)). -/
 theorem dobrushin_sufficient (d : ℕ) (hd : 2 ≤ d) (hn : 1 ≤ n)
     (β : ℝ) (hβ : 0 ≤ β)
-    (hβ_small : β < 1 / (2 * ↑n * ↑(maxNeighbors d))) :
+    (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d))) :
     dobrushinColumnSum n d β < 1 := by
   unfold dobrushinColumnSum
   calc (↑(maxNeighbors d) : ℝ) * influenceBound n β
-      ≤ ↑(maxNeighbors d) * (2 * ↑n * β) := by
+      ≤ ↑(maxNeighbors d) * (4 * ↑n * β) := by
         apply mul_le_mul_of_nonneg_left (influenceBound_le_linear n β hβ)
         exact Nat.cast_nonneg' _
     _ < 1 := by
@@ -164,11 +165,11 @@ theorem dobrushin_sufficient (d : ℕ) (hd : 2 ≤ d) (hn : 1 ≤ n)
           unfold maxNeighbors maxPlaquettesPerLink
           exact Nat.cast_pos.mpr (by omega)
         have hn_pos : (0 : ℝ) < ↑n := Nat.cast_pos.mpr (by omega)
-        rw [show (↑(maxNeighbors d) : ℝ) * (2 * ↑n * β) =
-            2 * ↑n * ↑(maxNeighbors d) * β from by ring]
-        have h2nN_pos : (0 : ℝ) < 2 * ↑n * ↑(maxNeighbors d) := by positivity
-        rw [lt_div_iff₀ h2nN_pos] at hβ_small
-        linarith [mul_comm β (2 * ↑n * ↑(maxNeighbors d))]
+        rw [show (↑(maxNeighbors d) : ℝ) * (4 * ↑n * β) =
+            4 * ↑n * ↑(maxNeighbors d) * β from by ring]
+        have h4nN_pos : (0 : ℝ) < 4 * ↑n * ↑(maxNeighbors d) := by positivity
+        rw [lt_div_iff₀ h4nN_pos] at hβ_small
+        linarith [mul_comm β (4 * ↑n * ↑(maxNeighbors d))]
 
 /-! ## Main result: Dobrushin uniqueness for YM at strong coupling
 
@@ -183,12 +184,12 @@ Dobrushin's condition. By the Dobrushin uniqueness theorem
 
 /-- The Yang-Mills model satisfies Dobrushin's condition at strong coupling.
 
-For β < 1/(2n · 4(d-1)) = 1/(8n(d-1)), the Dobrushin column sum is < 1.
+For β < 1/(4n · 8(d-1)) = 1/(32n(d-1)), the Dobrushin column sum is < 1.
 Combined with `dobrushin_uniqueness` from markov-semigroups, this gives
 unique Gibbs measure + exponential correlation decay = mass gap. -/
 theorem ym_satisfies_dobrushin (d : ℕ) (hd : 2 ≤ d) (hn : 1 ≤ n)
     (β : ℝ) (hβ : 0 ≤ β)
-    (hβ_small : β < 1 / (2 * ↑n * ↑(maxNeighbors d))) :
+    (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d))) :
     -- Dobrushin column sum < 1
     dobrushinColumnSum n d β < 1 ∧
     -- Mass gap: ∃ positive decay rate

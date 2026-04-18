@@ -55,7 +55,7 @@ mass gap.
 
 The proof has two components:
 1. **Dobrushin verification** (DobrushinVerification.lean):
-   The Dobrushin column sum c = maxNeighbors(d) · (1 - exp(-2nβ))
+   The Dobrushin column sum c = maxNeighbors(d) · (1 - exp(-4nβ))
    is < 1 when β < β₀, and c^k ≤ exp(-m·k) for m = -log(c) > 0.
 
 2. **Dobrushin correlation decay** (general theory):
@@ -69,7 +69,7 @@ The proof has two components:
 
 /-- **Yang-Mills mass gap at strong coupling.**
 
-For compact G ⊂ U(n), d ≥ 2, β < 1/(2n · maxNeighbors(d)):
+For compact G ⊂ U(n), d ≥ 2, β < 1/(4n · maxNeighbors(d)):
 the Dobrushin contraction factor c < 1, and the 2-point function
 bound 4n² · c^dist decays exponentially.
 
@@ -81,7 +81,7 @@ The mass gap rate m = -log(c) > 0 satisfies c^k ≤ exp(-mk). -/
 theorem ym_mass_gap
     (hd : 2 ≤ d) (hn : 1 ≤ n)
     (β : ℝ) (hβ : 0 ≤ β)
-    (hβ_small : β < 1 / (2 * ↑n * ↑(maxNeighbors d)))
+    (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d)))
     (p q : LatticePlaquette d N) :
     -- The Dobrushin column sum is < 1
     dobrushinColumnSum n d β < 1 ∧
@@ -100,7 +100,7 @@ theorem ym_mass_gap
 theorem ym_mass_gap_uniform
     (hd : 2 ≤ d) (hn : 1 ≤ n)
     (β : ℝ) (hβ : 0 ≤ β)
-    (hβ_small : β < 1 / (2 * ↑n * ↑(maxNeighbors d))) :
+    (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d))) :
     -- The rate m > 0 is independent of N, p, q
     ∃ (m : ℝ), 0 < m ∧
     ∀ (N' : ℕ) (p q : LatticePlaquette d N'),
@@ -113,13 +113,13 @@ theorem ym_mass_gap_uniform
 /-- The strong coupling threshold.
 
 With the coarse neighbor bound `maxNeighbors d = 8(d-1)`, we get:
-For d = 3, n = 1 (e.g., U(1)): β₀ = 1/32
-For d = 3, n = 2 (e.g., SU(2)): β₀ = 1/64
-For d = 3, n = 3 (e.g., SU(3)): β₀ = 1/96
-For d = 4, n = 3 (e.g., SU(3) in 4D): β₀ = 1/144 -/
+For d = 3, n = 1 (e.g., U(1)): β₀ = 1/64
+For d = 3, n = 2 (e.g., SU(2)): β₀ = 1/128
+For d = 3, n = 3 (e.g., SU(3)): β₀ = 1/192
+For d = 4, n = 3 (e.g., SU(3) in 4D): β₀ = 1/288 -/
 theorem ym_threshold_formula (hd : 2 ≤ d) :
-    (1 : ℝ) / (2 * ↑n * ↑(maxNeighbors d)) =
-    1 / (2 * ↑n * (8 * ((↑d : ℝ) - 1))) := by
+    (1 : ℝ) / (4 * ↑n * ↑(maxNeighbors d)) =
+    1 / (4 * ↑n * (8 * ((↑d : ℝ) - 1))) := by
   unfold maxNeighbors maxPlaquettesPerLink
   have h1d : 1 ≤ d := by omega
   push_cast [Nat.cast_sub h1d]
@@ -143,7 +143,7 @@ theorem ym_mass_gap_2pt
     [DecidableEq (LatticeLink d N)]
     (hd : 2 ≤ d) (hn : 1 ≤ n)
     (β : ℝ) (hβ : 0 ≤ β)
-    (hβ_small : β < 1 / (2 * ↑n * ↑(maxNeighbors d)))
+    (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d)))
     (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
     (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
     (plaq : Finset (LatticePlaquette d N))
@@ -232,7 +232,7 @@ theorem ym_mass_gap_2pt_via_multisite
     [MeasurableEq (SpinConfig (LatticeLink d N) G)]
     (hd : 2 ≤ d) (hn : 1 ≤ n)
     (β : ℝ) (hβ : 0 ≤ β)
-    (hβ_small : β < 1 / (2 * ↑n * ↑(maxNeighbors d)))
+    (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d)))
     (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
     (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
     (plaq : Finset (LatticePlaquette d N))
