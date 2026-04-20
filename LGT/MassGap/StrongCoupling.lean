@@ -473,11 +473,10 @@ theorem ymLinkDist_support (plaq : Finset (LatticePlaquette d N))
 A bounded measurable function is integrable on any probability measure.
 We use this to discharge `hPlaqObs_q_cond_int`. -/
 
-omit [T2Space G] in
 /-- `plaqObs q` is integrable on any `condFiniteSupportMeasure` of
 `ymMeasure` — bounded + measurable on a probability measure. -/
 theorem plaqObs_cond_integrable
-    [MeasurableSingletonClass G] [Inhabited G]
+    [Inhabited G]
     (β : ℝ) (hβ : 0 ≤ β)
     (plaq : Finset (LatticePlaquette d N))
     (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
@@ -1648,8 +1647,7 @@ integrability — leaving only the genuinely hard ones. -/
 
 set_option maxHeartbeats 800000 in
 theorem ym_mass_gap_strong_coupling
-    [Inhabited G] [MeasurableSingletonClass G] [MeasurableEq G]
-    [MeasurableEq (SpinConfig (LatticeLink d N) G)]
+    [Inhabited G]
     (hd : 2 ≤ d) (hn : 1 ≤ n)
     (β : ℝ) (hβ : 0 ≤ β)
     (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d)))
@@ -1866,11 +1864,10 @@ hypotheses (they are true for U(n) but require nontrivial proofs):
 ### Measurability hypotheses
 
 The `_nocount` variants in `MarkovSemigroups` replace the former
-`[Countable S]` requirement with `[MeasurableEq S]` and
-`[MeasurableEq (SpinConfig I S)]`. For U(n) these are true
-(metrizable spaces have closed diagonal, hence Borel-measurable
-equality) but not yet formalized in Mathlib, so they appear as
-explicit hypotheses. -/
+`[Fintype S]` requirement with `[CompactSpace S] [T2Space S]
+[SecondCountableTopology S] [BorelSpace S]`. The needed
+`[MeasurableSingletonClass S]` and `[MeasurableEq S]` instances
+are auto-inferred from these typeclasses. -/
 
 noncomputable section UNMassGap
 
@@ -1897,9 +1894,8 @@ with a rate controlled by the Dobrushin column sum.
 - `[SecondCountableTopology ...]`: compact metrizable ⟹ second-countable
 - `[HasHaarProbability ...]`: normalized Haar measure exists on compact groups
 
-**Measurability hypotheses (true for U(n) but not yet in Mathlib):**
-- `[MeasurableSingletonClass ...]` and `[MeasurableEq ...]`: follow from
-  metrizability (diagonal is closed in the product topology, hence Borel). -/
+**Measurability:** `[MeasurableSingletonClass]` and `[MeasurableEq]` are
+now auto-inferred from `[T2Space] [SecondCountableTopology] [BorelSpace]`. -/
 theorem ym_mass_gap_UN
     (n : ℕ) (hn : 1 ≤ n)
     (d N : ℕ) (hd : 2 ≤ d) [NeZero N]
@@ -1909,10 +1905,6 @@ theorem ym_mass_gap_UN
     [HasHaarProbability (unitaryGroup (Fin n) ℂ)]
     [Fintype (LatticeLink d N)]
     [DecidableEq (LatticeLink d N)]
-    -- Measurability instances (true for U(n): metrizable → diagonal closed → Borel measurable):
-    [MeasurableSingletonClass (unitaryGroup (Fin n) ℂ)]
-    [MeasurableEq (unitaryGroup (Fin n) ℂ)]
-    [MeasurableEq (SpinConfig (LatticeLink d N) (unitaryGroup (Fin n) ℂ))]
     -- Coupling and plaquette data:
     (β : ℝ) (hβ : 0 ≤ β)
     (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d)))

@@ -37,7 +37,7 @@ noncomputable section
 
 variable (G : Type*) (n : ℕ) [Group G] [HasGaugeTrace G n]
 variable [TopologicalSpace G] [IsTopologicalGroup G] [CompactSpace G] [T2Space G]
-variable [MeasurableSpace G] [BorelSpace G]
+variable [MeasurableSpace G] [BorelSpace G] [SecondCountableTopology G]
 variable (d N : ℕ)
 
 /-! ## Plaquette observable and distance -/
@@ -213,10 +213,10 @@ on the YM Gibbs specification, with:
   support hypothesis `h_support`.
 
 Since `covariance_bound_gibbs_multisite_general_nn_dist_nocount` requires
-`[MeasurableSingletonClass S]`, `[MeasurableEq S]`, and
-`[MeasurableEq (SpinConfig I S)]` on the spin space, we include those as
-typeclass hypotheses. These hold for metrizable spaces (e.g. U(n))
-since the diagonal is closed, hence Borel-measurable.
+`[CompactSpace S] [T2Space S] [SecondCountableTopology S] [BorelSpace S]`
+on the spin space, these are supplied via section variables.
+`[MeasurableSingletonClass S]` and `[MeasurableEq S]` are auto-inferred
+from `[T2Space S] [SecondCountableTopology S] [BorelSpace S]`.
 
 The full list of hypotheses is the intentional "conditional-theorem"
 shape: a Gibbs-spec-compatible input (hypotheses discharging
@@ -228,8 +228,7 @@ pieces yet to be discharged to give a fully unconditional theorem. -/
 set_option maxHeartbeats 400000 in
 theorem ym_mass_gap_2pt_via_multisite
     [DecidableEq (LatticeLink d N)]
-    [Inhabited G] [MeasurableSingletonClass G] [MeasurableEq G]
-    [MeasurableEq (SpinConfig (LatticeLink d N) G)]
+    [Inhabited G]
     (hd : 2 ≤ d) (hn : 1 ≤ n)
     (β : ℝ) (hβ : 0 ≤ β)
     (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d)))
