@@ -89,19 +89,155 @@ We accept this as a bridge hypothesis and verify it for specific models. -/
 
 /-- The cylinder ratio bound for the tensor Gibbs spec.
 This is the key physics input encoding the Boltzmann weight oscillation bound.
-The proof requires converting between the ENNReal condMeasure and real arithmetic
-on the finite condWeight sums; we accept it as an axiom-free hypothesis. -/
--- Helper: if each term in a Finset sum satisfies a_i ≤ C * b_i with C ≥ 0 and b_i ≥ 0,
--- then ∑ a_i ≤ C * ∑ b_i.
-private theorem sum_le_const_mul_sum {ι : Type*} (s : Finset ι) (a b : ι → ℝ)
-    (C : ℝ) (hC : 0 ≤ C) (hb : ∀ i ∈ s, 0 ≤ b i) (h : ∀ i ∈ s, a i ≤ C * b i) :
-    ∑ i ∈ s, a i ≤ C * ∑ i ∈ s, b i := by
-  rw [Finset.mul_sum]
-  exact Finset.sum_le_sum h
+The proof converts between ENNReal condMeasure and real arithmetic
+on the finite condWeight sums. -/
 
--- Helper: ratio bound for normalized measures.
--- If num_τ ≤ C₁ * num_σ and Z_σ ≤ C₂ * Z_τ and all are positive,
--- then (num_τ / Z_τ) ≤ C₁ * C₂ * (num_σ / Z_σ).
+-- Helper: per-factor weight ratio bound from oscillation.
+-- For any s₁, s₂, t : S, W.w s₁ t ≤ exp(D) * W.w s₂ t.
+private theorem weight_le_exp_osc_mul (W : NNBoltzmannWeight S) (s₁ s₂ t : S) :
+    W.w s₁ t ≤ Real.exp (weightOscillation W) * W.w s₂ t := by
+  have hw_pos := W.w_pos s₂ t
+  rw [← div_le_iff₀ hw_pos]
+  have hlog : Real.log (W.w s₁ t / W.w s₂ t) ≤ weightOscillation W :=
+    le_trans (le_abs_self _) (log_ratio_le_oscillation W s₁ s₂ t)
+  have hdiv_pos : 0 < W.w s₁ t / W.w s₂ t := div_pos (W.w_pos s₁ t) hw_pos
+  calc W.w s₁ t / W.w s₂ t
+      = Real.exp (Real.log (W.w s₁ t / W.w s₂ t)) := (Real.exp_log hdiv_pos).symm
+    _ ≤ Real.exp (weightOscillation W) := Real.exp_le_exp.mpr hlog
+
+-- Helper: y ∉ {x} when x ≠ y.
+private theorem not_mem_singleton_of_ne {α : Type*} [DecidableEq α] {x y : α}
+    (h : x ≠ y) : y ∉ ({x} : Finset α) := by
+  simp [h.symm]
+
+-- Helper: pointwise condWeight bound.
+-- When ρ ∈ agreeing {x} τ and φ(ρ) = update ρ y (σ y),
+-- condWeight {x} ρ ≤ exp(2D) * condWeight {x} φ(ρ).
+private theorem condWeight_update_le (W : NNBoltzmannWeight S)
+    (x y : I) (hxy : x ≠ y) (σ τ : I → S) (_hdiff : ∀ z, z ≠ y → σ z = τ z)
+    (ρ : I → S) (hρ : ρ ∈ TensorGibbs.agreeing ({x} : Finset I) τ) :
+    TensorGibbs.condWeight adj W {x} ρ ≤
+      Real.exp (2 * weightOscillation W) *
+        TensorGibbs.condWeight adj W {x} (Function.update ρ y (σ y)) := by
+  set D := weightOscillation W
+  set φρ := Function.update ρ y (σ y)
+  -- ρ agrees with τ outside {x}, so ρ z = τ z for z ≠ x. In particular ρ y = τ y.
+  have hρy : ρ y = τ y :=
+    (TensorGibbs.mem_agreeing ({x} : Finset I) τ ρ).mp hρ y
+      (not_mem_singleton_of_ne hxy)
+  -- Split adjPairsTouching into edges involving y and edges not involving y.
+  unfold TensorGibbs.condWeight
+  set edges := TensorGibbs.adjPairsTouching adj ({x} : Finset I)
+  set ey := edges.filter (fun p => p.1 = y ∨ p.2 = y)
+  set en := edges.filter (fun p => p.1 ≠ y ∧ p.2 ≠ y)
+  -- Split the product
+  have hdisj : Disjoint ey en := by
+    apply Finset.disjoint_filter.mpr
+    intro ⟨a, b⟩ _; simp; tauto
+  have hunion : ey ∪ en = edges := by
+    ext ⟨a, b⟩; simp [ey, en, Finset.mem_filter]; tauto
+  rw [← hunion, Finset.prod_union hdisj, Finset.prod_union hdisj]
+  -- For en: factors are equal since update doesn't change a ≠ y, b ≠ y
+  have hen_eq : ∀ p ∈ en, W.w (ρ p.1) (ρ p.2) = W.w (φρ p.1) (φρ p.2) := by
+    intro ⟨a, b⟩ hp
+    simp only [en, Finset.mem_filter] at hp
+    rw [show φρ a = ρ a from Function.update_of_ne hp.2.1 ..,
+        show φρ b = ρ b from Function.update_of_ne hp.2.2 ..]
+  rw [Finset.prod_congr rfl hen_eq]
+  -- Need: ∏ ey, W.w (ρ ..) ≤ exp(2D) * ∏ ey, W.w (φρ ..)
+  suffices h : ∏ p ∈ ey, W.w (ρ p.1) (ρ p.2) ≤
+      Real.exp (2 * D) * ∏ p ∈ ey, W.w (φρ p.1) (φρ p.2) by
+    have hc := Finset.prod_nonneg (fun p (_ : p ∈ en) =>
+      le_of_lt (W.w_pos (φρ p.1) (φρ p.2)))
+    calc (∏ p ∈ ey, W.w (ρ p.1) (ρ p.2)) * (∏ p ∈ en, W.w (φρ p.1) (φρ p.2))
+        ≤ (Real.exp (2 * D) * ∏ p ∈ ey, W.w (φρ p.1) (φρ p.2)) *
+          (∏ p ∈ en, W.w (φρ p.1) (φρ p.2)) :=
+        mul_le_mul_of_nonneg_right h hc
+      _ = Real.exp (2 * D) * ((∏ p ∈ ey, W.w (φρ p.1) (φρ p.2)) *
+          (∏ p ∈ en, W.w (φρ p.1) (φρ p.2))) := by ring
+  -- The edges in ey that touch {x} and involve y must be (x,y) or (y,x).
+  have hey_sub : ∀ p ∈ ey, (p.1 = x ∧ p.2 = y) ∨ (p.1 = y ∧ p.2 = x) := by
+    intro ⟨a, b⟩ hp
+    simp only [ey, edges, TensorGibbs.adjPairsTouching, TensorGibbs.adjPairs,
+      Finset.mem_filter, Finset.mem_univ, true_and] at hp
+    obtain ⟨⟨_, ha_or_hb⟩, hay_or_hby⟩ := hp
+    rcases hay_or_hby with rfl | rfl
+    · -- a = y, so b = x (from touching {x})
+      rcases ha_or_hb with h | h
+      · exact absurd (Finset.mem_singleton.mp h) (Ne.symm hxy)
+      · exact Or.inr ⟨rfl, Finset.mem_singleton.mp h⟩
+    · -- b = y, so a = x
+      rcases ha_or_hb with h | h
+      · exact Or.inl ⟨Finset.mem_singleton.mp h, rfl⟩
+      · exact absurd (Finset.mem_singleton.mp h) (Ne.symm hxy)
+  -- Bound each factor in ey using oscillation
+  have hfactor_bound : ∀ p ∈ ey,
+      W.w (ρ p.1) (ρ p.2) ≤ Real.exp D * W.w (φρ p.1) (φρ p.2) := by
+    intro p hp
+    rcases hey_sub p hp with ⟨h1, h2⟩ | ⟨h1, h2⟩
+    · -- p = (x, y)
+      simp only [h1, h2]
+      rw [show φρ x = ρ x from Function.update_of_ne hxy ..,
+          show φρ y = σ y from Function.update_self .., hρy]
+      rw [W.w_symm (ρ x) (τ y), W.w_symm (ρ x) (σ y)]
+      exact weight_le_exp_osc_mul W (τ y) (σ y) (ρ x)
+    · -- p = (y, x)
+      simp only [h1, h2]
+      rw [show φρ y = σ y from Function.update_self ..,
+          show φρ x = ρ x from Function.update_of_ne hxy .., hρy]
+      exact weight_le_exp_osc_mul W (τ y) (σ y) (ρ x)
+  -- Bound the product: each factor ≤ exp(D) * ..., so product ≤ exp(D)^|ey| * ...
+  -- and |ey| ≤ 2 since ey ⊆ {(x,y), (y,x)}.
+  have hey_card : ey.card ≤ 2 := by
+    have hsub : ey ⊆ ({(x, y), (y, x)} : Finset (I × I)) := by
+      intro p hp
+      rcases hey_sub p hp with ⟨h1, h2⟩ | ⟨h1, h2⟩
+      · simp [Prod.ext_iff, h1, h2]
+      · simp [Prod.ext_iff, h1, h2]
+    calc ey.card ≤ ({(x, y), (y, x)} : Finset (I × I)).card :=
+          Finset.card_le_card hsub
+      _ ≤ 2 := Finset.card_le_two
+  calc ∏ p ∈ ey, W.w (ρ p.1) (ρ p.2)
+      ≤ ∏ p ∈ ey, (Real.exp D * W.w (φρ p.1) (φρ p.2)) :=
+        Finset.prod_le_prod
+          (fun p _ => le_of_lt (W.w_pos (ρ p.1) (ρ p.2)))
+          hfactor_bound
+    _ = (Real.exp D) ^ ey.card * ∏ p ∈ ey, W.w (φρ p.1) (φρ p.2) := by
+        rw [Finset.prod_mul_distrib, Finset.prod_const]
+    _ ≤ (Real.exp D) ^ 2 * ∏ p ∈ ey, W.w (φρ p.1) (φρ p.2) := by
+        apply mul_le_mul_of_nonneg_right _ (Finset.prod_nonneg
+          (fun p _ => le_of_lt (W.w_pos (φρ p.1) (φρ p.2))))
+        exact pow_le_pow_right₀ (Real.one_le_exp (weightOscillation_nonneg W)) hey_card
+    _ = Real.exp (2 * D) * ∏ p ∈ ey, W.w (φρ p.1) (φρ p.2) := by
+        congr 1; rw [sq, ← Real.exp_add]; ring_nf
+
+-- Helper: convert condMeasure applied to a measurable set into a real expression.
+open Classical in
+private theorem condMeasure_toReal_eq (W : NNBoltzmannWeight S) [Nonempty S]
+    (Λ : Finset I) (σ : I → S) (A : Set (I → S)) (hA : MeasurableSet A) :
+    (TensorGibbs.condMeasure adj W Λ σ A).toReal =
+      (∑ ρ ∈ TensorGibbs.agreeing Λ σ,
+        if ρ ∈ A then TensorGibbs.condWeight adj W Λ ρ else 0) /
+      TensorGibbs.condZ adj W Λ σ := by
+  unfold TensorGibbs.condMeasure
+  rw [Measure.smul_apply, smul_eq_mul, TensorGibbs.condMeasureUnnorm_apply]
+  have hdirac : ∀ τ : I → S,
+      Measure.dirac τ A = if τ ∈ A then 1 else 0 := by
+    intro τ
+    rw [Measure.dirac_apply' τ hA, Set.indicator_apply, Pi.one_apply]
+  simp_rw [hdirac, mul_ite, mul_one, mul_zero]
+  have hZ_pos := TensorGibbs.condZ_pos adj W Λ σ
+  rw [ENNReal.toReal_mul, ENNReal.toReal_ofReal
+      (one_div_nonneg.mpr (le_of_lt hZ_pos))]
+  rw [ENNReal.toReal_sum (fun ρ _ => by
+    split_ifs
+    · exact ENNReal.ofReal_ne_top
+    · exact ENNReal.zero_ne_top)]
+  simp_rw [apply_ite ENNReal.toReal, ENNReal.toReal_ofReal
+    (le_of_lt (TensorGibbs.condWeight_pos adj W Λ _)), ENNReal.toReal_zero]
+  rw [one_div, inv_mul_eq_div]
+
+-- Helper: ratio bound for normalized measures (real-valued version).
 private theorem ratio_bound_of_sum_bounds
     (num_σ num_τ Z_σ Z_τ C₁ C₂ : ℝ)
     (hnum_σ : 0 ≤ num_σ) (_hnum_τ : 0 ≤ num_τ)
@@ -117,6 +253,7 @@ private theorem ratio_bound_of_sum_bounds
         exact mul_le_mul_of_nonneg_left h_Z (div_nonneg hnum_σ (le_of_lt hZσ))
     _ = C₁ * C₂ * (num_σ / Z_σ) * Z_τ := by ring
 
+open Classical in
 theorem cylinder_ratio_bound
     (W : NNBoltzmannWeight S) (x y : I) (hxy : x ≠ y)
     (σ τ : I → S) (hdiff : ∀ z, z ≠ y → σ z = τ z)
@@ -127,38 +264,144 @@ theorem cylinder_ratio_bound
           ((fun ρ : I → S => ρ x) ⁻¹' B)).toReal := by
   set D := weightOscillation W
   set A := (fun ρ : I → S => ρ x) ⁻¹' B
-  -- Step 1: Pointwise condWeight ratio bound.
-  -- For ρ ∈ agreeing {x} τ, define φ(ρ) = Function.update ρ y (σ y).
-  -- Then CW(ρ) ≤ exp(2D) * CW(φ(ρ)).
-  -- Proof: CW = ∏_{edges} w(...). The edges in adjPairsTouching {x} that involve y
-  -- are (x,y) if adj x y, and (y,x) if adj y x. For such an edge:
-  -- w(ρ(x), ρ(y)) vs w(φ(ρ)(x), φ(ρ)(y)) = w(ρ(x), σ(y)).
-  -- Since ρ(y) = τ(y) and φ(ρ)(y) = σ(y), the ratio is bounded by exp(D) each.
-  -- With at most 2 such edges, total ratio ≤ exp(2D).
-  --
-  -- The proof of the pointwise bound is itself ~50 lines.
-  -- For now, we use the condWeight ratio to derive the measure ratio.
-
-  -- Step 2: Express condMeasure.toReal as a real ratio.
-  -- condMeasure {x} σ A = (1/Z_σ) * ∑_{ρ ∈ agreeing, ρ ∈ A} CW(ρ)  (as ENNReal)
-  -- .toReal = (∑_{ρ ∈ agreeing, ρ ∈ A} CW(ρ)) / Z_σ  (as ℝ)
-
-  -- Step 3: Use sum_le_const_mul_sum and ratio_bound_of_sum_bounds.
-
-  -- The full proof requires the ENNReal↔Real bridge for finite condMeasures.
-  -- This is a known technical challenge in Lean measure theory formalizations.
-  -- We structure the proof to isolate the key physics (condWeight bound) from
-  -- the measure-theory plumbing (ENNReal conversion).
-
-  -- For the condWeight bound, we need: for all ρ ∈ agreeing {x} τ,
-  --   condWeight adj W {x} ρ ≤ exp(2D) * condWeight adj W {x} (update ρ y (σ y))
-  -- This follows from the product structure and log_ratio_le_oscillation.
-
-  -- The measure ratio then follows from the sum/ratio algebra.
-  -- Due to the substantial ENNReal plumbing required (~100 lines), we defer
-  -- the complete formal proof. The mathematical content is fully captured by
-  -- the pointwise condWeight bound and the sum comparison lemmas above.
-  sorry
+  have hA : MeasurableSet A := measurableSet_preimage (measurable_pi_apply x) hB
+  -- Unfold condDist to condMeasure
+  show (TensorGibbs.condMeasure adj W {x} τ A).toReal ≤ _
+  -- Set up notation
+  set agr_τ := TensorGibbs.agreeing ({x} : Finset I) τ
+  set agr_σ := TensorGibbs.agreeing ({x} : Finset I) σ
+  set CW := TensorGibbs.condWeight adj W ({x} : Finset I)
+  set Z_τ := TensorGibbs.condZ adj W {x} τ
+  set Z_σ := TensorGibbs.condZ adj W {x} σ
+  -- Convert both sides to real sums / Z
+  rw [condMeasure_toReal_eq adj W {x} τ A hA,
+      show (tensorGibbsSpec adj W).condDist {x} σ A =
+        TensorGibbs.condMeasure adj W {x} σ A from rfl,
+      condMeasure_toReal_eq adj W {x} σ A hA]
+  -- Define the numerator sums
+  set num_τ := ∑ ρ ∈ agr_τ, if ρ ∈ A then CW ρ else 0
+  set num_σ := ∑ ρ ∈ agr_σ, if ρ ∈ A then CW ρ else 0
+  -- Strategy: num_τ ≤ exp(2D) * num_σ and Z_σ ≤ exp(2D) * Z_τ
+  rw [show Real.exp (4 * D) = Real.exp (2 * D) * Real.exp (2 * D) by
+    rw [← Real.exp_add]; ring_nf]
+  apply ratio_bound_of_sum_bounds num_σ num_τ Z_σ Z_τ
+    (Real.exp (2 * D)) (Real.exp (2 * D))
+  -- num_σ ≥ 0
+  · exact Finset.sum_nonneg (fun ρ _ =>
+      ite_nonneg (le_of_lt (TensorGibbs.condWeight_pos adj W {x} ρ)) le_rfl)
+  -- num_τ ≥ 0
+  · exact Finset.sum_nonneg (fun ρ _ =>
+      ite_nonneg (le_of_lt (TensorGibbs.condWeight_pos adj W {x} ρ)) le_rfl)
+  -- Z_σ > 0
+  · exact TensorGibbs.condZ_pos adj W {x} σ
+  -- Z_τ > 0
+  · exact TensorGibbs.condZ_pos adj W {x} τ
+  -- exp(2D) ≥ 0
+  · exact le_of_lt (exp_pos _)
+  · exact le_of_lt (exp_pos _)
+  · -- num_τ ≤ exp(2D) * num_σ via bijection φ(ρ) = update ρ y (σ y)
+    have hy_notin : y ∉ ({x} : Finset I) := not_mem_singleton_of_ne hxy
+    have hφ_mem : ∀ ρ ∈ agr_τ, Function.update ρ y (σ y) ∈ agr_σ := by
+      intro ρ hρ; rw [TensorGibbs.mem_agreeing] at hρ ⊢
+      intro z hz; by_cases hzy : z = y
+      · rw [hzy, Function.update_self]
+      · rw [Function.update_of_ne hzy, hρ z hz, hdiff z hzy]
+    have hψ_mem : ∀ ρ ∈ agr_σ, Function.update ρ y (τ y) ∈ agr_τ := by
+      intro ρ hρ; rw [TensorGibbs.mem_agreeing] at hρ ⊢
+      intro z hz; by_cases hzy : z = y
+      · rw [hzy, Function.update_self]
+      · rw [Function.update_of_ne hzy, hρ z hz, (hdiff z hzy).symm]
+    have hψφ : ∀ ρ ∈ agr_τ,
+        Function.update (Function.update ρ y (σ y)) y (τ y) = ρ := by
+      intro ρ hρ; ext z; by_cases hzy : z = y
+      · rw [hzy, Function.update_self,
+            (TensorGibbs.mem_agreeing _ _ _).mp hρ y hy_notin]
+      · rw [Function.update_of_ne hzy, Function.update_of_ne hzy]
+    have hφψ : ∀ ρ ∈ agr_σ,
+        Function.update (Function.update ρ y (τ y)) y (σ y) = ρ := by
+      intro ρ hρ; ext z; by_cases hzy : z = y
+      · rw [hzy, Function.update_self,
+            (TensorGibbs.mem_agreeing _ _ _).mp hρ y hy_notin]
+      · rw [Function.update_of_ne hzy, Function.update_of_ne hzy]
+    have hφ_x : ∀ ρ : I → S, (Function.update ρ y (σ y)) x = ρ x :=
+      fun ρ => Function.update_of_ne hxy ..
+    calc num_τ = ∑ ρ ∈ agr_τ, if ρ ∈ A then CW ρ else 0 := rfl
+      _ ≤ ∑ ρ ∈ agr_τ, (Real.exp (2 * D) *
+          if (Function.update ρ y (σ y)) ∈ A
+          then CW (Function.update ρ y (σ y)) else 0) := by
+        apply Finset.sum_le_sum
+        intro ρ hρ
+        by_cases hρA : ρ ∈ A
+        · have hφρA : Function.update ρ y (σ y) ∈ A := by
+            simp only [A, Set.mem_preimage, hφ_x ρ]; exact hρA
+          simp only [hρA, hφρA, ite_true]
+          exact condWeight_update_le adj W x y hxy σ τ hdiff ρ hρ
+        · simp only [hρA, ite_false]
+          apply mul_nonneg (le_of_lt (exp_pos _))
+          split_ifs
+          · exact le_of_lt (TensorGibbs.condWeight_pos adj W {x} _)
+          · exact le_refl 0
+      _ = Real.exp (2 * D) * ∑ ρ ∈ agr_τ,
+          (if (Function.update ρ y (σ y)) ∈ A
+           then CW (Function.update ρ y (σ y)) else 0) :=
+        (Finset.mul_sum ..).symm
+      _ = Real.exp (2 * D) * num_σ := by
+        congr 1
+        exact Finset.sum_nbij'
+          (fun ρ => Function.update ρ y (σ y))
+          (fun ρ => Function.update ρ y (τ y))
+          hφ_mem hψ_mem hψφ hφψ
+          (fun ρ _ => rfl)
+  · -- Z_σ ≤ exp(2D) * Z_τ via the same bijection (reversed direction)
+    show Z_σ ≤ Real.exp (2 * D) * Z_τ
+    have hy_notin : y ∉ ({x} : Finset I) := not_mem_singleton_of_ne hxy
+    have hdiff' : ∀ z, z ≠ y → τ z = σ z := fun z hz => (hdiff z hz).symm
+    have hψ_mem : ∀ ρ ∈ agr_σ, Function.update ρ y (τ y) ∈ agr_τ := by
+      intro ρ hρ; rw [TensorGibbs.mem_agreeing] at hρ ⊢
+      intro z hz; by_cases hzy : z = y
+      · rw [hzy, Function.update_self]
+      · rw [Function.update_of_ne hzy, hρ z hz, (hdiff z hzy).symm]
+    have hφ_mem : ∀ ρ ∈ agr_τ, Function.update ρ y (σ y) ∈ agr_σ := by
+      intro ρ hρ; rw [TensorGibbs.mem_agreeing] at hρ ⊢
+      intro z hz; by_cases hzy : z = y
+      · rw [hzy, Function.update_self]
+      · rw [Function.update_of_ne hzy, hρ z hz, hdiff z hzy]
+    have hψφ : ∀ ρ ∈ agr_τ,
+        Function.update (Function.update ρ y (σ y)) y (τ y) = ρ := by
+      intro ρ hρ; ext z; by_cases hzy : z = y
+      · rw [hzy, Function.update_self,
+            (TensorGibbs.mem_agreeing _ _ _).mp hρ y hy_notin]
+      · rw [Function.update_of_ne hzy, Function.update_of_ne hzy]
+    have hφψ : ∀ ρ ∈ agr_σ,
+        Function.update (Function.update ρ y (τ y)) y (σ y) = ρ := by
+      intro ρ hρ; ext z; by_cases hzy : z = y
+      · rw [hzy, Function.update_self,
+            (TensorGibbs.mem_agreeing _ _ _).mp hρ y hy_notin]
+      · rw [Function.update_of_ne hzy, Function.update_of_ne hzy]
+    -- Use condWeight_update_le with τ, σ swapped
+    -- For ρ ∈ agr_σ, need ρ ∈ agreeing {x} σ (viewing σ as the "τ" in the swapped call)
+    -- and the update direction is y ↦ τ y (viewing τ as the "σ" in the swapped call).
+    -- condWeight_update_le adj W x y hxy τ σ hdiff' ρ hρ_in_agr_σ_viewed_as_agr_τ'
+    -- where ρ ∈ agreeing {x} σ, and we need to show ρ ∈ agreeing {x} σ (viewed as "τ").
+    -- The swapped call: condWeight_update_le adj W x y hxy τ σ hdiff' ρ (hρ as member of agreeing {x} σ)
+    -- gives CW ρ ≤ exp(2D) * CW (update ρ y (τ y)).
+    -- Wait: the signature says (σ τ : I → S) (hdiff : ...) (ρ : ...) (hρ : ρ ∈ agreeing {x} τ)
+    -- So with swapped args: σ' = τ, τ' = σ, hdiff' = ..., hρ : ρ ∈ agreeing {x} σ.
+    -- Result: CW ρ ≤ exp(2D) * CW (update ρ y (τ y)). Exactly what we need!
+    calc ∑ ρ ∈ agr_σ, CW ρ
+        ≤ ∑ ρ ∈ agr_σ, (Real.exp (2 * D) * CW (Function.update ρ y (τ y))) := by
+          apply Finset.sum_le_sum
+          intro ρ hρ
+          exact condWeight_update_le adj W x y hxy τ σ hdiff' ρ hρ
+      _ = Real.exp (2 * D) * ∑ ρ ∈ agr_σ, CW (Function.update ρ y (τ y)) :=
+          (Finset.mul_sum ..).symm
+      _ = Real.exp (2 * D) * ∑ ρ ∈ agr_τ, CW ρ := by
+          congr 1
+          exact Finset.sum_nbij'
+            (fun ρ => Function.update ρ y (τ y))
+            (fun ρ => Function.update ρ y (σ y))
+            hψ_mem hφ_mem hφψ hψφ
+            (fun ρ _ => rfl)
 
 /-- Non-neighbor invariance: when y is not adjacent to x, changing sigma at y
 does not change the cylinder probability at x. -/
