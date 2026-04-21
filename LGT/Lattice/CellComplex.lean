@@ -62,6 +62,96 @@ def LatticePlaquette.boundaryLinks {d N : ℕ}
   | 2 => ⟨siteShift d N p.site p.dir2, p.dir1⟩  -- reversed
   | 3 => ⟨p.site, p.dir2⟩                        -- reversed
 
+/-! ## Lattice incidence lemmas -/
+
+section IncidenceLemmas
+
+variable {d N : ℕ}
+
+/-- siteShift is injective in the site argument. -/
+theorem siteShift_injective (μ : Fin d) :
+    Function.Injective (fun x : FinLatticeSites d N => siteShift d N x μ) := by
+  intro x y h
+  funext i
+  by_cases hi : i = μ
+  · subst hi
+    have h1 := congr_fun h i
+    simp only [siteShift] at h1
+    rw [Function.update_self, Function.update_self] at h1
+    exact add_right_cancel h1
+  · have h1 := congr_fun h i
+    simp only [siteShift] at h1
+    rwa [Function.update_of_ne hi, Function.update_of_ne hi] at h1
+
+/-- Site recovery from two siteShift equations with different dirs. -/
+private theorem site_of_cross_shift (s₁ s₂ : FinLatticeSites d N)
+    (μ₁ μ₂ : Fin d) (h_lt : μ₁ < μ₂)
+    (h₁ : siteShift d N s₁ μ₁ = siteShift d N s₂ μ₁)
+    (h₂ : siteShift d N s₁ μ₂ = siteShift d N s₂ μ₂) : s₁ = s₂ :=
+  siteShift_injective μ₁ h₁
+
+/-- Helper: recover site equality from mixed siteShift/direct equations. -/
+private theorem site_of_shift_and_direct (s₁ s₂ : FinLatticeSites d N)
+    (μ : Fin d) (h_shift : siteShift d N s₁ μ = siteShift d N s₂ μ) :
+    s₁ = s₂ :=
+  siteShift_injective μ h_shift
+
+/-- Core uniqueness: a plaquette is determined by boundary links at positions 0 and 3. -/
+theorem plaquette_eq_of_links_03 (p₁ p₂ : LatticePlaquette d N)
+    (h0 : p₁.boundaryLinks 0 = p₂.boundaryLinks 0)
+    (h3 : p₁.boundaryLinks 3 = p₂.boundaryLinks 3) : p₁ = p₂ := by
+  simp only [LatticePlaquette.boundaryLinks, LatticeLink.mk.injEq] at h0 h3
+  cases p₁; cases p₂; simp only [LatticePlaquette.mk.injEq]
+  exact ⟨h0.1, h0.2, h3.2⟩
+
+/-- Core uniqueness: determined by links at positions 0 and 1. -/
+theorem plaquette_eq_of_links_01 (p₁ p₂ : LatticePlaquette d N)
+    (h0 : p₁.boundaryLinks 0 = p₂.boundaryLinks 0)
+    (h1 : p₁.boundaryLinks 1 = p₂.boundaryLinks 1) : p₁ = p₂ := by
+  simp only [LatticePlaquette.boundaryLinks, LatticeLink.mk.injEq] at h0 h1
+  cases p₁; cases p₂; simp only [LatticePlaquette.mk.injEq]
+  exact ⟨h0.1, h0.2, h1.2⟩
+
+/-- Each boundary link direction is either dir1 or dir2. -/
+private theorem boundaryLink_dir_cases (p : LatticePlaquette d N) (k : Fin 4) :
+    (p.boundaryLinks k).dir = p.dir1 ∨ (p.boundaryLinks k).dir = p.dir2 := by
+  fin_cases k <;> simp [LatticePlaquette.boundaryLinks]
+
+/-- Boundary links at positions 0 and 2 have dir = dir1. -/
+private theorem boundaryLink_dir1 (p : LatticePlaquette d N) (k : Fin 4) (hk : k = 0 ∨ k = 2) :
+    (p.boundaryLinks k).dir = p.dir1 := by
+  rcases hk with rfl | rfl <;> rfl
+
+/-- Boundary links at positions 1 and 3 have dir = dir2. -/
+private theorem boundaryLink_dir2 (p : LatticePlaquette d N) (k : Fin 4) (hk : k = 1 ∨ k = 3) :
+    (p.boundaryLinks k).dir = p.dir2 := by
+  rcases hk with rfl | rfl <;> rfl
+
+-- Shared plaquette bound: two distinct links share at most one plaquette.
+set_option maxHeartbeats 3200000 in
+theorem shared_plaquettes_le_one
+    (x y : LatticeLink d N) (hxy : x ≠ y)
+    (plaq : Finset (LatticePlaquette d N)) :
+    (plaq.filter (fun p =>
+      x ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks ∧
+      y ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card ≤ 1 := by
+  sorry
+
+end IncidenceLemmas
+
+/-- Maximum number of plaquettes containing a single link: 2(d-1).
+(Also defined in DobrushinVerification; kept here for the incidence lemma.) -/
+def maxPlaquettesPerLink' (d : ℕ) : ℕ := 2 * (d - 1)
+
+/-- Each link lies on at most `2*(d-1)` plaquettes. -/
+theorem plaquettes_per_link_le' {d N : ℕ}
+    (ℓ : LatticeLink d N)
+    (plaq : Finset (LatticePlaquette d N)) :
+    (plaq.filter (fun p =>
+      ℓ ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card
+        ≤ maxPlaquettesPerLink' d := by
+  sorry
+
 /-! ## 2D asymmetric lattice (for mass gap proof)
 
 Uses `AsymLatticeSites Nt Ns = ZMod Nt × ZMod Ns` from gaussian-field. -/

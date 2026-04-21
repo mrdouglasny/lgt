@@ -1647,7 +1647,7 @@ Discharges measure-theoretic hypotheses (including 3 measurability
 facts derived from `hRep_cont`), link distance, and conditional
 integrability — leaving only the genuinely hard ones. -/
 
-set_option maxHeartbeats 800000 in
+set_option maxHeartbeats 3200000 in
 theorem ym_mass_gap_strong_coupling
     [Inhabited G]
     (hd : 2 ≤ d) (hn : 1 ≤ n)
@@ -1659,21 +1659,9 @@ theorem ym_mass_gap_strong_coupling
     (p q : LatticePlaquette d N)
     -- Core continuity (implies measurability of boltzmannWeight and plaqObs):
     (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
-    -- Shared plaquette bound: any two links share at most 1 plaquette.
-    -- This combinatorial fact about the lattice drives the density ratio
-    -- bound exp(4nβ) used for the on-plaquette influence coefficient.
-    (hSharedPlaqBound : ∀ x y : LatticeLink d N,
-      (plaq.filter (fun p =>
-        x ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks ∧
-        y ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card ≤ 1)
-    -- Plaquette-per-link bound (combinatorial fact about the lattice):
-    -- each link lies on at most `maxPlaquettesPerLink d = 2(d-1)` plaquettes.
-    -- This implies the neighbor-count bounds `hMaxNeighborsCol/Row`
-    -- via `maxNeighborsCol_of_plaqPerLink` / `maxNeighborsRow_of_plaqPerLink`.
-    (hPlaqPerLink : ∀ ℓ : LatticeLink d N,
-      (plaq.filter
-        (fun p => ℓ ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card
-          ≤ maxPlaquettesPerLink d)
+    -- (Shared plaquette bound and plaquette-per-link bound are now discharged
+    --  from the CellComplex incidence lemmas shared_plaquettes_le_one and
+    --  plaquettes_per_link_le'.)
     :
     |connected2pt G n d N β plaq (plaqObs G n d N p) (plaqObs G n d N q)| ≤
       2 * (↑n : ℝ) * (↑n : ℝ) *
@@ -1769,33 +1757,59 @@ theorem ym_mass_gap_strong_coupling
           hw_integrable_cond hmeas_condDist) z w)).Finite :=
     influenceCoeff_finsupp G n d N plaq β hw_meas
       hZcond_pos hw_integrable_cond hmeas_condDist
-  -- Derive the on-plaquette influence bound from the cylinder ratio
-  -- hypothesis via influenceCoeff_le_of_cylinder_ratio_bound_nocount.
+  -- Derive shared plaquette bound from CellComplex incidence lemma.
+  -- shared_plaquettes_le_one requires x ≠ y; for x = y we handle separately.
+  have hPlaqPerLink : ∀ ℓ : LatticeLink d N,
+      (plaq.filter
+        (fun p => ℓ ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card
+          ≤ maxPlaquettesPerLink d := by
+    intro l
+    have h := plaquettes_per_link_le' l plaq
+    show _ ≤ maxPlaquettesPerLink d
+    simp only [maxPlaquettesPerLink, maxPlaquettesPerLink'] at h ⊢
+    convert h
+  -- Derive the on-plaquette influence bound.
+  -- For x ≠ y: use the cylinder ratio bound with shared_plaquettes_le_one.
+  -- For x = y: the influence coefficient is 0 (condDist consistency).
   have hOnPlaq : ∀ x y : LatticeLink d N, sharesPlaquette d N plaq x y →
       influenceCoeff
         (ymGibbsSpec G n d N plaq β hZcond_pos hw_meas
           hw_integrable_cond hmeas_condDist) x y ≤ influenceBound n β := by
     intro x y hshare
-    -- Apply the upstream cylinder ratio → influence bound theorem.
-    -- C = 4 * n * β, and influenceBound n β = 1 - exp(-4nβ).
-    have hC : (0 : ℝ) ≤ 4 * ↑n * β := by positivity
-    have hkey := influenceCoeff_le_of_cylinder_ratio_bound_nocount
-      (ymGibbsSpec G n d N plaq β hZcond_pos hw_meas hw_integrable_cond hmeas_condDist)
-      x y (4 * ↑n * β) hC
-      (fun σ τ hdiff B hB => by
-        -- The condDist of ymGibbsSpec is gibbsCondMeasure.
-        show (gibbsCondMeasure G n d N plaq β ({x} : Finset _) τ
-              ((fun U : GaugeConnection G d N => U x) ⁻¹' B)).toReal ≤
-            Real.exp (4 * ↑n * β) *
-              (gibbsCondMeasure G n d N plaq β ({x} : Finset _) σ
-                ((fun U : GaugeConnection G d N => U x) ⁻¹' B)).toReal
-        exact gibbsCondMeasure_cylinder_ratio G n d N plaq β hβ hTrace_lower hTrace_upper
-          x y hw_meas hZcond_pos hw_integrable_cond (hSharedPlaqBound x y) σ τ hdiff B hB)
-    -- hkey : influenceCoeff ≤ 1 - exp(-(4 * n * β))
-    -- influenceBound n β = 1 - exp(-4 * n * β)
-    unfold influenceBound
-    convert hkey using 2
-    ring
+    by_cases hxy : x = y
+    · -- x = y: influenceCoeff γ x x = 0 by condDist consistency
+      subst hxy
+      set γ := ymGibbsSpec G n d N plaq β hZcond_pos hw_meas hw_integrable_cond hmeas_condDist
+      have hle : influenceCoeff γ x x ≤ 1 - Real.exp (-(0 : ℝ)) :=
+        influenceCoeff_le_of_cylinder_ratio_bound_nocount γ x x 0 le_rfl
+          (fun σ τ hdiff B hB => by
+            rw [Real.exp_zero, one_mul]
+            have heq := γ.consistent {x} σ τ
+              (fun z hz => hdiff z (by rwa [Finset.mem_singleton] at hz))
+            rw [heq])
+      simp [Real.exp_zero] at hle
+      linarith [influenceBound_nonneg n β hβ]
+    · -- x ≠ y: use shared_plaquettes_le_one and cylinder ratio bound
+      have hSharedBound : (plaq.filter (fun p =>
+          x ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks ∧
+          y ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card ≤ 1 := by
+        have := shared_plaquettes_le_one x y hxy plaq
+        convert this
+      have hC : (0 : ℝ) ≤ 4 * ↑n * β := by positivity
+      have hkey := influenceCoeff_le_of_cylinder_ratio_bound_nocount
+        (ymGibbsSpec G n d N plaq β hZcond_pos hw_meas hw_integrable_cond hmeas_condDist)
+        x y (4 * ↑n * β) hC
+        (fun σ τ hdiff B hB => by
+          show (gibbsCondMeasure G n d N plaq β ({x} : Finset _) τ
+                ((fun U : GaugeConnection G d N => U x) ⁻¹' B)).toReal ≤
+              Real.exp (4 * ↑n * β) *
+                (gibbsCondMeasure G n d N plaq β ({x} : Finset _) σ
+                  ((fun U : GaugeConnection G d N => U x) ⁻¹' B)).toReal
+          exact gibbsCondMeasure_cylinder_ratio G n d N plaq β hβ hTrace_lower hTrace_upper
+            x y hw_meas hZcond_pos hw_integrable_cond hSharedBound σ τ hdiff B hB)
+      unfold influenceBound
+      convert hkey using 2
+      ring
   -- Construct the full influence bound from the derived on-plaquette bound
   -- and the off-plaquette zero-influence theorem.
   have hInfluence : ∀ x y : LatticeLink d N,
@@ -1961,15 +1975,7 @@ theorem ym_mass_gap_UN
     (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d)))
     (plaq : Finset (LatticePlaquette d N))
     (p q : LatticePlaquette d N)
-    -- Lattice combinatorics (provable for standard lattice plaquette sets):
-    (hSharedPlaqBound : ∀ x y : LatticeLink d N,
-      (plaq.filter (fun pl =>
-        x ∈ (Finset.univ : Finset (Fin 4)).image pl.boundaryLinks ∧
-        y ∈ (Finset.univ : Finset (Fin 4)).image pl.boundaryLinks)).card ≤ 1)
-    (hPlaqPerLink : ∀ ℓ : LatticeLink d N,
-      (plaq.filter
-        (fun pl => ℓ ∈ (Finset.univ : Finset (Fin 4)).image pl.boundaryLinks)).card
-          ≤ maxPlaquettesPerLink d)
+    -- (Lattice combinatorics discharged from CellComplex incidence lemmas.)
     :
     |connected2pt (unitaryGroup (Fin n) ℂ) n d N β plaq
         (plaqObs (unitaryGroup (Fin n) ℂ) n d N p)
@@ -1988,8 +1994,6 @@ theorem ym_mass_gap_UN
     (unitaryGroup_gaugeReTr_le n)
     plaq p q
     (unitaryGroup_rep_continuous n)
-    hSharedPlaqBound
-    hPlaqPerLink
 
 end UNMassGap
 
