@@ -1671,7 +1671,36 @@ theorem ym_mass_gap_strong_coupling
     (hPlaqPerLink : ∀ ℓ : LatticeLink d N,
       (plaq.filter
         (fun p => ℓ ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card
-          ≤ maxPlaquettesPerLink d) :
+          ≤ maxPlaquettesPerLink d)
+    -- condKernel-based a.e. bound on the conditional-expectation gap of
+    -- plaqObs q.  This is the hypothesis from the upstream `_nocount` API
+    -- (replacing the old fiber-based choose_σ/h_choose/hg_cond).
+    -- Derivable in principle from the Dobrushin coupling bounds, but taken
+    -- as a hypothesis pending the condFiniteSupportMeasure ↔ condKernel bridge.
+    --
+    -- The ∀ hμ_prob quantifier lets us supply any IsProbabilityMeasure proof;
+    -- the body constructs the canonical one and instantiates.
+    (hcond_ae_bound : ∀ (hμ_prob : IsProbabilityMeasure (ymMeasure G n d N β plaq))
+      (hZcond_pos : ∀ (Λ : Finset (LatticeLink d N)) (σ : GaugeConnection G d N),
+          0 < gibbsConditionalZ G n d N plaq β Λ σ)
+      (hw_meas : Measurable (fun U => boltzmannWeight G n d N β U plaq))
+      (hw_integrable_cond : ∀ (Λ : Finset (LatticeLink d N))
+          (σ : GaugeConnection G d N),
+          Integrable (fun uΛ : LatticeLink d N → G =>
+              gibbsConditionalWeight G n d N plaq β Λ σ uΛ)
+            (Measure.pi (fun _ : LatticeLink d N => haarG G)))
+      (hmeas_condDist : ∀ (Λ : Finset (LatticeLink d N))
+          (A : Set (GaugeConnection G d N)), MeasurableSet A →
+          Measurable (fun σ : GaugeConnection G d N =>
+            (gibbsCondMeasure G n d N plaq β Λ σ A).toReal)),
+      CondKernelAEBound
+        (ymMeasure G n d N β plaq) hμ_prob
+        (plaqObs G n d N q)
+        (↑n : ℝ)
+        ((Finset.univ : Finset (Fin 4)).image (LatticePlaquette.boundaryLinks p))
+        ((Finset.univ : Finset (Fin 4)).image (LatticePlaquette.boundaryLinks q))
+        (ymGibbsSpec G n d N plaq β hZcond_pos hw_meas
+          hw_integrable_cond hmeas_condDist)) :
     |connected2pt G n d N β plaq (plaqObs G n d N p) (plaqObs G n d N q)| ≤
       2 * (↑n : ℝ) * (↑n : ℝ) *
         ∑ x ∈ ((Finset.univ : Finset (Fin 4)).image
@@ -1766,9 +1795,6 @@ theorem ym_mass_gap_strong_coupling
           hw_integrable_cond hmeas_condDist) z w)).Finite :=
     influenceCoeff_finsupp G n d N plaq β hw_meas
       hZcond_pos hw_integrable_cond hmeas_condDist
-  -- Discharge conditional integrability of plaqObs q
-  have hPlaqObs_q_cond_int := plaqObs_cond_integrable G n d N β hβ plaq
-    hTrace_upper hTrace_lower hw_meas p q hPlaqObs_q_meas
   -- Derive the on-plaquette influence bound from the cylinder ratio
   -- hypothesis via influenceCoeff_le_of_cylinder_ratio_bound_nocount.
   have hOnPlaq : ∀ x y : LatticeLink d N, sharesPlaquette d N plaq x y →
@@ -1823,6 +1849,10 @@ theorem ym_mass_gap_strong_coupling
         (fun y => sharesPlaquette d N plaq x y)).card ≤ maxNeighbors d :=
     fun x => (maxNeighborsRow_of_plaqPerLink d N plaq
       (maxPlaquettesPerLink d) hPlaqPerLink x).trans le_rfl
+  -- Construct IsProbabilityMeasure for ymMeasure
+  have hμ_prob : IsProbabilityMeasure (ymMeasure G n d N β plaq) :=
+    ymMeasure_isProbabilityMeasure G n d N β hβ plaq hTrace_upper hTrace_lower
+      hIntegrable_w hw_meas
   -- Apply the upstream theorem
   exact ym_mass_gap_2pt_via_multisite G n d N hd hn β hβ hβ_small
     hTrace_lower hTrace_upper plaq p q
@@ -1830,7 +1860,9 @@ theorem ym_mass_gap_strong_coupling
     hZcond_meas hinner_meas hindA_fub_int hinner_w_over_Z_int hIntegrable_w
     hPlaqObs_p_meas hPlaqObs_q_meas hPlaqObs_p_int hPlaqObs_q_int hPlaqObs_pq_int
     hPlaqObs_pw_int hPlaqObs_qw_int hPlaqObs_pqw_int
-    hInfluence hMaxNeighborsCol hMaxNeighborsRow hPlaqObs_q_cond_int
+    hInfluence hMaxNeighborsCol hMaxNeighborsRow
+    hμ_prob
+    (hcond_ae_bound hμ_prob hZcond_pos hw_meas hw_integrable_cond hmeas_condDist)
     (ymLinkDist d N plaq) h_refl h_triangle h_support hfinsupp
     (fun z B hB σ τ hagree =>
       condDist_cylinder_eq_of_agree_on_support
@@ -1918,7 +1950,35 @@ theorem ym_mass_gap_UN
     (hPlaqPerLink : ∀ ℓ : LatticeLink d N,
       (plaq.filter
         (fun pl => ℓ ∈ (Finset.univ : Finset (Fin 4)).image pl.boundaryLinks)).card
-          ≤ maxPlaquettesPerLink d) :
+          ≤ maxPlaquettesPerLink d)
+    -- condKernel-based a.e. bound (propagated from ym_mass_gap_strong_coupling).
+    (hcond_ae_bound :
+      ∀ (hμ_prob : IsProbabilityMeasure
+            (ymMeasure (unitaryGroup (Fin n) ℂ) n d N β plaq))
+        (hZcond_pos : ∀ (Λ : Finset (LatticeLink d N))
+            (σ : GaugeConnection (unitaryGroup (Fin n) ℂ) d N),
+            0 < gibbsConditionalZ (unitaryGroup (Fin n) ℂ) n d N plaq β Λ σ)
+        (hw_meas : Measurable (fun U => boltzmannWeight
+            (unitaryGroup (Fin n) ℂ) n d N β U plaq))
+        (hw_integrable_cond : ∀ (Λ : Finset (LatticeLink d N))
+            (σ : GaugeConnection (unitaryGroup (Fin n) ℂ) d N),
+            Integrable (fun uΛ : LatticeLink d N → unitaryGroup (Fin n) ℂ =>
+                gibbsConditionalWeight (unitaryGroup (Fin n) ℂ) n d N plaq β Λ σ uΛ)
+              (Measure.pi (fun _ : LatticeLink d N =>
+                haarG (unitaryGroup (Fin n) ℂ))))
+        (hmeas_condDist : ∀ (Λ : Finset (LatticeLink d N))
+            (A : Set (GaugeConnection (unitaryGroup (Fin n) ℂ) d N)),
+            MeasurableSet A →
+            Measurable (fun σ : GaugeConnection (unitaryGroup (Fin n) ℂ) d N =>
+              (gibbsCondMeasure (unitaryGroup (Fin n) ℂ) n d N plaq β Λ σ A).toReal)),
+        CondKernelAEBound
+          (ymMeasure (unitaryGroup (Fin n) ℂ) n d N β plaq) hμ_prob
+          (plaqObs (unitaryGroup (Fin n) ℂ) n d N q)
+          (↑n : ℝ)
+          ((Finset.univ : Finset (Fin 4)).image (LatticePlaquette.boundaryLinks p))
+          ((Finset.univ : Finset (Fin 4)).image (LatticePlaquette.boundaryLinks q))
+          (ymGibbsSpec (unitaryGroup (Fin n) ℂ) n d N plaq β hZcond_pos hw_meas
+            hw_integrable_cond hmeas_condDist)) :
     |connected2pt (unitaryGroup (Fin n) ℂ) n d N β plaq
         (plaqObs (unitaryGroup (Fin n) ℂ) n d N p)
         (plaqObs (unitaryGroup (Fin n) ℂ) n d N q)| ≤
@@ -1938,6 +1998,7 @@ theorem ym_mass_gap_UN
     (unitaryGroup_rep_continuous n)
     hSharedPlaqBound
     hPlaqPerLink
+    hcond_ae_bound
 
 end UNMassGap
 

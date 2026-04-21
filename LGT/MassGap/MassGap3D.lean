@@ -197,6 +197,30 @@ theorem ym_mass_gap_2pt
     _ ≤ 4 * ↑n ^ 2 * exp (-m * ↑(plaquetteDist d N p q)) :=
         mul_le_mul_of_nonneg_left (hm_decay _) (by positivity)
 
+/-- The condKernel-based a.e. bound hypothesis for the multisite
+covariance theorem.  This wraps the upstream hypothesis type, hiding
+the `[IsFiniteMeasure ρ]` instance that `Measure.condKernel` needs
+(derived internally from the explicit `IsProbabilityMeasure μ` proof).
+
+This is the hypothesis that the upstream `covariance_bound_gibbs_multisite_general_nn_dist_nocount`
+requires.  It says: for a.e. N_f-marginal value b, the conditional expectation
+of g given the N_f-complement configuration is close (in L^1 norm) to the
+unconditional expectation of g, with error controlled by the Neumann series. -/
+def CondKernelAEBound
+    {I : Type*} [DecidableEq I] {S : Type*} [Fintype I] [Inhabited S]
+    [MeasurableSpace S] [TopologicalSpace S] [CompactSpace S] [T2Space S]
+    [SecondCountableTopology S] [BorelSpace S]
+    (μ : Measure (I → S)) (hμ : IsProbabilityMeasure μ)
+    (g : (I → S) → ℝ) (Bg : ℝ) (N_f N_g : Finset I)
+    (γ : GibbsSpec I S) : Prop :=
+  letI : IsProbabilityMeasure μ := hμ
+  let e := MeasurableEquiv.piEquivPiSubtypeProd (fun _ : I => S) (fun i => i ∈ N_f)
+  let ρ := μ.map e
+  ∀ᵐ b ∂ρ.fst,
+    |(∫ ω, g (e.symm (b, ω)) ∂ρ.condKernel b)
+      - ∫ σ, g σ ∂μ| ≤
+      2 * Bg * ∑ y ∈ N_g, ∑ x ∈ N_f, neumannSeriesCoeff γ y x
+
 /-! ## Multisite covariance bound via upstream `covariance_bound_gibbs_multisite_general_nn_dist`
 
 This is the final d ≥ 3 mass-gap wiring for the Wilson plaquette
@@ -225,7 +249,7 @@ distributions), a DLR-at-z measurability witness, a finite-support
 witness on the influence coefficients, and a nearest-neighbor support
 hypothesis for the influence graph. These are precisely the analytic
 pieces yet to be discharged to give a fully unconditional theorem. -/
-set_option maxHeartbeats 400000 in
+set_option maxHeartbeats 800000 in
 theorem ym_mass_gap_2pt_via_multisite
     [DecidableEq (LatticeLink d N)]
     [Inhabited G]
@@ -304,21 +328,23 @@ theorem ym_mass_gap_2pt_via_multisite
     (hMaxNeighborsRow : ∀ x : LatticeLink d N,
       ((Finset.univ : Finset (LatticeLink d N)).filter
         (fun y => sharesPlaquette d N plaq x y)).card ≤ maxNeighbors d)
-    -- Conditional integrability of `plaqObs q` on each fiber of N_f.
-    (hPlaqObs_q_cond_int :
-        ∀ a : ((Finset.univ : Finset (Fin 4)).image
-            (LatticePlaquette.boundaryLinks p)) → G,
-        ymMeasure G n d N β plaq
-            (CovarianceBoundMultisite.multiFiber
-              ((Finset.univ : Finset (Fin 4)).image
-                (LatticePlaquette.boundaryLinks p))
-              (CovarianceBoundMultisite.extendOnFinset _ a)) ≠ 0 →
-        Integrable (plaqObs G n d N q)
-          (CovarianceBoundMultisite.condFiniteSupportMeasure
-            (ymMeasure G n d N β plaq)
-            ((Finset.univ : Finset (Fin 4)).image
-              (LatticePlaquette.boundaryLinks p))
-            (CovarianceBoundMultisite.extendOnFinset _ a)))
+    -- IsProbabilityMeasure for ymMeasure (derivable from hβ, hTrace_*, etc.,
+    -- but taken as a hypothesis to keep hcond_ae_bound well-typed).
+    (hμ_prob : IsProbabilityMeasure (ymMeasure G n d N β plaq))
+    -- condKernel-based a.e. bound: for a.e. N_f-marginal value b,
+    -- the conditional expectation of plaqObs q differs from E[plaqObs q]
+    -- by at most the Neumann-series sum.  This replaces the old fiber-based
+    -- (choose_σ, h_choose, hg_cond) hypotheses after the upstream
+    -- markov-semigroups API moved to condKernel.
+    (hcond_ae_bound :
+      CondKernelAEBound
+        (ymMeasure G n d N β plaq) hμ_prob
+        (plaqObs G n d N q)
+        (↑n : ℝ)
+        ((Finset.univ : Finset (Fin 4)).image (LatticePlaquette.boundaryLinks p))
+        ((Finset.univ : Finset (Fin 4)).image (LatticePlaquette.boundaryLinks q))
+        (ymGibbsSpec G n d N plaq β hZcond_pos hw_meas
+          hw_integrable_cond hmeas_condDist))
     -- Distance function on `LatticeLink d N`.
     (dLink : LatticeLink d N → LatticeLink d N → ℕ)
     (h_refl : ∀ x, dLink x x = 0)
@@ -363,14 +389,10 @@ theorem ym_mass_gap_2pt_via_multisite
       hInfluence hMaxNeighborsCol hMaxNeighborsRow
   have hα_eq : hD.α = dobrushinColumnSum n d β := rfl
   -- Step 2: `ymMeasure` is a probability measure and is γ-Gibbs.
-  haveI hμ_prob : IsProbabilityMeasure (ymMeasure G n d N β plaq) :=
-    ymMeasure_isProbabilityMeasure G n d N β hβ plaq hTrace_upper hTrace_lower
-      hIntegrable_w hw_meas
-  -- Cast the probability-measure instance through `SpinConfig`.
-  haveI hμ_prob' :
-      IsProbabilityMeasure
-        (show Measure (SpinConfig (LatticeLink d N) G) from
-          ymMeasure G n d N β plaq) := hμ_prob
+  haveI hμ_inst : IsProbabilityMeasure (ymMeasure G n d N β plaq) := hμ_prob
+  haveI : IsProbabilityMeasure
+      (show Measure (SpinConfig (LatticeLink d N) G) from
+        ymMeasure G n d N β plaq) := hμ_inst
   have hμ : IsGibbsMeasure γ (ymMeasure G n d N β plaq) :=
     ymMeasure_isGibbs G n d N plaq β hβ hTrace_upper hTrace_lower
       hIntegrable_w hw_meas hZcond_pos hw_integrable_cond hmeas_condDist
@@ -416,14 +438,7 @@ theorem ym_mass_gap_2pt_via_multisite
     have h3 : σ (q.boundaryLinks 3) = τ (q.boundaryLinks 3) :=
       hστ _ (Finset.mem_image.mpr ⟨3, Finset.mem_univ _, rfl⟩)
     simp only [h0, h1, h2, h3]
-  -- Step 5: `choose_σ` — trivial extension using the default group element.
-  let choose_σ : (N_f → G) → GaugeConnection G d N :=
-    fun a e => if h : e ∈ N_f then a ⟨e, h⟩ else (default : G)
-  have h_choose : ∀ a : N_f → G, ∀ w (hw : w ∈ N_f),
-      choose_σ a w = a ⟨w, hw⟩ := by
-    intro a w hw
-    simp [choose_σ, hw]
-  -- Step 6: Convert `connected2pt` to the covariance form.
+  -- Step 5: Convert `connected2pt` to the covariance form.
   have hEq_p : ymExpect G n d N β plaq (plaqObs G n d N p)
       = ∫ U, plaqObs G n d N p U ∂(ymMeasure G n d N β plaq) :=
     ymExpect_eq_integral_ymMeasure G n d N β hβ plaq
@@ -470,8 +485,8 @@ theorem ym_mass_gap_2pt_via_multisite
       (↑n : ℝ) (↑n : ℝ) hn_nn hn_nn hbound_p hbound_q
       N_f N_g hf_local hg_local
       hPlaqObs_p_int hPlaqObs_q_int hPlaqObs_pq_int
-      choose_σ h_choose hPlaqObs_q_cond_int
       dLink h_refl h_triangle h_support hfinsupp h_dep_F
+      hcond_ae_bound
   -- Step 8: Rewrite in terms of `connected2pt` and `dobrushinColumnSum`.
   rw [hconn_eq, ← hα_eq]
   exact hUpstream
