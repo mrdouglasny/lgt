@@ -65,6 +65,14 @@ Seven layers:
 
 Also: 2D mass gap via Doeblin (`MassGap2D.lean`, partially complete).
 
+8. **EKR-Dobrushin bridge** (`Bridge/`) — connects tensor
+   renormalization group (TRG) convergence to Dobrushin mass gap.
+   For any nearest-neighbor spin model with an EKR-style certificate
+   (hat-tensor contraction λ < 1), derives exponential correlation
+   decay on the original lattice. Zero sorries, zero axioms.
+   Applicable to Ising, XY, O(3) NLSM, Potts, or any model with a
+   tensor RG certificate. See `docs/mass-gap-blueprint.md` for details.
+
 ## File structure
 
 ```
@@ -88,6 +96,11 @@ LGT/
     MassGap3D.lean                    -- d≥3 mass gap theorem
     StrongCoupling.lean               -- final assembly + U(n)
     MassGap2D.lean                    -- 2D mass gap (Doeblin path)
+  Bridge/
+    TensorGibbsSpec.lean              -- Gibbs spec from tensor network
+    TensorDobrushin.lean              -- influence bounds + Dobrushin condition
+    ScaleTransfer.lean                -- RG scale transfer (coarse → fine)
+    O3MassGap.lean                    -- assembly for O(3) / general models
 docs/
   mass-gap-proof-outline.md           -- detailed proof outline
   mass-gap-proof-outline.tex          -- LaTeX version
