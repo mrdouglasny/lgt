@@ -5,7 +5,9 @@ Released under Apache 2.0 license as described in the file LICENSE.
 # HasGaugeTrace instance for the Unitary Group U(n)
 
 Concrete instantiation of `HasGaugeTrace` for `Matrix.unitaryGroup (Fin n) ℂ`,
-with proofs of the trace bounds and continuity needed by `ym_mass_gap_strong_coupling`.
+with proofs of the trace bounds and continuity needed by `ym_mass_gap_strong_coupling`,
+plus the three typeclass instances needed by `ym_mass_gap_UN`:
+`CompactSpace`, `SecondCountableTopology`, and `HasHaarProbability`.
 
 ## Main results
 
@@ -13,16 +15,24 @@ with proofs of the trace bounds and continuity needed by `ym_mass_gap_strong_cou
 * `unitaryGroup_gaugeReTr_le` -- `gaugeReTr G n g ≤ ↑n`
 * `unitaryGroup_gaugeReTr_neg_le` -- `-↑n ≤ gaugeReTr G n g`
 * `unitaryGroup_rep_continuous` -- `Continuous (HasGaugeTrace.rep)`
+* `instCompactSpaceUnitaryGroup` -- `CompactSpace (unitaryGroup (Fin n) ℂ)`
+* `instSecondCountableTopologyUnitaryGroup` -- `SecondCountableTopology (unitaryGroup (Fin n) ℂ)`
+* `instHasHaarProbabilityUnitaryGroup` -- `HasHaarProbability (unitaryGroup (Fin n) ℂ)`
 -/
 
 import LGT.GaugeField.GaugeGroup
+import LGT.MassGap.YMMeasure
 import Mathlib.LinearAlgebra.UnitaryGroup
 import Mathlib.Analysis.Complex.Basic
 import Mathlib.Analysis.Complex.Norm
 import Mathlib.Topology.Instances.Matrix
 import Mathlib.Data.Complex.BigOperators
+import Mathlib.Topology.Algebra.Star.Unitary
+import Mathlib.Topology.MetricSpace.ProperSpace
+import Mathlib.Topology.Bases
+import Mathlib.MeasureTheory.Measure.Haar.Basic
 
-open Matrix Complex Finset
+open Matrix Complex Finset MeasureTheory Measure TopologicalSpace
 
 noncomputable section
 
@@ -112,5 +122,102 @@ theorem unitaryGroup_gaugeReTr_neg_le
 theorem unitaryGroup_rep_continuous :
     Continuous (HasGaugeTrace.rep (G := Matrix.unitaryGroup (Fin n) ℂ) (n := n)) :=
   continuous_subtype_val
+
+/-! ### Topology on Matrix (Fin n) (Fin n) ℂ
+
+The matrix space inherits `SecondCountableTopology` from the pi-type
+`Fin n → Fin n → ℂ`, since `ℂ` is second-countable and the index is finite.
+-/
+
+instance instSecondCountableTopologyMatrix :
+    SecondCountableTopology (Matrix (Fin n) (Fin n) ℂ) :=
+  inferInstanceAs (SecondCountableTopology (Fin n → Fin n → ℂ))
+
+/-! ### CompactSpace (unitaryGroup (Fin n) ℂ)
+
+U(n) is compact: it is a closed, bounded subset of the finite-dimensional
+matrix space M_n(ℂ).
+
+**Closed:** The carrier `{A | star A * A = 1 ∧ A * star A = 1}` is the
+preimage of the closed set `{(1, 1)}` under the continuous map
+`A ↦ (star A * A, A * star A)`. This is `isClosed_unitary` from Mathlib.
+
+**Bounded:** Every entry of a unitary matrix has norm at most 1
+(proved above as `unitaryGroup_entry_norm_le`), so the carrier is
+contained in `(closedBall 0 1).matrix`, which is compact by
+`IsCompact.matrix` and the compactness of closed balls in `ℂ`
+(a proper metric space).
+-/
+
+/-- The carrier of `unitaryGroup` is contained in the set of matrices whose
+entries lie in the closed unit disk. -/
+lemma unitaryGroup_carrier_subset_closedBall :
+    (unitaryGroup (Fin n) ℂ).carrier ⊆
+      (Metric.closedBall (0 : ℂ) 1).matrix := by
+  intro A hA i j
+  simp only [Metric.mem_closedBall, dist_zero_right]
+  exact unitaryGroup_entry_norm_le n ⟨A, hA⟩ i j
+
+/-- `U(n)` is compact: closed and bounded in the finite-dimensional matrix space. -/
+instance instCompactSpaceUnitaryGroup :
+    CompactSpace (Matrix.unitaryGroup (Fin n) ℂ) := by
+  have hclosed : IsClosed (unitaryGroup (Fin n) ℂ).carrier := isClosed_unitary
+  exact isCompact_iff_compactSpace.mp
+    (IsCompact.of_isClosed_subset (isCompact_closedBall (0 : ℂ) 1).matrix
+      hclosed (unitaryGroup_carrier_subset_closedBall n))
+
+/-! ### SecondCountableTopology (unitaryGroup (Fin n) ℂ)
+
+`U(n)` is second-countable: it carries the subspace topology induced by the
+inclusion into `M_n(ℂ)`, and subspaces of second-countable spaces are
+second-countable.
+-/
+
+/-- `U(n)` is second-countable (subspace of the second-countable matrix space). -/
+instance instSecondCountableTopologyUnitaryGroup :
+    SecondCountableTopology (Matrix.unitaryGroup (Fin n) ℂ) :=
+  Topology.IsInducing.secondCountableTopology (f := Subtype.val) ⟨rfl⟩
+
+/-! ### HasHaarProbability (unitaryGroup (Fin n) ℂ)
+
+Compact groups carry a unique bi-invariant probability measure (Haar measure).
+We construct it via Mathlib's `haarMeasure`, choosing `K₀ = univ` (the whole
+group, which is a `PositiveCompacts` because it is compact with nonempty
+interior). The normalization `haarMeasure K₀ K₀ = 1` then gives
+`haarMeasure K₀ univ = 1`, i.e. a probability measure.
+-/
+
+instance instMeasurableSpaceUnitaryGroup :
+    MeasurableSpace (Matrix.unitaryGroup (Fin n) ℂ) := borel _
+
+instance instBorelSpaceUnitaryGroup :
+    BorelSpace (Matrix.unitaryGroup (Fin n) ℂ) := ⟨rfl⟩
+
+/-- The whole unitary group, viewed as a `PositiveCompacts`. -/
+private def unitaryGroupUniv :
+    PositiveCompacts (Matrix.unitaryGroup (Fin n) ℂ) where
+  toCompacts := ⟨Set.univ, isCompact_univ⟩
+  interior_nonempty' := by rw [interior_univ]; exact Set.univ_nonempty
+
+/-- The Haar probability measure on `U(n)`, normalized so that the total mass is 1. -/
+noncomputable def unitaryHaar :
+    Measure (Matrix.unitaryGroup (Fin n) ℂ) :=
+  haarMeasure (unitaryGroupUniv n)
+
+instance instIsProbabilityMeasureUnitaryHaar :
+    IsProbabilityMeasure (unitaryHaar n) := by
+  constructor
+  show unitaryHaar n Set.univ = 1
+  unfold unitaryHaar
+  have h := @haarMeasure_self (Matrix.unitaryGroup (Fin n) ℂ) _ _ _ _ _
+    (unitaryGroupUniv n)
+  simp [unitaryGroupUniv] at h
+  exact h
+
+/-- `U(n)` carries a Haar probability measure. -/
+instance instHasHaarProbabilityUnitaryGroup :
+    HasHaarProbability (Matrix.unitaryGroup (Fin n) ℂ) where
+  haar := unitaryHaar n
+  isProb := instIsProbabilityMeasureUnitaryHaar n
 
 end
