@@ -82,20 +82,59 @@ private lemma pow_le_pow_of_le_div {alpha : ℝ} (halpha_pos : 0 < alpha)
     alpha ^ b ≤ alpha ^ a := by
   exact pow_le_pow_of_le_one (le_of_lt halpha_pos) halpha_lt hab
 
-/-- **Abstract correlation decay transfer.**
+/-- **Abstract correlation decay transfer (general overhead).**
 
 If fine-lattice covariance is bounded by blocked covariance, blocked
 covariance decays exponentially on the coarse lattice with rate `alpha`,
-and the blocking map compresses fine distances by at most a factor
-`scale` (plus an additive `scale` correction), then the fine-lattice
-covariance decays exponentially with rate `alpha^(1/scale)`.
+and the fine-to-coarse distance satisfies `d_fine / scale <= d_coarse + overhead`,
+then the fine-lattice covariance decays with constant `C / alpha^overhead`.
 
-More precisely: `|cov_fine(p,q)| <= (C / alpha) * alpha^(dist_fine(p,q) / scale)`.
+The `overhead` parameter counts how many extra `alpha` factors are needed
+in the constant to absorb the additive distance correction. For 1D
+blocking, `overhead = 1`; for dD blocking with block diameter `scale`,
+`overhead = d` (one per coordinate). -/
+theorem correlation_decay_transfer_gen
+    (C : ℝ) (hC : 0 ≤ C) (alpha : ℝ) (halpha_pos : 0 < alpha) (halpha_lt : alpha < 1)
+    (scale : ℕ) (_hscale : 0 < scale)
+    (overhead : ℕ)
+    (dist_fine : I_fine → I_fine → ℕ)
+    (dist_coarse : I_coarse → I_coarse → ℕ)
+    (block : I_fine → I_coarse)
+    (cov_fine cov_blocked : I_fine → I_fine → ℝ)
+    -- Distance compression in divided form
+    (hDist : ∀ p q, dist_fine p q / scale ≤ dist_coarse (block p) (block q) + overhead)
+    -- Coarse decay: blocked covariance decays exponentially
+    (hDecay : ∀ p q, |cov_blocked p q| ≤ C * alpha ^ dist_coarse (block p) (block q))
+    -- Covariance transfer: fine covariance bounded by blocked covariance
+    (hTransfer : ∀ p q, |cov_fine p q| ≤ |cov_blocked p q|) :
+    -- Fine-lattice decay with rescaled rate
+    ∀ p q, |cov_fine p q| ≤ (C / alpha ^ overhead) * alpha ^ (dist_fine p q / scale) := by
+  intro p q
+  have h1 : |cov_fine p q| ≤ C * alpha ^ dist_coarse (block p) (block q) :=
+    (hTransfer p q).trans (hDecay p q)
+  set dc := dist_coarse (block p) (block q)
+  set df := dist_fine p q / scale
+  have hd : df ≤ dc + overhead := hDist p q
+  -- alpha^(dc + overhead) <= alpha^df (since alpha <= 1 and dc + overhead >= df)
+  have h_pow : alpha ^ (dc + overhead) ≤ alpha ^ df :=
+    pow_le_pow_of_le_one (le_of_lt halpha_pos) (le_of_lt halpha_lt) hd
+  -- alpha^dc = alpha^(dc + overhead) / alpha^overhead
+  have h_split : alpha ^ dc = alpha ^ (dc + overhead) / alpha ^ overhead := by
+    rw [pow_add]; field_simp
+  have halpha_pow_pos : (0 : ℝ) < alpha ^ overhead := pow_pos halpha_pos _
+  calc |cov_fine p q|
+      ≤ C * alpha ^ dc := h1
+    _ = C * (alpha ^ (dc + overhead) / alpha ^ overhead) := by rw [h_split]
+    _ ≤ C * (alpha ^ df / alpha ^ overhead) := by
+        apply mul_le_mul_of_nonneg_left _ hC
+        exact div_le_div_of_nonneg_right h_pow (le_of_lt halpha_pow_pos)
+    _ = (C / alpha ^ overhead) * alpha ^ df := by ring
 
-The `1/alpha` factor absorbs the additive correction in the distance bound.
-For `alpha` close to 1 (weak decay), this is a mild constant; for `alpha`
-close to 0 (strong decay), it amplifies C but the exponential decay
-dominates at large distance. -/
+/-- **Abstract correlation decay transfer.**
+
+Special case of `correlation_decay_transfer_gen` with `overhead = 1`.
+If `d_fine <= scale * d_coarse + scale`, then `d_fine / scale <= d_coarse + 1`,
+giving constant `C / alpha`. -/
 theorem correlation_decay_transfer
     (C : ℝ) (hC : 0 ≤ C) (alpha : ℝ) (halpha_pos : 0 < alpha) (halpha_lt : alpha < 1)
     (scale : ℕ) (hscale : 0 < scale)
@@ -103,62 +142,22 @@ theorem correlation_decay_transfer
     (dist_coarse : I_coarse → I_coarse → ℕ)
     (block : I_fine → I_coarse)
     (cov_fine cov_blocked : I_fine → I_fine → ℝ)
-    -- Distance compression: blocking reduces distance by at most factor `scale`
-    -- with additive correction `scale` (accounts for block boundaries)
     (hDist : ∀ p q, dist_fine p q ≤ scale * dist_coarse (block p) (block q) + scale)
-    -- Coarse decay: blocked covariance decays exponentially
     (hDecay : ∀ p q, |cov_blocked p q| ≤ C * alpha ^ dist_coarse (block p) (block q))
-    -- Covariance transfer: fine covariance bounded by blocked covariance
     (hTransfer : ∀ p q, |cov_fine p q| ≤ |cov_blocked p q|) :
-    -- Fine-lattice decay with rescaled rate
     ∀ p q, |cov_fine p q| ≤ (C / alpha) * alpha ^ (dist_fine p q / scale) := by
-  intro p q
-  -- Step 1: |cov_fine| <= |cov_blocked| <= C * alpha^d_coarse
-  have h1 : |cov_fine p q| ≤ C * alpha ^ dist_coarse (block p) (block q) :=
-    (hTransfer p q).trans (hDecay p q)
-  -- Step 2: From distance compression, d_fine / scale <= d_coarse + 1,
-  -- so d_coarse >= d_fine / scale - 1. More precisely,
-  -- d_fine <= scale * d_coarse + scale, so d_fine / scale <= d_coarse + 1
-  -- (integer division), hence d_coarse >= d_fine / scale - 1.
-  -- But we need alpha^d_coarse <= alpha^(d_fine/scale - 1) = alpha^(d_fine/scale) / alpha.
-  -- Since d_fine <= scale * d_coarse + scale, we have
-  -- d_fine / scale <= d_coarse + 1 (by Nat.div_le_of_le_mul_add_of_nonneg).
-  -- Actually: d_fine / scale <= (scale * d_coarse + scale) / scale = d_coarse + 1.
-  have hd : dist_fine p q / scale ≤ dist_coarse (block p) (block q) + 1 := by
-    have h := hDist p q
-    have hs := hscale
+  have hDist' : ∀ p q, dist_fine p q / scale ≤ dist_coarse (block p) (block q) + 1 := by
+    intro p q
     calc dist_fine p q / scale
         ≤ (scale * dist_coarse (block p) (block q) + scale) / scale :=
-          Nat.div_le_div_right h
+          Nat.div_le_div_right (hDist p q)
       _ = (scale * dist_coarse (block p) (block q) + scale * 1) / scale := by ring_nf
       _ = (scale * (dist_coarse (block p) (block q) + 1)) / scale := by ring_nf
-      _ = dist_coarse (block p) (block q) + 1 :=
-          Nat.mul_div_cancel_left _ hs
-  -- Step 3: alpha^d_coarse = alpha^(d_coarse + 1) / alpha <= ... wait, we need
-  -- alpha^(d_coarse) <= alpha^(d_fine/scale - 1). Since alpha < 1,
-  -- alpha^a <= alpha^b when a >= b. We have d_coarse + 1 >= d_fine / scale,
-  -- so d_coarse >= d_fine / scale - 1.
-  -- Thus alpha^d_coarse <= alpha^(d_fine/scale - 1) = alpha^(d_fine/scale) * alpha^(-1).
-  -- Hmm, let's just use: d_fine/scale <= d_coarse + 1, so
-  -- alpha^(d_coarse + 1) <= alpha^(d_fine/scale), and
-  -- alpha^d_coarse = alpha^(d_coarse+1) / alpha <= alpha^(d_fine/scale) / alpha.
-  -- Hence C * alpha^d_coarse <= C * alpha^(d_fine/scale) / alpha = (C/alpha) * alpha^(d_fine/scale).
-  set dc := dist_coarse (block p) (block q)
-  set df := dist_fine p q / scale
-  -- We have df <= dc + 1, so dc + 1 >= df, so alpha^(dc+1) <= alpha^df (since alpha <= 1).
-  have h_pow : alpha ^ (dc + 1) ≤ alpha ^ df :=
-    pow_le_pow_of_le_one (le_of_lt halpha_pos) (le_of_lt halpha_lt) hd
-  -- alpha^dc = alpha^(dc+1) / alpha
-  have h_split : alpha ^ dc = alpha ^ (dc + 1) / alpha := by
-    rw [pow_succ']
-    field_simp
-  calc |cov_fine p q|
-      ≤ C * alpha ^ dc := h1
-    _ = C * (alpha ^ (dc + 1) / alpha) := by rw [h_split]
-    _ ≤ C * (alpha ^ df / alpha) := by
-        apply mul_le_mul_of_nonneg_left _ hC
-        exact div_le_div_of_nonneg_right h_pow (le_of_lt halpha_pos)
-    _ = (C / alpha) * alpha ^ df := by ring
+      _ = dist_coarse (block p) (block q) + 1 := Nat.mul_div_cancel_left _ hscale
+  have := correlation_decay_transfer_gen C hC alpha halpha_pos halpha_lt
+    scale hscale 1 dist_fine dist_coarse block cov_fine cov_blocked
+    hDist' hDecay hTransfer
+  simpa [pow_one] using this
 
 /-- **Correlation decay transfer with explicit rate.**
 
@@ -170,20 +169,20 @@ This follows because `alpha^(d/scale) = exp(-m_eff * d / scale)`. -/
 theorem correlation_decay_transfer_exp
     (C : ℝ) (hC : 0 ≤ C) (alpha : ℝ) (halpha_pos : 0 < alpha) (halpha_lt : alpha < 1)
     (scale : ℕ) (hscale : 0 < scale)
+    (overhead : ℕ)
     (dist_fine : I_fine → I_fine → ℕ)
     (dist_coarse : I_coarse → I_coarse → ℕ)
     (block : I_fine → I_coarse)
     (cov_fine cov_blocked : I_fine → I_fine → ℝ)
-    (hDist : ∀ p q, dist_fine p q ≤ scale * dist_coarse (block p) (block q) + scale)
+    (hDist : ∀ p q, dist_fine p q / scale ≤ dist_coarse (block p) (block q) + overhead)
     (hDecay : ∀ p q, |cov_blocked p q| ≤ C * alpha ^ dist_coarse (block p) (block q))
     (hTransfer : ∀ p q, |cov_fine p q| ≤ |cov_blocked p q|) :
     ∀ p q, |cov_fine p q| ≤
-      (C / alpha) * exp (log alpha * (↑(dist_fine p q / scale) : ℝ)) := by
+      (C / alpha ^ overhead) * exp (log alpha * (↑(dist_fine p q / scale) : ℝ)) := by
   intro p q
-  have hbase := correlation_decay_transfer C hC alpha halpha_pos halpha_lt
-    scale hscale dist_fine dist_coarse block cov_fine cov_blocked
+  have hbase := correlation_decay_transfer_gen C hC alpha halpha_pos halpha_lt
+    scale hscale overhead dist_fine dist_coarse block cov_fine cov_blocked
     hDist hDecay hTransfer p q
-  -- Rewrite alpha^n as exp(n * log alpha)
   set k := dist_fine p q / scale
   have hconv : (alpha ^ k : ℝ) = exp (log alpha * ↑k) := by
     rw [show log alpha * ↑k = ↑k * log alpha from by ring]
@@ -263,11 +262,14 @@ structure RGBlockingData (I_fine I_coarse : Type*) where
   dist_fine : I_fine → I_fine → ℕ
   /-- Distance function on coarse sites. -/
   dist_coarse : I_coarse → I_coarse → ℕ
-  /-- Distance compression: fine distance <= scale * coarse distance + scale.
-  This encodes `d_fine(p,q) <= 2^N * d_coarse(block(p), block(q)) + 2^N`
-  which follows from each block having diameter 2^N. -/
+  /-- Overhead: the number of extra alpha factors absorbed into the constant.
+  For a d-dimensional lattice, overhead = d (one per coordinate). Defaults to 1. -/
+  overhead : ℕ := 1
+  /-- Distance compression in divided form:
+  `d_fine / scale <= d_coarse + overhead`.
+  This is the key geometric property of the blocking map. -/
   dist_compression : ∀ p q,
-    dist_fine p q ≤ scale * dist_coarse (block p) (block q) + scale
+    dist_fine p q / scale ≤ dist_coarse (block p) (block q) + overhead
 
 /-- **Covariance data** extending `RGBlockingData` with the covariance
 functions and the transfer identity. Separated from `RGBlockingData`
@@ -292,9 +294,10 @@ theorem rg_correlation_decay_transfer
     -- Coarse-lattice decay: blocked covariance decays with rate alpha
     (hDecay : ∀ p q : I_fine,
       |data.cov_blocked p q| ≤ C * alpha ^ data.dist_coarse (data.block p) (data.block q)) :
-    ∀ p q, |data.cov_fine p q| ≤ (C / alpha) * alpha ^ (data.dist_fine p q / data.scale) :=
-  correlation_decay_transfer C hC alpha halpha_pos halpha_lt
-    data.scale data.scale_pos
+    ∀ p q, |data.cov_fine p q| ≤
+      (C / alpha ^ data.overhead) * alpha ^ (data.dist_fine p q / data.scale) :=
+  correlation_decay_transfer_gen C hC alpha halpha_pos halpha_lt
+    data.scale data.scale_pos data.overhead
     data.dist_fine data.dist_coarse data.block
     data.cov_fine data.cov_blocked
     data.dist_compression hDecay data.cov_transfer
@@ -350,9 +353,9 @@ theorem rg_mass_gap_transfer
     (hCovTransfer : ∀ p q, |cov_fine p q| ≤ |cov_blocked p q|) :
     -- Fine-lattice decay
     ∀ p q, |cov_fine p q| ≤
-      (C_decay / alpha) * alpha ^ (data.dist_fine p q / data.scale) :=
-  correlation_decay_transfer C_decay hC alpha halpha_pos halpha_lt
-    data.scale data.scale_pos
+      (C_decay / alpha ^ data.overhead) * alpha ^ (data.dist_fine p q / data.scale) :=
+  correlation_decay_transfer_gen C_decay hC alpha halpha_pos halpha_lt
+    data.scale data.scale_pos data.overhead
     data.dist_fine data.dist_coarse data.block
     cov_fine cov_blocked
     data.dist_compression hCoarseDecay hCovTransfer
@@ -403,9 +406,9 @@ Given fine lattice `Fin L x Fin L` and coarse lattice
 `Fin L_c x Fin L_c` with `L = 2^N * L_c`, construct the
 blocking data.
 
-The distance compression `d_fine <= 2^N * d_coarse + 2^N` follows from:
-each fine site is within its 2^N x 2^N block, and block distance is
-defined as the L^1 distance between block centers divided by 2^N. -/
+The distance compression in 2D with L^1 metric:
+  `(|i₁-i₂| + |j₁-j₂|) / 2^N ≤ (|qi₁-qi₂| + |qj₁-qj₂|) + 2`
+where `qi = i / 2^N`. The overhead is 2 (one per coordinate). -/
 def trgBlockingData (N L_c : ℕ) (hLc : 0 < L_c) :
     RGBlockingData (Fin (2^N * L_c) × Fin (2^N * L_c))
                    (Fin L_c × Fin L_c) where
@@ -428,14 +431,66 @@ def trgBlockingData (N L_c : ℕ) (hLc : 0 < L_c) :
     Int.natAbs (↑i₁.val - ↑i₂.val) + Int.natAbs (↑j₁.val - ↑j₂.val)
   dist_coarse := fun ⟨a₁, b₁⟩ ⟨a₂, b₂⟩ =>
     Int.natAbs (↑a₁.val - ↑a₂.val) + Int.natAbs (↑b₁.val - ↑b₂.val)
+  overhead := 2
   dist_compression := by
     intro ⟨i₁, j₁⟩ ⟨i₂, j₂⟩
     simp only
-    -- The key estimate: |i1 - i2| <= 2^N * |i1/2^N - i2/2^N| + 2^N
-    -- This follows from: i = (i / 2^N) * 2^N + (i % 2^N)
-    -- so |i1 - i2| <= |q1 - q2| * 2^N + |r1 - r2| <= |q1 - q2| * 2^N + 2^N
-    -- where qi = ii / 2^N and ri = ii % 2^N.
-    sorry
+    -- Goal: (|i₁-i₂| + |j₁-j₂|) / 2^N ≤ (|qi₁-qi₂| + |qj₁-qj₂|) + 2
+    -- where qi = i / 2^N.
+    -- Per coordinate: |a - b| ≤ k * |a/k - b/k| + (k - 1)
+    -- So sum: |i₁-i₂| + |j₁-j₂| ≤ k * dist_coarse + 2*(k-1)
+    -- Dividing by k: (sum) / k ≤ dist_coarse + 2*(k-1)/k ≤ dist_coarse + 2
+    have hk : 0 < 2 ^ N := Nat.pos_of_ne_zero (by positivity)
+    -- 1D helper: |↑a - ↑b| ≤ k * |↑(a/k) - ↑(b/k)| + (k - 1)
+    have h1d : ∀ (a b : ℕ),
+        Int.natAbs ((a : ℤ) - b) ≤
+          2 ^ N * Int.natAbs ((↑(a / 2 ^ N) : ℤ) - ↑(b / 2 ^ N)) + (2 ^ N - 1) := by
+      intro a b
+      set k := 2 ^ N with hk_def
+      set qa := a / k; set ra := a % k
+      set qb := b / k; set rb := b % k
+      have ha : a = k * qa + ra := (Nat.div_add_mod a k).symm
+      have hb : b = k * qb + rb := (Nat.div_add_mod b k).symm
+      have hra' : ra < k := Nat.mod_lt a hk
+      have hrb' : rb < k := Nat.mod_lt b hk
+      have key : (↑a : ℤ) - ↑b = (↑qa - ↑qb) * ↑k + (↑ra - ↑rb) := by
+        have ha' : (↑a : ℤ) = ↑k * ↑qa + ↑ra := by exact_mod_cast ha
+        have hb' : (↑b : ℤ) = ↑k * ↑qb + ↑rb := by exact_mod_cast hb
+        linarith
+      rw [key]
+      have htri := Int.natAbs_add_le ((↑qa - ↑qb) * ↑k) ((↑ra : ℤ) - ↑rb)
+      have hmul : Int.natAbs ((↑qa - ↑qb) * (↑k : ℤ)) =
+          Int.natAbs ((↑qa : ℤ) - ↑qb) * k := by
+        rw [Int.natAbs_mul, Int.natAbs_natCast]
+      have hrem : Int.natAbs ((↑ra : ℤ) - ↑rb) ≤ k - 1 := by omega
+      calc Int.natAbs ((↑qa - ↑qb) * ↑k + (↑ra - ↑rb))
+          ≤ Int.natAbs ((↑qa - ↑qb) * ↑k) + Int.natAbs ((↑ra : ℤ) - ↑rb) := htri
+        _ = Int.natAbs ((↑qa : ℤ) - ↑qb) * k + Int.natAbs ((↑ra : ℤ) - ↑rb) := by
+            rw [hmul]
+        _ ≤ Int.natAbs ((↑qa : ℤ) - ↑qb) * k + (k - 1) := by omega
+        _ = k * Int.natAbs ((↑qa : ℤ) - ↑qb) + (k - 1) := by rw [Nat.mul_comm]
+    -- Combine: sum ≤ k * (|qi₁-qi₂| + |qj₁-qj₂|) + 2*(k-1)
+    have hi := h1d i₁.val i₂.val
+    have hj := h1d j₁.val j₂.val
+    -- Abbreviate the coarse and fine distances
+    set dci := Int.natAbs ((↑(i₁.val / 2 ^ N) : ℤ) - ↑(i₂.val / 2 ^ N))
+    set dcj := Int.natAbs ((↑(j₁.val / 2 ^ N) : ℤ) - ↑(j₂.val / 2 ^ N))
+    set dfi := Int.natAbs ((↑i₁.val : ℤ) - ↑i₂.val)
+    set dfj := Int.natAbs ((↑j₁.val : ℤ) - ↑j₂.val)
+    set k := 2 ^ N with hk_def
+    -- Per-coordinate: dfi ≤ k * dci + (k-1), dfj ≤ k * dcj + (k-1)
+    -- Sum: dfi + dfj ≤ k * dci + k * dcj + 2*(k-1) = k * (dci + dcj) + 2*(k-1)
+    have hsum : dfi + dfj ≤ k * (dci + dcj) + 2 * (k - 1) := by
+      have hdist : k * dci + k * dcj = k * (dci + dcj) := by ring
+      omega
+    -- 2*(k-1) ≤ 2*k, and k*(dci+dcj) + 2*k = k*(dci+dcj+2)
+    have hbound : dfi + dfj ≤ k * (dci + dcj + 2) := by
+      have h2k : 2 * (k - 1) ≤ 2 * k := Nat.mul_le_mul_left 2 (Nat.sub_le k 1)
+      have hdist2 : k * (dci + dcj) + 2 * k = k * (dci + dcj + 2) := by ring
+      linarith
+    calc (dfi + dfj) / k
+        ≤ (k * (dci + dcj + 2)) / k := Nat.div_le_div_right hbound
+      _ = dci + dcj + 2 := Nat.mul_div_cancel_left _ hk
 
 end TRGSetup
 
@@ -457,20 +512,21 @@ theorem rg_scale_transfer_main
     (block : I_fine → I_coarse)
     (_block_surj : Function.Surjective block)
     (scale : ℕ) (hscale : 0 < scale)
+    (overhead : ℕ)
     (dist_fine : I_fine → I_fine → ℕ)
     (dist_coarse : I_coarse → I_coarse → ℕ)
     (hDist : ∀ p q,
-      dist_fine p q ≤ scale * dist_coarse (block p) (block q) + scale)
+      dist_fine p q / scale ≤ dist_coarse (block p) (block q) + overhead)
     (C : ℝ) (hC : 0 ≤ C)
     (alpha : ℝ) (halpha_pos : 0 < alpha) (halpha_lt : alpha < 1)
     (cov_fine cov_blocked : I_fine → I_fine → ℝ)
     (hDecay : ∀ p q,
       |cov_blocked p q| ≤ C * alpha ^ dist_coarse (block p) (block q))
     (hTransfer : ∀ p q, |cov_fine p q| ≤ |cov_blocked p q|) :
-    (∀ p q, |cov_fine p q| ≤ (C / alpha) * alpha ^ (dist_fine p q / scale))
+    (∀ p q, |cov_fine p q| ≤ (C / alpha ^ overhead) * alpha ^ (dist_fine p q / scale))
     ∧ (0 < (-log alpha) / ↑scale) := by
   exact ⟨
-    correlation_decay_transfer C hC alpha halpha_pos halpha_lt scale hscale
+    correlation_decay_transfer_gen C hC alpha halpha_pos halpha_lt scale hscale overhead
       dist_fine dist_coarse block cov_fine cov_blocked hDist hDecay hTransfer,
     rg_mass_gap_rate_pos alpha halpha_pos halpha_lt scale hscale
   ⟩

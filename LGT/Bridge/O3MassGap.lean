@@ -135,7 +135,7 @@ theorem spin_model_mass_gap_via_rg
     (data : CoarseDecayData I_fine I_coarse) :
     -- Fine-lattice exponential decay
     (∀ p q, |data.cov_fine p q| ≤
-      (data.C_decay / data.alpha) *
+      (data.C_decay / data.alpha ^ data.blockData.overhead) *
         data.alpha ^ (data.blockData.dist_fine p q / data.blockData.scale))
     -- Positive mass gap rate
     ∧ (0 < (-log data.alpha) / ↑data.blockData.scale) := by
@@ -144,6 +144,7 @@ theorem spin_model_mass_gap_via_rg
     data.blockData.block_surj
     data.blockData.scale
     data.blockData.scale_pos
+    data.blockData.overhead
     data.blockData.dist_fine
     data.blockData.dist_coarse
     data.blockData.dist_compression
@@ -248,6 +249,7 @@ theorem o3_mass_gap
     blockData.block_surj
     blockData.scale
     blockData.scale_pos
+    blockData.overhead
     blockData.dist_fine
     blockData.dist_coarse
     blockData.dist_compression
@@ -257,9 +259,9 @@ theorem o3_mass_gap
     hCoarseDecay hCovTransfer
   -- Step 2: Package as existential.
   exact ⟨(-log cert.alpha) / ↑blockData.scale,
-         C_decay / cert.alpha,
+         C_decay / cert.alpha ^ blockData.overhead,
          hRate,
-         div_pos hC cert.alpha_pos,
+         div_pos hC (pow_pos cert.alpha_pos _),
          hDecay⟩
 
 /-! ## Part 5: Dobrushin condition constructor
@@ -318,7 +320,8 @@ theorem ekr_to_mass_gap
         blockData.dist_coarse (blockData.block p) (blockData.block q))
     (hCovTransfer : ∀ p q, |cov_fine p q| ≤ |cov_blocked p q|) :
     (∀ p q, |cov_fine p q| ≤
-      (C_decay / alpha) * alpha ^ (blockData.dist_fine p q / blockData.scale))
+      (C_decay / alpha ^ blockData.overhead) *
+        alpha ^ (blockData.dist_fine p q / blockData.scale))
     ∧ (0 < (-log alpha) / ↑blockData.scale) :=
   spin_model_mass_gap_via_rg
     (mkCoarseDecayData blockData cov_fine cov_blocked
