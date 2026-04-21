@@ -139,29 +139,80 @@ distant plaquettes p, q.
 The strategy for proving correlation decay is to apply the Dobrushin
 uniqueness theorem from the theory of Gibbs measures (Chatterjee
 §16.3, Georgii §8). This requires expressing the Yang-Mills measure
-as a Gibbs measure on the link lattice.
+as a **Gibbs measure** on the link lattice — a probability distribution
+satisfying local consistency conditions known as the DLR equations.
 
-A **Gibbs specification** γ assigns to each finite region
-Λ ⊆ Links and boundary condition σ on Λᶜ a conditional probability
-measure (cf. Georgii §1.2):
+### Gibbs specifications
+
+In statistical mechanics, a **Gibbs specification** (cf. Georgii §1.2,
+Chatterjee §16.1) is a rule that, given any finite region Λ and any
+configuration σ on the complement Λᶜ, produces a conditional
+probability distribution on Λ-configurations. Formally, it is a
+family of probability kernels γ(Λ, σ) indexed by (Λ, σ) satisfying
+consistency, properness, and measurability axioms.
+
+For lattice gauge theory, the "sites" are links and the "spin space"
+is the gauge group G. A configuration is a function
+U: Links → G. Given a finite subset Λ ⊆ Links and a boundary
+condition σ: Links → G (specifying group elements on all links
+outside Λ), the Gibbs conditional is:
 
 $$\gamma(\Lambda, \sigma)(A) = \frac{1}{Z_\Lambda(\sigma)}
-\int_{\text{Haar}^\Lambda} \mathbf{1}_A(\text{glue}(u_\Lambda, \sigma))
-\, e^{-S(\text{glue}(u_\Lambda, \sigma))} \, d\text{Haar}^\Lambda(u_\Lambda)$$
+\int_{G^\Lambda} \mathbf{1}_A\bigl(\mathrm{glue}(\Lambda, u_\Lambda, \sigma)\bigr)
+\, e^{-S(\mathrm{glue}(\Lambda, u_\Lambda, \sigma))} \, d\mathrm{Haar}^\Lambda(u_\Lambda)$$
 
-where glue(u_Λ, σ) combines u_Λ on Λ with σ on Λᶜ, and
-Z_Λ(σ) = ∫ w(glue(u_Λ, σ)) dHaar^Λ is the conditional partition
-function.
+Here the **gluing operation** glue(Λ, u_Λ, σ) produces a full
+configuration by combining fresh integration variables u_Λ on the
+links in Λ with the fixed boundary values σ on the links outside Λ:
 
-A probability measure μ is a **Gibbs measure** for γ if it satisfies
-the **DLR equation** (Dobrushin-Lanford-Ruelle): for every finite Λ
-and measurable A,
+$$\mathrm{glue}(\Lambda, u_\Lambda, \sigma)(\ell) =
+\begin{cases} u_\Lambda(\ell) & \text{if } \ell \in \Lambda \\
+\sigma(\ell) & \text{if } \ell \notin \Lambda \end{cases}$$
+
+The integral is over the product Haar measure on G^Λ (independent
+Haar on each link in Λ), and Z_Λ(σ) = ∫ w(glue(Λ, u_Λ, σ)) dHaar^Λ
+is the **conditional partition function**, which normalizes the
+density to a probability measure. We prove Z_Λ(σ) > 0 by the same
+argument as for the full partition function (the Boltzmann weight
+is strictly positive everywhere).
+
+The Gibbs specification satisfies three structural axioms:
+
+- **Consistency**: γ(Λ, σ) depends on σ only through σ|_{Λᶜ}
+  (changing σ inside Λ has no effect, since those values are
+  replaced by the integration variables u_Λ).
+- **Properness**: γ(Λ, σ) is concentrated on configurations that
+  agree with σ outside Λ (the gluing operation forces this by
+  construction).
+- **Measurability**: σ ↦ γ(Λ, σ)(A) is measurable for each A
+  (proved from the continuity of the Boltzmann weight and the
+  parametric integral).
+
+### The DLR equation
+
+A probability measure μ on configurations is a **Gibbs measure**
+for the specification γ if it satisfies the **DLR equation**
+(Dobrushin–Lanford–Ruelle, cf. Georgii §1.5): for every finite Λ
+and every measurable set A of configurations,
 
 $$\mu(A) = \int \gamma(\Lambda, \sigma)(A) \, d\mu(\sigma)$$
 
-The DLR identity for the Yang-Mills measure — `ymMeasure_isGibbs`
-— is the most technically demanding theorem in the formalization.
-The proof assembles five intermediate results:
+In words: the probability μ assigns to any event A equals the
+average, over boundary conditions σ drawn from μ itself, of the
+conditional probability γ(Λ, σ)(A). This is a self-consistency
+condition — μ is compatible with its own conditional distributions.
+
+On a finite lattice, the DLR equation has a unique solution when
+Dobrushin's condition holds (Part 5). On an infinite lattice, the
+DLR equation may have multiple solutions (phase coexistence); the
+Dobrushin condition guarantees uniqueness.
+
+### Proving the DLR identity
+
+We prove that the Yang-Mills measure μ_YM satisfies DLR —
+this is `ymMeasure_isGibbs`, the most technically demanding
+theorem in the lgt formalization. The proof assembles five
+intermediate results:
 
 1. **Pushforward identity** (`glue_measurePreserving`): the map
    (u, σ) ↦ glue(Λ, u, σ) pushes productHaar × productHaar forward
