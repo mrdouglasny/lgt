@@ -1,0 +1,645 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{remark}[theorem]{Remark}
+
+\newcommand{\Tr}{\operatorname{Tr}}
+\newcommand{\ReTr}{\operatorname{Re\,Tr}}
+\newcommand{\TV}{\operatorname{TV}}
+\newcommand{\Cov}{\operatorname{Cov}}
+\newcommand{\glue}{\operatorname{glue}}
+
+\title{Blueprint: Lattice Yang--Mills Mass Gap at Strong Coupling}
+\author{Michael R.\ Douglas \and Claude Opus 4.6}
+\date{April 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We describe a formal proof in Lean~4 of exponential correlation
+decay (mass gap) for Wilson's lattice gauge theory with compact
+gauge group $G \subseteq U(n)$ on the periodic lattice
+$(\mathbb{Z}/N\mathbb{Z})^d$, $d \geq 2$, at strong coupling.
+The proof follows the Dobrushin uniqueness approach of
+Chatterjee~(2026), Chapter~16, and comprises ${\sim}12{,}000$ lines of
+new Lean~4 code with zero \texttt{sorry}s and zero custom axioms
+in the main \texttt{lgt} repository.
+\end{abstract}
+
+\tableofcontents
+
+%% ====================================================================
+\section{Overview}
+
+The proof proceeds in three stages:
+
+\begin{description}[leftmargin=2em]
+\item[Stage A] (Parts 1--4): Encode lattice gauge theory as a
+  Gibbs specification on the link lattice, and prove the
+  Yang--Mills measure satisfies the DLR equations.
+\item[Stage B] (Parts 5--7): Verify Dobrushin's condition at
+  strong coupling and construct the Dobrushin coupling, yielding
+  exponential decay of the disagreement vector via the Neumann
+  series.
+\item[Stage C] (Parts 8--9): Transfer the coupling-level decay
+  to a covariance bound on plaquette observables via multi-site
+  disintegration.
+\end{description}
+
+%% ====================================================================
+\section{Part 1: The lattice as a cell complex}
+
+\textit{Lean:} \texttt{LGT/Lattice/CellComplex.lean}
+
+\medskip
+
+We work on the $d$-dimensional periodic lattice
+$(\mathbb{Z}/N\mathbb{Z})^d$, equipped with an explicit
+CW-structure:
+
+\begin{itemize}
+\item \textbf{Sites} (0-cells): points
+  $x = (x_1, \ldots, x_d) \in (\mathbb{Z}/N\mathbb{Z})^d$.
+\item \textbf{Links} (1-cells): oriented edges
+  $\ell = (x, \mu)$ where $x$ is a site and
+  $\mu \in \{0, \ldots, d{-}1\}$ is a lattice direction.
+  The link connects $x$ to $x + e_\mu \pmod{N}$.
+\item \textbf{Plaquettes} (2-cells): oriented unit squares
+  $p = (x, \mu, \nu)$ with $\mu < \nu$. The boundary
+  $\partial p$ consists of four links traversed counterclockwise:
+  \[
+    \partial p = \bigl\{
+      (x, \mu),\;
+      (x{+}e_\mu, \nu),\;
+      (x{+}e_\nu, \mu),\;
+      (x, \nu)
+    \bigr\}.
+  \]
+  The third and fourth links are traversed with reversed orientation.
+\end{itemize}
+
+Two links share a plaquette iff they are edges of a common unit
+square. On the standard lattice, each link lies on at most
+$2(d{-}1)$ plaquettes, and two distinct links share at most one
+plaquette.
+
+%% ====================================================================
+\section{Part 2: Gauge fields and the Wilson action}
+
+\textit{Lean:} \texttt{LGT/GaugeField/}, \texttt{LGT/WilsonAction/}
+
+\medskip
+
+Fix a compact matrix Lie group $G \subseteq U(n)$ with the
+fundamental representation $\rho\colon G \to M_n(\mathbb{C})$.
+
+A \textbf{gauge configuration} (or connection) is a function
+$U\colon \text{Links} \to G$ assigning a group element to each
+link. The configuration space is $G^{|\text{Links}|}$, a compact
+product of copies of $G$.
+
+The \textbf{holonomy} around a plaquette $p$ is the ordered product
+of group elements around its boundary
+(cf.\ Chatterjee~\S15.2):
+\[
+  U_p = U(\ell_1) \cdot U(\ell_2)
+        \cdot U(\ell_3)^{-1} \cdot U(\ell_4)^{-1}.
+\]
+For a flat connection ($U_p = 1$), the holonomy is trivial.
+The holonomy measures the discrete curvature.
+
+The \textbf{Wilson plaquette action} (Wilson 1974) is:
+\[
+  S(U) = \beta \sum_{p \in \text{plaq}}
+    \bigl(n - \ReTr(U_p)\bigr)
+\]
+where $\beta \geq 0$ is the inverse coupling constant.
+
+\begin{lemma}[\texttt{unitaryGroup\_gaugeReTr\_le}]
+For $U \in U(n)$, $|\ReTr(U)| \leq n$.
+\end{lemma}
+\begin{proof}
+Each diagonal entry satisfies
+$|U_{ii}|^2 \leq \sum_k |U_{ki}|^2 = 1$ (column norm one),
+hence $|\operatorname{Re} U_{ii}| \leq |U_{ii}| \leq 1$, and
+$|\ReTr(U)| = |\sum_i \operatorname{Re} U_{ii}| \leq n$.
+\end{proof}
+
+The plaquette cost $n - \ReTr(U_p) \in [0, 2n]$, so $S \geq 0$
+and the \textbf{Boltzmann weight} $w(U) = e^{-S(U)} \in (0, 1]$.
+
+The action is \textbf{gauge invariant}: under a gauge transformation
+$g\colon \text{Sites} \to G$ acting by
+$U(\ell) \mapsto g(\text{source}) \cdot U(\ell) \cdot g(\text{target})^{-1}$,
+the holonomy transforms as
+$U_p \mapsto g(x) \cdot U_p \cdot g(x)^{-1}$, and $\ReTr$ is
+invariant by cyclicity of trace (cf.\ Chatterjee~\S15.3).
+
+%% ====================================================================
+\section{Part 3: The Yang--Mills measure}
+
+\textit{Lean:} \texttt{LGT/MassGap/YMMeasure.lean}
+
+\medskip
+
+The \textbf{prior measure} on configurations is the product Haar
+probability measure:
+\[
+  \mu_{\mathrm{Haar}} = \bigotimes_{\ell \in \text{Links}} \mathrm{Haar}{}_G.
+\]
+The \textbf{Yang--Mills measure} is the Boltzmann-weighted measure
+(cf.\ Chatterjee~\S15.4):
+\[
+  \mu_{\mathrm{YM}}(dU)
+  = \frac{1}{Z}\, e^{-S(U)} \, d\mu_{\mathrm{Haar}}(U)
+\]
+where $Z = \int e^{-S}\, d\mu_{\mathrm{Haar}}$ is the \textbf{partition function}.
+
+\begin{lemma}[\texttt{partitionFn\_pos}]
+$Z > 0$.
+\end{lemma}
+\begin{proof}
+$w(U) > 0$ for all $U$, with $w(U) \geq e^{-\beta \cdot |\text{plaq}| \cdot 2n} > 0$.
+Since $\mu_{\mathrm{Haar}}$ is a probability measure,
+$Z \geq e^{-\beta \cdot |\text{plaq}| \cdot 2n} > 0$.
+\end{proof}
+
+The \textbf{connected 2-point function} (covariance) of
+observables $f$, $g$ is:
+\[
+  \langle f \cdot g \rangle - \langle f \rangle \langle g \rangle
+\]
+where $\langle \cdot \rangle$ denotes expectation under $\mu_{\mathrm{YM}}$.
+The mass gap is the statement that this decays exponentially when
+$f = \ReTr(U_p)$ and $g = \ReTr(U_q)$.
+
+%% ====================================================================
+\section{Part 4: The DLR identity --- Yang--Mills as a Gibbs measure}
+
+\textit{Lean:} \texttt{LGT/Gibbs/YMSpec.lean}, \texttt{LGT/Gibbs/YMIsGibbs.lean}
+
+\medskip
+
+The strategy for proving correlation decay is to apply the
+Dobrushin uniqueness theorem from the theory of Gibbs measures
+(Chatterjee~\S16.3, Georgii~\S8).
+
+\subsection{Gibbs specifications}
+
+A \textbf{Gibbs specification} (Georgii~\S1.2, Chatterjee~\S16.1)
+is a rule that, given any finite region $\Lambda$ and any
+configuration $\sigma$ on $\Lambda^c$, produces a conditional
+probability distribution on $\Lambda$-configurations.
+
+For lattice gauge theory, the ``sites'' are links and the ``spin
+space'' is the gauge group~$G$. Given a finite subset
+$\Lambda \subseteq \text{Links}$ and a boundary condition
+$\sigma\colon \text{Links} \to G$, the Gibbs conditional is:
+\[
+  \gamma(\Lambda, \sigma)(A)
+  = \frac{1}{Z_\Lambda(\sigma)}
+    \int_{G^\Lambda}
+    \mathbf{1}_A\bigl(\glue(\Lambda, u_\Lambda, \sigma)\bigr)
+    \, e^{-S(\glue(\Lambda, u_\Lambda, \sigma))}
+    \, d\,\mathrm{Haar}^\Lambda(u_\Lambda).
+\]
+
+The \textbf{gluing operation} $\glue(\Lambda, u_\Lambda, \sigma)$
+produces a full configuration by combining fresh integration
+variables $u_\Lambda$ on the links in $\Lambda$ with the fixed
+boundary values $\sigma$ on the links outside $\Lambda$:
+\[
+  \glue(\Lambda, u_\Lambda, \sigma)(\ell)
+  = \begin{cases}
+      u_\Lambda(\ell) & \text{if } \ell \in \Lambda, \\
+      \sigma(\ell)    & \text{if } \ell \notin \Lambda.
+    \end{cases}
+\]
+The integral is over the product Haar measure $\mathrm{Haar}^\Lambda$ on
+$G^\Lambda$, and
+$Z_\Lambda(\sigma) = \int w(\glue(\Lambda, u_\Lambda, \sigma))\,
+d\,\mathrm{Haar}^\Lambda$ is the \textbf{conditional partition function},
+normalizing the density to a probability measure.
+
+The specification satisfies three structural axioms:
+\begin{itemize}
+\item \textbf{Consistency}: $\gamma(\Lambda, \sigma)$ depends on
+  $\sigma$ only through $\sigma|_{\Lambda^c}$.
+\item \textbf{Properness}: $\gamma(\Lambda, \sigma)$ is concentrated
+  on configurations agreeing with $\sigma$ outside $\Lambda$.
+\item \textbf{Measurability}:
+  $\sigma \mapsto \gamma(\Lambda, \sigma)(A)$ is measurable for
+  each~$A$.
+\end{itemize}
+
+\subsection{The DLR equation}
+
+A probability measure $\mu$ is a \textbf{Gibbs measure} for $\gamma$
+if it satisfies the \textbf{DLR equation}
+(Dobrushin--Lanford--Ruelle, Georgii~\S1.5): for every finite
+$\Lambda$ and measurable~$A$,
+\begin{equation}\label{eq:dlr}
+  \mu(A) = \int \gamma(\Lambda, \sigma)(A) \, d\mu(\sigma).
+\end{equation}
+In words: the probability $\mu$ assigns to any event $A$ equals
+the average, over boundary conditions $\sigma$ drawn from $\mu$
+itself, of the conditional probability $\gamma(\Lambda, \sigma)(A)$.
+On a finite lattice with Dobrushin's condition, \eqref{eq:dlr} has
+a unique solution; on infinite lattices, multiple solutions may
+exist (phase coexistence).
+
+\subsection{Proving the DLR identity}
+
+We prove that $\mu_{\mathrm{YM}}$ satisfies \eqref{eq:dlr} ---
+this is \texttt{ymMeasure\_isGibbs}, the most technically demanding
+theorem in the formalization. The proof assembles five intermediate
+results:
+
+\begin{enumerate}
+\item \textbf{Pushforward identity}
+  (\texttt{glue\_measurePreserving}). The map
+  $(u, \sigma) \mapsto \glue(\Lambda, u, \sigma)$ pushes the
+  product measure
+  $\mu_{\mathrm{Haar}} \times \mu_{\mathrm{Haar}}$ forward to $\mu_{\mathrm{Haar}}$. Proved via
+  \texttt{Measure.pi\_eq} on measurable boxes.
+
+\item \textbf{Fubini helper}
+  (\texttt{integral\_glue\_split\_eq}). For integrable $F$:
+  \[
+    \int_\sigma \!\int_{u_\Lambda}\!
+    F(\glue(u, \sigma))\, d\,\mathrm{Haar}(u)\, d\,\mathrm{Haar}(\sigma)
+    = \int_U F(U)\, d\,\mathrm{Haar}(U).
+  \]
+
+\item \textbf{Identity A}
+  (\texttt{integral\_smul\_condZ\_eq\_integral\_smul\_w}).
+  For $h$ constant on $\Lambda^c$-fibers:
+  $\int h \cdot Z_\Lambda\, d\,\mathrm{Haar} = \int h \cdot w\, d\,\mathrm{Haar}$.
+
+\item \textbf{Cancellation identity}
+  (\texttt{cancellation\_identity}). For $h$ fiber-constant:
+  $\int h \cdot w/Z_\Lambda\, d\,\mathrm{Haar} = \int h\, d\,\mathrm{Haar}$.
+
+\item \textbf{DLR assembly} (\texttt{ymMeasure\_dlr}).
+  Combines (4) with the indicator-weighted Fubini identity and the
+  \texttt{withDensity} unfolding of $\mu_{\mathrm{YM}}$ and
+  $\gamma(\Lambda, \sigma)$.
+\end{enumerate}
+
+%% ====================================================================
+\section{Part 5: The Dobrushin condition at strong coupling}
+
+\textit{Lean:} \texttt{LGT/Gibbs/YMDobrushin.lean},
+\texttt{LGT/MassGap/DobrushinVerification.lean}
+
+\medskip
+
+\textbf{Dobrushin's condition} (Dobrushin 1968,
+Chatterjee~\S16.2) provides a criterion for exponential
+correlation decay.
+
+\begin{definition}
+The \textbf{influence coefficient} $C(x, y)$ is:
+\[
+  C(x, y) = \sup_{\sigma \sim_y \tau}
+  d_{\TV}\!\bigl(
+    \gamma(\{x\}, \sigma)\big|_x,\;
+    \gamma(\{x\}, \tau)\big|_x
+  \bigr)
+\]
+where the supremum is over boundary conditions $\sigma, \tau$
+differing only at link~$y$, and $\cdot|_x$ denotes the
+$x$-marginal.
+\end{definition}
+
+\begin{definition}
+\textbf{Dobrushin's condition} holds if
+$\alpha := \max_x \sum_y C(x, y) < 1$.
+\end{definition}
+
+For the YM specification, we prove two influence bounds:
+
+\begin{itemize}
+\item \textbf{Off-plaquette}: $C(x, y) = 0$ when $x$ and $y$
+  don't share a plaquette. The conditional density at $x$ involves
+  only plaquettes through $x$; the action decomposes as
+  $S = S_x + S_{\text{rest}}$ where $S_x$ doesn't involve $y$.
+  The density ratio $w(\glue(u, \sigma))/w(\glue(u, \tau))$ is
+  exactly~1.
+
+\item \textbf{On-plaquette}:
+  $C(x, y) \leq 1 - e^{-4n\beta}$ when $x, y$ share a plaquette.
+  The shared plaquette contributes at most $\beta \cdot 2n$ to the
+  energy oscillation, giving an unnormalized density ratio of
+  $e^{\pm 2n\beta}$. After normalization, the measure ratio is
+  $e^{\pm 4n\beta}$, giving $\TV \leq 1 - e^{-4n\beta}$.
+\end{itemize}
+
+The column sum is at most $\text{maxNeighbors}(d) \cdot (1 - e^{-4n\beta})$,
+where $\text{maxNeighbors}(d) = 8(d{-}1)$. For
+\[
+  \beta < \frac{1}{4n \cdot 8(d{-}1)} = \frac{1}{32\,n\,(d{-}1)},
+\]
+Dobrushin's condition holds with $\alpha < 1$
+(cf.\ Chatterjee Theorem~16.3.1).
+
+%% ====================================================================
+\section{Part 6: The Dobrushin coupling}
+
+\textit{Lean:} \texttt{markov-semigroups/Coupling/DobrushinCoupling.lean},
+\texttt{markov-semigroups/Coupling/CanonicalCoupling.lean}
+
+\medskip
+
+The core of the Dobrushin uniqueness theorem is the construction
+of a \textbf{joint coupling} $P$ of two measures $\mu_1, \mu_2$
+(both satisfying DLR on a set $T$) such that the per-site
+disagreement satisfies the \textbf{contraction inequality}
+simultaneously at all $z \in T$:
+\[
+  P\{\sigma_z \neq \eta_z\}
+  \leq \sum_w C(z, w) \cdot P\{\sigma_w \neq \eta_w\}.
+\]
+
+\begin{theorem}[\texttt{dobrushin\_iterated\_coupling\_fintype}]
+Among all couplings of $\mu_1$ and $\mu_2$, let $P^*$ minimize
+the total disagreement $D(P) = \sum_z P\{\sigma_z \neq \eta_z\}$.
+Then $P^*$ satisfies the per-site contraction at every $z \in T$.
+\end{theorem}
+
+\begin{proof}
+The minimum exists by \textbf{Prokhorov compactness}: the space
+of probability measures on a compact space is compact in the weak
+topology, and the coupling set is closed. Total disagreement $D$
+is lower semicontinuous (each $\{\sigma_z \neq \eta_z\}$ is open
+for $T_2$ spaces).
+
+At the minimizer $P^*$, if
+$P^*\{\sigma_z \neq \eta_z\} > \sum_w C(z,w)\, P^*\{\sigma_w \neq \eta_w\}$
+for some $z \in T$, then replacing the $z$-coupling with the
+\textbf{maximal coupling} of the $z$-conditionals produces $P'$
+with $D(P') < D(P^*)$ (since the $z$-disagreement decreases while
+all other sites' disagreement is unchanged), contradicting
+minimality.
+\end{proof}
+
+The \textbf{canonical maximal coupling} of $\mu, \nu$ on a
+countable space is:
+\[
+  P_{\max} = (\mu \wedge \nu) \cdot \Delta
+  + c^{-1} \cdot (\mu - \mu \wedge \nu)
+             \otimes (\nu - \mu \wedge \nu)
+\]
+where $(\mu \wedge \nu)(\{a\}) = \min(\mu\{a\}, \nu\{a\})$,
+$\Delta$ is the diagonal embedding, and $c = \TV(\mu, \nu)$. This
+achieves $P\{a \neq b\} = \TV(\mu, \nu)$ and varies measurably in
+$(\mu, \nu)$ --- crucial for the \texttt{Measure.bind} kernel.
+
+%% ====================================================================
+\section{Part 7: Exponential decay via the Neumann series}
+
+\textit{Lean:} \texttt{markov-semigroups/Dobrushin/NeumannSeries.lean},
+\texttt{markov-semigroups/Dobrushin/CondTVBridge.lean}
+
+\medskip
+
+Given the coupling with per-site contraction, the disagreement
+vector $\delta(z) = P\{\sigma_z \neq \eta_z\}$ satisfies:
+\[
+  \delta(z) \leq \sum_w C(z, w) \cdot \delta(w).
+\]
+This is a matrix inequality $\delta \leq C\delta$. Since $\alpha < 1$,
+iterating gives $\delta \leq C^N \delta_0 + \sum_{k<N} C^k \cdot s$
+where $s$ is a ``source'' term from sites outside $T$. In the limit
+$N \to \infty$:
+\[
+  \delta(y) \leq \sum_{x \in N_f} \bigl((I - C)^{-1}\bigr)_{yx}
+\]
+where $(I - C)^{-1} = \sum_{n \geq 0} C^n$ is the Neumann series.
+
+For nearest-neighbor influence ($C(z, w) = 0$ when they share no
+plaquette), the resolvent entry is bounded by
+(cf.\ Chatterjee~\S16.2):
+\[
+  \bigl((I - C)^{-1}\bigr)_{yx}
+  \leq \frac{\alpha^{\operatorname{dist}(y, x)}}{1 - \alpha}
+\]
+giving exponential decay.
+
+%% ====================================================================
+\section{Part 8: From coupling to covariance}
+
+\textit{Lean:} \texttt{markov-semigroups/Dobrushin/CovarianceBoundMultisite.lean},
+\texttt{markov-semigroups/Dobrushin/CondKernelDLR.lean}
+
+\medskip
+
+The plaquette observable $\ReTr(U_p)$ depends on $|N_f| = 4$ links,
+not a single link. This requires a \textbf{multi-site covariance
+bound}.
+
+\begin{theorem}[\texttt{covariance\_bound\_gibbs\_multisite\_general\_nocount}]
+For $f$ depending on $N_f \subseteq \text{Links}$ and $g$ depending
+on $N_g$, with $|f| \leq B_f$ and $|g| \leq B_g$:
+\[
+  |\Cov_\mu(f, g)| \leq 2\, B_f\, B_g
+  \sum_{x \in N_f} \sum_{y \in N_g}
+  \frac{\alpha^{\operatorname{dist}(y, x)}}{1 - \alpha}.
+\]
+\end{theorem}
+
+The proof has three ingredients:
+
+\paragraph{Ingredient 1: Covariance decomposition via disintegration.}
+Disintegrate $\mu$ at the $N_f$-fiber using Mathlib's
+\texttt{Measure.condKernel} (regular conditional probability for
+Standard Borel spaces). Since $f$ is $N_f$-local:
+\[
+  \Cov(f, g)
+  = \int f(b) \cdot \bigl(E[g \mid \text{fiber} = b]
+    - E[g]\bigr) \, d\mu_{\text{fst}}(b).
+\]
+Bounding $|f| \leq B_f$ gives
+$|\Cov| \leq B_f \cdot \sup_b |E[g|b] - E[g]|$.
+
+For uncountable compact $G$ (like $U(n)$), the discrete fiber
+decomposition fails (fibers have measure zero). We use Mathlib's
+\texttt{condKernel} disintegration, which works for arbitrary
+Standard Borel spaces via Prokhorov's theorem.
+
+\paragraph{Ingredient 2: Conditional expectation bound via coupling.}
+For each fiber value $b$, the conditional measure $\mu_b$ (the
+\texttt{condKernel} fiber lifted back to the configuration space)
+satisfies DLR at sites $z \notin N_f$:
+
+\begin{theorem}[\texttt{fiberMeasure\_dlr\_ae}]
+For a.e.\ $b$, $\mu_b$ satisfies $\eqref{eq:dlr}$ at every
+$\{z\}$ with $z \notin N_f$.
+\end{theorem}
+\begin{proof}
+Transport the DLR equation for $\mu$ through the disintegration
+$\rho = \rho_\text{fst} \otimes_\kappa \rho_\text{condKernel}$.
+For each measurable~$A$, the set-integral identity
+$\int_T F_A(b)\, d\rho_\text{fst} = \int_T G_A(b)\, d\rho_\text{fst}$
+follows from DLR on restricted sets and \texttt{condDist}
+properness. Then
+\texttt{Integrable.ae\_eq\_of\_forall\_setIntegral\_eq} gives $F_A = G_A$
+a.e.\ for each~$A$. The upgrade from ``for each $A$, a.e.\ $b$'' to
+``a.e.\ $b$, for all $A$'' uses the countable generating
+$\pi$-system from \texttt{StandardBorelSpace}
+(via \texttt{MeasurableSpace.ae\_induction\_on\_inter}).
+Finite intersection over $z \notin N_f$ is trivial ($I$ is finite).
+\end{proof}
+
+With DLR for $\mu_b$, the Dobrushin coupling applies, giving:
+\[
+  |E[g \mid b] - E[g]|
+  \leq 2\, B_g \sum_{y \in N_g} \sum_{x \in N_f}
+  \bigl((I - C)^{-1}\bigr)_{yx}.
+\]
+
+\paragraph{Ingredient 3: Nearest-neighbor exponential decay.}
+Substituting the resolvent bound and noting
+$\operatorname{dist}(y, x) \geq \operatorname{dist}(p, q) - 2$:
+\[
+  |\Cov| \leq 2\, B_f\, B_g \cdot |N_f| \cdot |N_g|
+  \cdot \frac{\alpha^{\operatorname{dist}(p,q) - 2}}{1 - \alpha}.
+\]
+
+%% ====================================================================
+\section{Part 9: Assembly}
+
+\textit{Lean:} \texttt{LGT/MassGap/StrongCoupling.lean},
+\texttt{LGT/GaugeField/UnitaryGroup.lean}
+
+\medskip
+
+\texttt{ym\_mass\_gap\_strong\_coupling} wires Parts 1--8:
+\begin{enumerate}
+\item Build $\gamma = \texttt{ymGibbsSpec}$.
+\item Verify the Dobrushin condition: $\alpha < 1$ at strong coupling.
+\item Prove $\mu_\mathrm{YM}$ is Gibbs for $\gamma$
+  (\texttt{ymMeasure\_isGibbs}).
+\item Prove plaquette observables are 4-link-local.
+\item Bound the influence coefficients (off-plaquette $= 0$ via action
+  factorization; on-plaquette $\leq 1 - e^{-4n\beta}$ via density
+  ratio).
+\item Derive the \texttt{condKernel} a.e.\ bound from
+  \texttt{fiberMeasure\_dlr\_ae}.
+\item Apply the multi-site covariance bound.
+\item Convert $\texttt{connected2pt} \leftrightarrow$ covariance via
+  \texttt{ymExpect\_eq\_integral\_ymMeasure}.
+\end{enumerate}
+
+\texttt{ym\_mass\_gap\_UN} specializes to $G = U(n)$, supplying:
+\begin{itemize}
+\item Trace bounds $|\ReTr(U)| \leq n$ (column-norm-one).
+\item Continuity of $\rho$ (\texttt{continuous\_subtype\_val}).
+\item \texttt{CompactSpace} (closed $+$ bounded in
+  $M_n(\mathbb{C})$, Heine--Borel).
+\item \texttt{SecondCountableTopology} (subspace of $M_n(\mathbb{C})$).
+\item \texttt{HasHaarProbability} (Mathlib's \texttt{haarMeasure}
+  with $K_0 = U(n)$, normalized via \texttt{haarMeasure\_self} $= 1$).
+\end{itemize}
+
+%% ====================================================================
+\section{Relation to Chatterjee's exposition}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{ll}
+\toprule
+Chatterjee & This formalization \\
+\midrule
+\S16.1 Gibbs specifications &
+  \texttt{ymGibbsSpec} (YMSpec.lean) \\
+\S16.2 Dobrushin uniqueness &
+  \texttt{dobrushin\_iterated\_coupling\_fintype} \\
+\S16.2 Influence coefficients &
+  \texttt{influenceCoeff}, influence bounds \\
+\S16.2 Neumann series &
+  \texttt{neumannSeriesCoeff}, resolvent bound \\
+\S16.3 Application to YM &
+  \texttt{ym\_mass\_gap\_strong\_coupling} \\
+Theorem 16.3.1 &
+  \texttt{ym\_mass\_gap\_UN} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Main differences from Chatterjee:
+\begin{itemize}
+\item Multi-site covariance bound (plaquette observables depend
+  on 4 links, not 1).
+\item Minimum-disagreement coupling (Prokhorov) instead of
+  iterative sweep.
+\item Explicit DLR proof for $\mu_\mathrm{YM}$.
+\item Uncountable gauge groups via Mathlib's \texttt{condKernel}.
+\end{itemize}
+
+%% ====================================================================
+\section{What remains}
+
+\begin{itemize}
+\item \textbf{2 lattice combinatorics hypotheses} (provable,
+  ${\sim}160$ lines): \texttt{hSharedPlaqBound} (two links share
+  $\leq 1$ plaquette) and \texttt{hPlaqPerLink} (each link
+  borders $\leq 2(d{-}1)$ plaquettes).
+\item \textbf{1 upstream axiom}
+  (\texttt{dobrushin\_coupling\_axiom\_compact}): the
+  minimum-disagreement coupling exists for compact (not just
+  countable) $S$. Needs Portmanteau lower semicontinuity
+  (${\sim}300$ lines).
+\end{itemize}
+
+%% ====================================================================
+\section{Statistics}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lr}
+\toprule
+Metric & Count \\
+\midrule
+New Lean 4 code (both repos) & ${\sim}12{,}000$ lines \\
+Files created & 8 (lgt) $+$ 6 (markov-semigroups) \\
+Sorry count (lgt) & 0 \\
+Sorry count (markov-semigroups) & 0 \\
+Custom axioms (lgt) & 0 \\
+Custom axioms (markov-semigroups) & 1 (compact coupling) \\
+Hypotheses in final theorem & 6 physics $+$ 2 lattice \\
+Upstream bugs found $+$ fixed & 2 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%% ====================================================================
+\section*{References}
+
+\begin{enumerate}
+\item S.~Chatterjee, \emph{Gauge Theory Lecture Notes} (2026),
+  Chapters 15--16.
+\item R.~L.~Dobrushin, ``Description of a random field by means
+  of conditional probabilities and conditions of its regularity,''
+  \emph{Teor.\ Veroyatnost.\ i Primenen.}\ \textbf{13} (1968),
+  201--229.
+\item H.-O.~Georgii, \emph{Gibbs Measures and Phase Transitions},
+  de~Gruyter, 1988, \S8.
+\item T.~Lindvall, \emph{Lectures on the Coupling Method}, Dover, 2002.
+\item K.~G.~Wilson, ``Confinement of quarks,''
+  \emph{Phys.\ Rev.\ D}~\textbf{10} (1974), 2445--2459.
+\end{enumerate}
+
+\end{document}
