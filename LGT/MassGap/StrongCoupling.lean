@@ -1650,7 +1650,7 @@ integrability — leaving only the genuinely hard ones. -/
 set_option maxHeartbeats 3200000 in
 theorem ym_mass_gap_strong_coupling
     [Inhabited G]
-    (hd : 2 ≤ d) (hn : 1 ≤ n)
+    (hd : 2 ≤ d) (hn : 1 ≤ n) (hN : 2 < N)
     (β : ℝ) (hβ : 0 ≤ β)
     (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d)))
     (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
@@ -1793,7 +1793,7 @@ theorem ym_mass_gap_strong_coupling
       have hSharedBound : (plaq.filter (fun p =>
           x ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks ∧
           y ∈ (Finset.univ : Finset (Fin 4)).image p.boundaryLinks)).card ≤ 1 := by
-        have := shared_plaquettes_le_one x y hxy plaq
+        have := shared_plaquettes_le_one hN x y hxy plaq
         convert this
       have hC : (0 : ℝ) ≤ 4 * ↑n * β := by positivity
       have hkey := influenceCoeff_le_of_cylinder_ratio_bound_nocount
@@ -1963,7 +1963,7 @@ with a rate controlled by the Dobrushin column sum.
 now auto-inferred from `[T2Space] [SecondCountableTopology] [BorelSpace]`. -/
 theorem ym_mass_gap_UN
     (n : ℕ) (hn : 1 ≤ n)
-    (d N : ℕ) (hd : 2 ≤ d) [NeZero N]
+    (d N : ℕ) (hd : 2 ≤ d) (hN : 2 < N) [NeZero N]
     -- Typeclass instances not yet in Mathlib for U(n):
     [CompactSpace (unitaryGroup (Fin n) ℂ)]
     [SecondCountableTopology (unitaryGroup (Fin n) ℂ)]
@@ -1989,7 +1989,7 @@ theorem ym_mass_gap_UN
               (1 - dobrushinColumnSum n d β) :=
   ym_mass_gap_strong_coupling
     (unitaryGroup (Fin n) ℂ) n d N
-    hd hn β hβ hβ_small
+    hd hn hN β hβ hβ_small
     (unitaryGroup_gaugeReTr_neg_le n)
     (unitaryGroup_gaugeReTr_le n)
     plaq p q
