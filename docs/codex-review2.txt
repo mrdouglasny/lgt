@@ -1,0 +1,18 @@
+
+Findings
+
+P0 The repository no longer supports its own “zero sorry” claim. StrongCoupling.lean (line 2046) introduces ym_mass_gap_exponential_decay, and its proof ends in sorry at StrongCoupling.lean (line 2063). But the README still says “zero sorry’s” at README.md (line 4) and README.md (line 52), and the proof outline still says “Sorry count (final) | 0” at docs/mass-gap-proof-outline.md (line 198). That is now plainly incorrect.
+P0 The new “proper mass gap formulation” is mathematically the right target, but it is not proved and should not be presented as part of the finished theorem surface. The actual proved theorem ym_mass_gap_UN still has the weaker 16-term coarse-distance bound at StrongCoupling.lean (line 1950), while the genuine mass-gap statement is only the new sorry-backed target at StrongCoupling.lean (line 2030).
+P1 The response is correct that my earlier U(n)-instance criticism no longer applies. UnitaryGroup.lean (line 162), UnitaryGroup.lean (line 177), and UnitaryGroup.lean (line 218) do provide CompactSpace, SecondCountableTopology, and HasHaarProbability for unitaryGroup (Fin n) ℂ. That part of the response is a valid correction.
+P1 The response and README now describe the current result more honestly, but the theorem docstring for ym_mass_gap_UN still overclaims. It says the connected 2-point function “decays exponentially” at StrongCoupling.lean (line 1952), while the theorem type below it is still the coarse sum over ymLinkDist at StrongCoupling.lean (line 1980). That language should be tightened to match the proven statement.
+P2 The proof outline is stale and materially misleading. It still states that ym_mass_gap_UN gives exponential decay in plaquette distance at docs/mass-gap-proof-outline.md (line 5), even though the actual theorem only gives the coarse ymLinkDist bound and the true exponential-decay theorem is currently a sorry.
+P2 The new README formulation is directionally better, but one paragraph still blurs proved and unproved content. README.md (line 33) writes the geometric reduction as if the boundary-sum estimate is straightforward and already known in the needed form, while in code that reduction is exactly the missing theorem isolated by ym_mass_gap_exponential_decay. That should be labeled more explicitly as an unformalized argument, not a completed consequence.
+What Improved
+
+The main theorem description in README.md (line 9) now matches the actual proved theorem much better: it states a connected 2-point bound by a boundary-link sum with a coarse distance, rather than falsely claiming finished exponential decay.
+The README now explicitly separates “What this proves” from “What remains” at README.md (line 21), which is the right conceptual split.
+The response’s correction about U(n) instances is substantively right.
+Bottom line
+The new formulation is the right one mathematically, but it is not proved, and the repo now contains a visible sorry for exactly that missing step. So the response is mostly good on substance, but the project metadata is inconsistent: README and outline still claim “zero sorry’s,” and ym_mass_gap_UN’s docstring still reads stronger than its type.
+
+I checked the file contents directly. No code changes were made.
