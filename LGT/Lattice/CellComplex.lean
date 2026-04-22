@@ -85,9 +85,9 @@ theorem siteShift_injective (μ : Fin d) :
 
 /-- Site recovery from two siteShift equations with different dirs. -/
 private theorem site_of_cross_shift (s₁ s₂ : FinLatticeSites d N)
-    (μ₁ μ₂ : Fin d) (h_lt : μ₁ < μ₂)
+    (μ₁ _μ₂ : Fin d) (_h_lt : μ₁ < _μ₂)
     (h₁ : siteShift d N s₁ μ₁ = siteShift d N s₂ μ₁)
-    (h₂ : siteShift d N s₁ μ₂ = siteShift d N s₂ μ₂) : s₁ = s₂ :=
+    (_h₂ : siteShift d N s₁ _μ₂ = siteShift d N s₂ _μ₂) : s₁ = s₂ :=
   siteShift_injective μ₁ h₁
 
 /-- Helper: recover site equality from mixed siteShift/direct equations. -/

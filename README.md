@@ -7,7 +7,7 @@ for compact gauge groups G ⊆ U(n), with **zero sorry's** and
 ## Main result
 
 **Theorem** (`ym_mass_gap_UN`). For U(n) Wilson lattice gauge theory
-on (ℤ/Nℤ)^d with d ≥ 2, n ≥ 1, and coupling β < 1/(32n(d−1)),
+on (ℤ/Nℤ)^d with d ≥ 2, N ≥ 3, n ≥ 1, and coupling β < 1/(32n(d−1)),
 the connected 2-point function of plaquette observables decays
 exponentially:
 
@@ -20,13 +20,16 @@ This holds for all compact gauge groups: U(1), SU(N), SO(N), etc.
 
 ## Status
 
-**Zero sorry's. Zero custom axioms.** Only standard Lean axioms
-(propext, Classical.choice, Quot.sound).
+**Zero sorry's. Zero custom axioms.**
 
-Remaining hypotheses (all provable, not axioms):
-- 2 lattice combinatorics facts (shared plaquettes, plaquettes per link)
-- 3 Mathlib typeclass instances for U(n) (CompactSpace, SecondCountableTopology, HasHaarProbability)
-- 1 condKernel a.e. bound (derivable from the Dobrushin coupling)
+```
+#print axioms ym_mass_gap_UN
+-- propext, Classical.choice, Quot.sound
+```
+
+Only the three standard Lean axioms used by every Lean program.
+All lattice combinatorics, typeclass instances, measure-theoretic
+hypotheses, and coupling constructions are fully discharged.
 
 See [docs/mass-gap-proof-outline.md](docs/mass-gap-proof-outline.md)
 for the full proof outline.
