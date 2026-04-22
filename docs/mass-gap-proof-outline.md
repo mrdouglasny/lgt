@@ -1,19 +1,30 @@
-# Formal Proof of the d ≥ 3 Lattice Yang-Mills Mass Gap at Strong Coupling
+# Formal Proof of Dobrushin Contraction for Lattice Yang-Mills at Strong Coupling
 
-## Statement
+## Proved theorem
 
 **Theorem** (`ym_mass_gap_UN` in `LGT/MassGap/StrongCoupling.lean`).
 For the U(n) Wilson lattice gauge theory on the d-dimensional periodic
 lattice (ℤ/Nℤ)^d with d ≥ 2, N ≥ 3, n ≥ 1, and coupling
 β < 1/(32n(d−1)), the connected 2-point function of plaquette
-observables decays exponentially in plaquette distance:
+observables p, q is bounded:
 
     |⟨Re Tr(U_p) · Re Tr(U_q)⟩ − ⟨Re Tr(U_p)⟩ · ⟨Re Tr(U_q)⟩|
-        ≤ C(n) · α^{dist(p,q)} / (1 − α)
+        ≤ 2n² · ∑_{x ∈ ∂p, y ∈ ∂q} α^{d(x,y)} / (1 − α)
 
-where α = dobrushinColumnSum(n, d, β) < 1 is the Dobrushin contraction
-constant, dist is a link-distance function on the lattice, and C(n) is
-a constant depending on the representation dimension.
+where α = dobrushinColumnSum(n, d, β) < 1 and d(x,y) = ymLinkDist
+is a coarse link distance taking values in {0, 1, 2}. Zero sorry's,
+zero custom axioms.
+
+## Mass gap target (not yet proved)
+
+**Theorem** (`ym_mass_gap_exponential_decay`, sorry).
+Under the same hypotheses, the connected 2-point function decays
+exponentially in the periodic L₁ plaquette distance:
+
+    |⟨Re Tr(U_p) · Re Tr(U_q)⟩_c| ≤ C(n,d,β) · α^{dist(p,q)}
+
+This reduces to `ym_mass_gap_UN` plus the combinatorial bound that
+link graph distance ≥ L₁ site distance minus a constant.
 
 ## Axiom status
 
@@ -195,8 +206,9 @@ and representation continuity from `UnitaryGroup.lean`.
 | Metric | Count |
 |---|---|
 | New Lean 4 code (both repos) | ~12,000 lines |
-| Sorry count (final) | 0 |
-| Custom axiom count (final) | 0 |
+| `ym_mass_gap_UN` sorry count | 0 |
+| `ym_mass_gap_UN` custom axioms | 0 |
+| `ym_mass_gap_exponential_decay` sorry count | 1 (combinatorial reduction) |
 | Standard Lean axioms | 3 (propext, Classical.choice, Quot.sound) |
 
 ## References

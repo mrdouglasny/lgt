@@ -1,10 +1,10 @@
 # lgt — Lattice Gauge Theory in Lean 4
 
 Formal proof of **Dobrushin contraction for the d ≥ 2 lattice
-Yang-Mills theory at strong coupling**, with **zero sorry's** and
-**zero custom axioms**. This establishes a connected 2-point function
-bound; the reduction to exponential decay in geometric distance is
-in progress (see [docs/codex-review.txt](docs/codex-review.txt)).
+Yang-Mills theory at strong coupling**. Establishes a connected
+2-point function bound with contraction factor α < 1. The
+reduction to exponential decay in geometric plaquette distance
+is stated (`ym_mass_gap_exponential_decay`) but not yet proved.
 
 ## Main result
 
@@ -29,19 +29,17 @@ to "exponential decay in geometric distance" (mass gap).
 The theorem is stated for U(n); other compact gauge groups G ⊆ U(n)
 require supplying the `HasGaugeTrace` instance.
 
-**Mass gap formulation.** The Dobrushin bound above implies exponential
-decay once the coarse link distance d(x,y) is replaced with the true
-lattice graph distance dist(p,q). The 16-term boundary sum satisfies
-
-    ∑_{x ∈ ∂p} ∑_{y ∈ ∂q} α^{d(x,y)} ≤ 16 · α^{dist(p,q)}
-
-since each boundary link of p (resp. q) is within graph distance O(1)
-of p (resp. q), and d(x,y) ≥ dist(p,q) − O(1). Combining gives
+**Mass gap target** (`ym_mass_gap_exponential_decay`, **not yet proved**).
+The Dobrushin bound above would imply exponential decay in plaquette
+distance if the 16-term boundary sum can be bounded by C · α^{dist(p,q)}:
 
     |⟨Re Tr(U_p) · Re Tr(U_q)⟩_c| ≤ C(n) · e^{−m · dist(p,q)}
 
-with m = −log α > 0 (the mass gap). This final reduction is
-mathematically straightforward but not yet formalized.
+with m = −log α > 0 (the mass gap) and dist = periodic L₁ distance
+between plaquette sites. This is stated as a sorry in `StrongCoupling.lean`.
+The reduction requires showing that link graph distance ≥ L₁ site
+distance minus a constant — a combinatorial lattice geometry fact that
+has not yet been formalized.
 
 See [docs/mass-gap-proof-outline.md](docs/mass-gap-proof-outline.md)
 for the full proof outline, and [docs/codex-review.txt](docs/codex-review.txt)
@@ -49,14 +47,18 @@ for an independent review.
 
 ## Status
 
-**Zero sorry's. Zero custom axioms.**
+**`ym_mass_gap_UN`: zero sorry's, zero custom axioms.**
 
 ```
 #print axioms ym_mass_gap_UN
 -- propext, Classical.choice, Quot.sound
 ```
 
-Only the three standard Lean axioms used by every Lean program.
+Only the three standard Lean axioms. This theorem proves the Dobrushin
+contraction bound (16-term sum with coarse link distance).
+
+**`ym_mass_gap_exponential_decay`: 1 sorry** (the combinatorial
+reduction from coarse distance to geometric L₁ plaquette distance).
 
 See [docs/mass-gap-proof-outline.md](docs/mass-gap-proof-outline.md)
 for the full proof outline.

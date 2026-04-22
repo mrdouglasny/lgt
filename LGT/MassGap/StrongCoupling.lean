@@ -1947,20 +1947,22 @@ instance instMeasurableSpaceUN (n : ℕ) :
 instance instBorelSpaceUN (n : ℕ) :
     BorelSpace (unitaryGroup (Fin n) ℂ) := ⟨rfl⟩
 
-/-- **Mass gap for U(n) lattice gauge theory at strong coupling.**
+/-- **Dobrushin contraction for U(n) lattice gauge theory.**
 
 For the unitary group U(n) on a d-dimensional periodic lattice
-(d ≥ 2) at coupling β < 1/(4n · maxNeighbors(d)), the connected
-2-point function of plaquette observables decays exponentially
-with a rate controlled by the Dobrushin column sum.
+(d ≥ 2, N ≥ 3) at coupling β < 1/(4n · maxNeighbors(d)), the connected
+2-point function of plaquette observables p, q is bounded by a 16-term
+sum over boundary link pairs, each weighted by α^{ymLinkDist(x,y)}
+where α = dobrushinColumnSum(n, d, β) < 1.
 
-**Hypotheses that are mathematically true but not yet in Mathlib:**
-- `[CompactSpace ...]`: U(n) is compact (closed bounded in M_n(ℂ))
-- `[SecondCountableTopology ...]`: compact metrizable ⟹ second-countable
-- `[HasHaarProbability ...]`: normalized Haar measure exists on compact groups
+Note: `ymLinkDist` is a coarse distance taking values in {0, 1, 2}.
+The genuine mass gap (exponential decay in geometric plaquette distance)
+requires replacing this with the lattice L₁ distance — see
+`ym_mass_gap_exponential_decay` for the proper formulation.
 
-**Measurability:** `[MeasurableSingletonClass]` and `[MeasurableEq]` are
-now auto-inferred from `[T2Space] [SecondCountableTopology] [BorelSpace]`. -/
+The typeclass instances `CompactSpace`, `SecondCountableTopology`, and
+`HasHaarProbability` for U(n) are proved in `UnitaryGroup.lean` but
+passed as explicit parameters due to Lean instance resolution limits. -/
 theorem ym_mass_gap_UN
     (n : ℕ) (hn : 1 ≤ n)
     (d N : ℕ) (hd : 2 ≤ d) (hN : 2 < N) [NeZero N]
