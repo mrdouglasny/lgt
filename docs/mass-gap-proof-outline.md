@@ -4,9 +4,9 @@
 
 **Theorem** (`ym_mass_gap_UN` in `LGT/MassGap/StrongCoupling.lean`).
 For the U(n) Wilson lattice gauge theory on the d-dimensional periodic
-lattice (ℤ/Nℤ)^d with d ≥ 2, n ≥ 1, and coupling β < 1/(32n(d−1)),
-the connected 2-point function of plaquette observables decays
-exponentially in plaquette distance:
+lattice (ℤ/Nℤ)^d with d ≥ 2, N ≥ 3, n ≥ 1, and coupling
+β < 1/(32n(d−1)), the connected 2-point function of plaquette
+observables decays exponentially in plaquette distance:
 
     |⟨Re Tr(U_p) · Re Tr(U_q)⟩ − ⟨Re Tr(U_p)⟩ · ⟨Re Tr(U_q)⟩|
         ≤ C(n) · α^{dist(p,q)} / (1 − α)
@@ -14,6 +14,16 @@ exponentially in plaquette distance:
 where α = dobrushinColumnSum(n, d, β) < 1 is the Dobrushin contraction
 constant, dist is a link-distance function on the lattice, and C(n) is
 a constant depending on the representation dimension.
+
+## Axiom status
+
+```
+#print axioms ym_mass_gap_UN
+-- propext, Classical.choice, Quot.sound
+```
+
+**Zero sorry's. Zero custom axioms.** Only the three standard Lean
+axioms used by every Lean program.
 
 ## Architecture
 
@@ -31,6 +41,13 @@ The proof spans two Lean 4 libraries:
 - **Links**: (site, direction) pairs — oriented 1-cells.
 - **Plaquettes**: (site, dir₁ < dir₂) triples — oriented 2-cells.
   Each plaquette has 4 boundary links via `boundaryLinks : Fin 4 → LatticeLink`.
+- **Incidence lemmas** (fully proved):
+  - `plaquettes_per_link_le'`: each link borders ≤ 2(d−1) plaquettes
+    (via injection into `{ν : Fin d // ν ≠ ℓ.dir} × Bool`).
+  - `shared_plaquettes_le_one`: two distinct links share ≤ 1 plaquette
+    (requires N ≥ 3; false for N = 2 due to ZMod 2 wraparound).
+  - Helper lemmas: `siteShift_injective`, `siteShift_ne_self`,
+    `siteShift_cross_absurd`, `plaquette_unique_of_two_links`.
 
 ### Layer 2 — Gauge Fields (`LGT/GaugeField/`)
 
@@ -42,7 +59,8 @@ The proof spans two Lean 4 libraries:
   each link. Holonomy transforms covariantly; trace is invariant.
 - **U(n) instantiation** (`UnitaryGroup.lean`): `HasGaugeTrace` instance
   for the unitary group via the fundamental representation, with proved
-  trace bounds |Re Tr(U)| ≤ n and continuity.
+  trace bounds |Re Tr(U)| ≤ n, continuity, CompactSpace,
+  SecondCountableTopology, and HasHaarProbability.
 
 ### Layer 3 — Wilson Action (`LGT/WilsonAction/`)
 
@@ -98,6 +116,25 @@ the link lattice (sites = links, spin space = G):
 - `influenceCoeff_le_of_cylinder_ratio_bound`: general density-ratio
   → influence coefficient bound (the Layer 1 abstraction).
 
+`Coupling/CanonicalCoupling.lean`:
+- Constructive pointwise-min maximal coupling.
+- Giry measurability for countable spin spaces.
+
+`Coupling/DobrushinCoupling.lean`:
+- `updateCoupling`: single-site coupling improvement.
+- `dobrushin_iterated_coupling_fintype`: min-disagreement coupling
+  for finite spin spaces via Prokhorov compactness.
+
+`Coupling/ProkhorovCoupling.lean`:
+- `canonicalMaximalCoupling_compact`: maximal coupling for Borel
+  spaces (no Countable S requirement). Marginal proofs generalized.
+- `measurable_inf_apply`: Giry measurability of measure infimum
+  via kernel Radon-Nikodym derivatives (the key technical innovation).
+- `prokhorov_coupling_theorem`: min-disagreement coupling for compact
+  spin spaces via Prokhorov compactness + Portmanteau lsc.
+- Eliminates `dobrushin_coupling_axiom_compact` (formerly the last
+  custom axiom).
+
 `Tools/SingleSiteDisintegration.lean`:
 - `condSingleSiteMeasure μ x a` = μ(· | σ(x) = a).
 - Disintegration identity (integral form).
@@ -112,6 +149,11 @@ the link lattice (sites = links, spin space = G):
 - `abstract_neumann_iteration`: Neumann-series contraction from a
   self-consistency inequality to a resolvent bound.
 - `covariance_bound_gibbs`: |Cov| ≤ 2·Bf·Bg · neumannSeriesCoeff.
+
+`Dobrushin/CondKernelDLR.lean`:
+- `fiberMeasure_dlr_ae`: condKernel fiber inherits DLR.
+- `condKernel_ae_bound`: the condKernel-based a.e. covariance bound
+  (bridges uncountable spin spaces via Mathlib's condKernel).
 
 `Dobrushin/NeumannSeries.lean`:
 - `neumannSeriesCoeff γ x y = ∑_n (C^n)_{xy}` (resolvent entry).
@@ -139,58 +181,23 @@ the link lattice (sites = links, spin space = G):
 5. **Influence bound**: off-plaquette = 0 (`influenceCoeff_zero_off_plaquette`,
    via `boltzmannWeight_factor_eq`); on-plaquette ≤ 1−exp(−4nβ)
    (`gibbsCondMeasure_cylinder_ratio` via action splitting S = S_x + S_rest).
-6. **Apply** `covariance_bound_gibbs_multisite_general_nn_dist_nocount`
+6. **Lattice incidence**: `shared_plaquettes_le_one` (needs N ≥ 3) and
+   `plaquettes_per_link_le'` discharged from CellComplex.
+7. **Apply** `covariance_bound_gibbs_multisite_general_nn_dist_nocount`
    from markov-semigroups.
-7. **Convert** connected2pt ↔ covariance via `ymExpect_eq_integral_ymMeasure`.
+8. **Convert** connected2pt ↔ covariance via `ymExpect_eq_integral_ymMeasure`.
 
 `ym_mass_gap_UN` specializes to G = U(n), supplying trace bounds
 and representation continuity from `UnitaryGroup.lean`.
-
-## Axioms
-
-Two classical axioms in the upstream library, both well-documented
-textbook results:
-
-1. **`dobrushin_iterated_coupling_exists`** (Dobrushin 1968 /
-   Georgii 1988 Prop 8.7): For probability measures satisfying DLR
-   on a set T of sites, there exists a joint coupling P with
-   P{σ_z ≠ η_z} ≤ ∑_w C(z,w)·P{σ_w ≠ η_w} for z ∈ T.
-   Vetted by Gemini Deep Think as the canonical formulation.
-
-2. **`covariance_tower_property`**: The tower property for
-   conditional expectations in the multi-site covariance
-   decomposition. Standard measure theory.
-
-Both are provable from `Measure.condKernel` + Prokhorov compactness
-(~500 lines each). They isolate the product-space measure theory
-from the algebraic/combinatorial Dobrushin argument.
-
-## Remaining Hypotheses
-
-Beyond the physics inputs (d, n, β, strong-coupling threshold),
-the theorem carries:
-
-- **2 lattice combinatorics hypotheses**: `hSharedPlaqBound`
-  (two links share ≤ 1 plaquette) and `hPlaqPerLink` (each link
-  borders ≤ 2(d−1) plaquettes). Both are standard properties of
-  the hypercubic cell complex, provable by finite enumeration.
-
-- **5 typeclass instances** for U(n): `CompactSpace`,
-  `SecondCountableTopology`, `HasHaarProbability`, `MeasurableEq G`,
-  `MeasurableEq (SpinConfig)`. All mathematically true for compact
-  metrizable groups with Haar measure; formalization depends on
-  Mathlib coverage.
 
 ## Statistics
 
 | Metric | Count |
 |---|---|
-| New Lean 4 code (both repos) | ~8,000 lines |
-| Files created | 5 (lgt) + 4 (markov-semigroups) |
+| New Lean 4 code (both repos) | ~12,000 lines |
 | Sorry count (final) | 0 |
-| Axiom count | 2 (classical, vetted) |
-| Hypotheses discharged (from 27) | 19 |
-| Upstream bugs found + fixed | 2 |
+| Custom axiom count (final) | 0 |
+| Standard Lean axioms | 3 (propext, Classical.choice, Quot.sound) |
 
 ## References
 
@@ -198,4 +205,5 @@ the theorem carries:
 - R. L. Dobrushin, "Description of a random field by means of
   conditional probabilities" (1968).
 - H.-O. Georgii, *Gibbs Measures and Phase Transitions* (1988), §8.
+- Yu. V. Prokhorov, "Convergence of random processes" (1956).
 - K. G. Wilson, Phys. Rev. D 10 (1974) 2445.
