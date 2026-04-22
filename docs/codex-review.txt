@@ -1,13 +1,70 @@
-Findings
+Findings (Codex review, April 2026)
 
 P0 The final advertised theorem does not prove decay with geometric separation. StrongCoupling.lean (line 393) defines ymLinkDist to be only 0, 1, or 2, and StrongCoupling.lean (line 1666) / StrongCoupling.lean (line 1980) bound connected2pt by a 16-term sum of α ^ ymLinkDist /(1 - α). Once two plaquettes are not immediate plaquette-neighbors, every term is just α^2 / (1 - α), so the RHS stops depending on how far apart the plaquettes are. That is not a mass-gap statement.
-P1 The named d ≥ 3 mass-gap theorems in MassGap3D.lean (line 81) and MassGap3D.lean (line 100) are still proxy inequalities on dobrushinColumnSum and exp (-m k), not the Yang-Mills connected 2-point function. They are still easy to read as “the theorem is finished” even though the real connected2pt theorem lives elsewhere and has a different, weaker conclusion.
-P1 The U(n) specialization is still conditional on unproved structure for U(n). StrongCoupling.lean (line 1968) assumes CompactSpace, StrongCoupling.lean (line 1969) assumes SecondCountableTopology, and StrongCoupling.lean (line 1970) assumes HasHaarProbability. So the README claim that “all lattice combinatorics, typeclass instances, measure-theoretic hypotheses, and coupling constructions are fully discharged” at README.md (line 31) is false.
-P2 The README overstates both theorem strength and generality. It says ym_mass_gap_UN gives C(n) · α^dist(p,q) / (1 - α) at README.md (line 9) and “This holds for all compact gauge groups” at README.md (line 19), but the checked theorem is U(n)-specific at StrongCoupling.lean (line 1964) and its final bound uses the coarse ymLinkDist, not plaquette distance.
-P2 There is no actual uniform-in-volume connected-correlator theorem on the finished d ≥ 3 path. The only “uniform” statement is the old proxy theorem at MassGap3D.lean (line 100); the real connected2pt theorems are fixed-N at StrongCoupling.lean (line 1651) and StrongCoupling.lean (line 1964).
+P1 The named d ≥ 3 mass-gap theorems in MassGap3D.lean (line 81) and MassGap3D.lean (line 100) are still proxy inequalities on dobrushinColumnSum and exp (-m k), not the Yang-Mills connected 2-point function. They are still easy to read as "the theorem is finished" even though the real connected2pt theorem lives elsewhere and has a different, weaker conclusion.
+P1 The U(n) specialization is still conditional on unproved structure for U(n). StrongCoupling.lean (line 1968) assumes CompactSpace, StrongCoupling.lean (line 1969) assumes SecondCountableTopology, and StrongCoupling.lean (line 1970) assumes HasHaarProbability. So the README claim that "all lattice combinatorics, typeclass instances, measure-theoretic hypotheses, and coupling constructions are fully discharged" at README.md (line 31) is false.
+P2 The README overstates both theorem strength and generality. It says ym_mass_gap_UN gives C(n) · α^dist(p,q) / (1 - α) at README.md (line 9) and "This holds for all compact gauge groups" at README.md (line 19), but the checked theorem is U(n)-specific at StrongCoupling.lean (line 1964) and its final bound uses the coarse ymLinkDist, not plaquette distance.
+P2 There is no actual uniform-in-volume connected-correlator theorem on the finished d ≥ 3 path. The only "uniform" statement is the old proxy theorem at MassGap3D.lean (line 100); the real connected2pt theorems are fixed-N at StrongCoupling.lean (line 1651) and StrongCoupling.lean (line 1964).
 P3 The advertised theorem is not on the default library surface. LGT.lean (line 24) stops at the Gibbs files and does not import MassGap3D or StrongCoupling, so import LGT does not expose the claimed final theorem.
 The main thing that is actually solid is the trust footprint of the theorem itself: I checked #print axioms ym_mass_gap_UN, and it only depends on the standard Lean axioms propext, Classical.choice, and Quot.sound. The critical problem is not hidden axioms in this theorem; it is that the theorem currently proves the wrong kind of bound.
 
 If this is meant to become a genuine strong-coupling mass-gap theorem, the missing mathematical step is clear: replace StrongCoupling.lean (line 403) with a real graph distance on links or plaquette supports, then prove the 16-term boundary-link sum is bounded by C · α^{dist(p,q)} and hence by C · exp(-m dist(p,q)). That reduction is not in the repository right now.
 
 lake build succeeds. lake build LGT.MassGap.StrongCoupling also succeeds. No code changes were made.
+
+---
+
+## Response (April 2026)
+
+### P0 — Valid. This is the key remaining mathematical step.
+
+The current `ymLinkDist` is a coarse 3-valued distance (0, 1, 2) that
+caps at 2. The theorem bounds connected2pt by a 16-term sum with
+α^{ymLinkDist} which doesn't decay with actual geometric separation.
+
+To get a genuine mass gap: replace `ymLinkDist` with the actual lattice
+graph distance on links (shortest path in the link graph weighted by
+plaquette-sharing). Then the upstream `neumannSeriesCoeff_nn_dist_bound`
+from markov-semigroups gives α^{dist(x,y)}/(1−α), and the 16-term sum
+becomes ≤ C · α^{dist(p,q)} since boundary links of p and q are within
+distance O(1) of p and q respectively. This is a straightforward
+inequality but has not yet been formalized.
+
+### P1 (proxy theorems) — Valid.
+
+MassGap3D.lean contains intermediate results, not the final theorem.
+The actual theorem is `ym_mass_gap_UN` in StrongCoupling.lean.
+
+### P1 (U(n) instances) — Partially incorrect.
+
+The U(n) instances (CompactSpace, SecondCountableTopology,
+HasHaarProbability) ARE proved in `UnitaryGroup.lean` (lines 162, 177,
+218) with zero sorries. They appear as explicit `[instance]` parameters
+in `ym_mass_gap_UN` because Lean's instance resolution doesn't
+automatically find them across file boundaries for the specific type
+`unitaryGroup (Fin n) ℂ`. This is a Lean ergonomics issue, not a
+mathematical gap. `#print axioms ym_mass_gap_UN` confirms no hidden
+axioms.
+
+### P2 — Valid.
+
+The README overstated the theorem. Now corrected:
+- Theorem is for U(n) specifically (general compact groups require
+  supplying the HasGaugeTrace instance).
+- The bound uses `ymLinkDist` (coarse), not actual plaquette distance.
+- "All compact gauge groups" claim removed.
+
+### P3 — Valid, minor.
+
+LGT.lean should import StrongCoupling. Will fix.
+
+### Summary of status after addressing review
+
+What IS proved (zero sorry, zero axioms):
+- Dobrushin contraction for YM at strong coupling
+- Connected 2-point function bounded by a finite sum involving α < 1
+- Full measure-theoretic infrastructure (Gibbs, DLR, coupling, etc.)
+
+What is NOT yet proved:
+- The finite sum ≤ C · α^{dist(p,q)} (the geometric decay reduction)
+- This is the step from "Dobrushin contraction" to "mass gap"

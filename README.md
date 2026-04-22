@@ -1,22 +1,51 @@
 # lgt — Lattice Gauge Theory in Lean 4
 
-Formal proof of the **d ≥ 3 Yang-Mills mass gap at strong coupling**
-for compact gauge groups G ⊆ U(n), with **zero sorry's** and
-**zero custom axioms**.
+Formal proof of **Dobrushin contraction for the d ≥ 2 lattice
+Yang-Mills theory at strong coupling**, with **zero sorry's** and
+**zero custom axioms**. This establishes a connected 2-point function
+bound; the reduction to exponential decay in geometric distance is
+in progress (see [docs/codex-review.txt](docs/codex-review.txt)).
 
 ## Main result
 
 **Theorem** (`ym_mass_gap_UN`). For U(n) Wilson lattice gauge theory
 on (ℤ/Nℤ)^d with d ≥ 2, N ≥ 3, n ≥ 1, and coupling β < 1/(32n(d−1)),
-the connected 2-point function of plaquette observables decays
-exponentially:
+the connected 2-point function of plaquette observables is bounded:
 
     |⟨Re Tr(U_p) · Re Tr(U_q)⟩ − ⟨Re Tr(U_p)⟩⟨Re Tr(U_q)⟩|
-        ≤ C(n) · α^dist(p,q) / (1 − α)
+        ≤ 2n² · ∑_{x ∈ ∂p} ∑_{y ∈ ∂q} α^{d(x,y)} / (1 − α)
 
-where α = dobrushinColumnSum(n, d, β) < 1.
+where α = dobrushinColumnSum(n, d, β) < 1, and d(x,y) is a coarse
+link distance (currently 0, 1, or 2 based on plaquette-sharing).
 
-This holds for all compact gauge groups: U(1), SU(N), SO(N), etc.
+**What this proves**: Dobrushin contraction — the connected 2-point
+function is bounded by α < 1 raised to a graph distance power.
+
+**What remains**: replacing the coarse `ymLinkDist` (which caps at 2)
+with true lattice graph distance and proving the 16-term boundary sum
+≤ C · α^{dist(p,q)}. This is the step from "Dobrushin contraction"
+to "exponential decay in geometric distance" (mass gap).
+
+The theorem is stated for U(n); other compact gauge groups G ⊆ U(n)
+require supplying the `HasGaugeTrace` instance.
+
+**Mass gap formulation.** The Dobrushin bound above implies exponential
+decay once the coarse link distance d(x,y) is replaced with the true
+lattice graph distance dist(p,q). The 16-term boundary sum satisfies
+
+    ∑_{x ∈ ∂p} ∑_{y ∈ ∂q} α^{d(x,y)} ≤ 16 · α^{dist(p,q)}
+
+since each boundary link of p (resp. q) is within graph distance O(1)
+of p (resp. q), and d(x,y) ≥ dist(p,q) − O(1). Combining gives
+
+    |⟨Re Tr(U_p) · Re Tr(U_q)⟩_c| ≤ C(n) · e^{−m · dist(p,q)}
+
+with m = −log α > 0 (the mass gap). This final reduction is
+mathematically straightforward but not yet formalized.
+
+See [docs/mass-gap-proof-outline.md](docs/mass-gap-proof-outline.md)
+for the full proof outline, and [docs/codex-review.txt](docs/codex-review.txt)
+for an independent review.
 
 ## Status
 
@@ -28,8 +57,6 @@ This holds for all compact gauge groups: U(1), SU(N), SO(N), etc.
 ```
 
 Only the three standard Lean axioms used by every Lean program.
-All lattice combinatorics, typeclass instances, measure-theoretic
-hypotheses, and coupling constructions are fully discharged.
 
 See [docs/mass-gap-proof-outline.md](docs/mass-gap-proof-outline.md)
 for the full proof outline.
