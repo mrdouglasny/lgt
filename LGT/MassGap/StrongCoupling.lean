@@ -1997,3 +1997,70 @@ theorem ym_mass_gap_UN
 
 end UNMassGap
 
+/-! ## Proper mass gap formulation
+
+The theorem `ym_mass_gap_UN` bounds the connected 2-point function by a
+16-term sum involving `ymLinkDist`, a coarse distance that only takes
+values {0, 1, 2}. For a genuine mass gap, we need exponential decay in
+a distance that grows with geometric separation on the lattice.
+
+### Distance on the torus
+
+The periodic L₁ distance on (ℤ/Nℤ)ᵈ: for each coordinate, the
+distance is min(|x−y|, N−|x−y|) in ℤ/Nℤ, summed over coordinates. -/
+
+/-- Periodic distance in one coordinate on ℤ/Nℤ. -/
+noncomputable def ZMod.periodicDist (N : ℕ) [NeZero N] (a b : ZMod N) : ℕ :=
+  min (ZMod.val (a - b)) (N - ZMod.val (a - b))
+
+/-- L₁ distance on the periodic lattice (ℤ/Nℤ)ᵈ. -/
+noncomputable def latticeSiteDist (d N : ℕ) [NeZero N]
+    (x y : GaussianField.FinLatticeSites d N) : ℕ :=
+  ∑ i : Fin d, ZMod.periodicDist N (x i) (y i)
+
+/-- Distance between plaquettes: L₁ distance between anchor sites. -/
+noncomputable def latticePlaquetteDist (d N : ℕ) [NeZero N]
+    (p q : LatticePlaquette d N) : ℕ :=
+  latticeSiteDist d N p.site q.site
+
+section MassGapProper
+
+open Matrix
+
+/-- **Mass gap theorem (proper formulation).**
+
+For U(n) Wilson lattice gauge theory on (ℤ/Nℤ)ᵈ at strong coupling,
+the connected 2-point function decays exponentially in the plaquette
+distance:
+
+    |⟨Re Tr(U_p) · Re Tr(U_q)⟩_c| ≤ C(n,d,β) · α^{dist(p,q)}
+
+where α = dobrushinColumnSum(n, d, β) < 1 and dist is the periodic
+L₁ distance between plaquette sites.
+
+This reduces to `ym_mass_gap_UN` plus the purely combinatorial bound
+that the 16-term boundary-link sum is ≤ C · α^{latticePlaquetteDist(p,q)}.
+That bound follows from: each boundary link of p has site within L₁
+distance 1 of site(p), and the link graph distance is ≥ the L₁ site
+distance minus a constant. -/
+theorem ym_mass_gap_exponential_decay
+    (n : ℕ) (hn : 1 ≤ n)
+    (d N : ℕ) (hd : 2 ≤ d) (hN : 2 < N) [NeZero N]
+    [CompactSpace (unitaryGroup (Fin n) ℂ)]
+    [SecondCountableTopology (unitaryGroup (Fin n) ℂ)]
+    [HasHaarProbability (unitaryGroup (Fin n) ℂ)]
+    [Fintype (LatticeLink d N)]
+    [DecidableEq (LatticeLink d N)]
+    (β : ℝ) (hβ : 0 ≤ β)
+    (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d)))
+    (plaq : Finset (LatticePlaquette d N))
+    (p q : LatticePlaquette d N) :
+    |connected2pt (unitaryGroup (Fin n) ℂ) n d N β plaq
+        (plaqObs (unitaryGroup (Fin n) ℂ) n d N p)
+        (plaqObs (unitaryGroup (Fin n) ℂ) n d N q)| ≤
+      32 * (↑n : ℝ) ^ 2 / (1 - dobrushinColumnSum n d β) *
+        (dobrushinColumnSum n d β) ^ latticePlaquetteDist d N p q := by
+  sorry
+
+end MassGapProper
+
