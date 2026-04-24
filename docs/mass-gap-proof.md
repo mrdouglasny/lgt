@@ -88,7 +88,10 @@ This is special to 2D — in d ≥ 3, the mass gap depends on β.
 
 **Doeblin's condition:** K(x, A) ≥ ε · π(A) for all x, A with ε > 0.
 
-**Proved results (all zero sorry's):**
+**Proved results (all zero sorry's, within this 2D Doeblin path in
+`markov-semigroups`; the d ≥ 3 Dobrushin path in lgt retains one
+open sorry at `LGT/MassGap/StrongCoupling.lean:2065` — see
+`docs/mass-gap-completion-plan.md`):**
 
 1. **One-step contraction** (`doeblin_one_step_contraction`):
    If μ(A) ≥ ε·π(A) for all A, then |μ(A) - π(A)| ≤ 1-ε.

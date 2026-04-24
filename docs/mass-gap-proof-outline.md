@@ -17,14 +17,46 @@ zero custom axioms.
 
 ## Mass gap target (not yet proved)
 
-**Theorem** (`ym_mass_gap_exponential_decay`, sorry).
-Under the same hypotheses, the connected 2-point function decays
-exponentially in the periodic L₁ plaquette distance:
+**Theorem** (`ym_mass_gap_exponential_decay`, sorry at
+`LGT/MassGap/StrongCoupling.lean:2065`). Under the same
+hypotheses, the connected 2-point function decays exponentially in
+periodic L¹ plaquette distance:
 
-    |⟨Re Tr(U_p) · Re Tr(U_q)⟩_c| ≤ C(n,d,β) · α^{dist(p,q)}
+    |⟨Re Tr(U_p) · Re Tr(U_q)⟩_c|
+        ≤ 32 n² / (1 − α) · α^((latticePlaquetteDist p q − 1) / 2)
 
-This reduces to `ym_mass_gap_UN` plus the combinatorial bound that
-link graph distance ≥ L₁ site distance minus a constant.
+(`Nat` subtraction and division; the exponent saturates at 0 for
+close-range plaquettes.) Equivalently
+`α^(Nat.ceilDiv (plaqDist − 2) 2)`. The `1/2` factor in the
+exponent is forced by the shared-plaquette influence graph: one
+graph step displaces a link anchor by up to 2 L¹ site-units, so
+the rate of `α^k` in graph-step count translates to rate
+`(log α)/2` in L¹ plaqDist.
+
+**Companion rate corollary** (`ym_mass_gap_rate_exists`).
+Under the extra hypothesis `0 < β`,
+
+    ∃ (m : ℝ), 0 < m ∧ ∀ plaq p q,
+        |conn2pt ... p q| ≤
+          32 n² / (α (1 − α)) · Real.exp (-m · plaqDist(p, q))
+
+with `m := (−log α)/2`. Matches the physics-literature shape for a
+mass-gap statement. Degenerate at `β = 0` (`α = 0`, `m = +∞`,
+constant `1/α` infinite), so stated separately.
+
+Route (not derivable from `ym_mass_gap_UN` — the coarse
+`ymLinkDist` caps at 2 and cannot yield geometric decay): replace
+the distance with the shortest-path distance in the **ambient link
+graph** (edges = two links sharing any lattice plaquette,
+plaq-independent). This distance has R=1 nearest-neighbor support
+against the YM influence graph automatically (via monotonicity
+from `ambient adjacency ⊇ sharesPlaquette d N plaq`). Upstream's
+distance-aware Neumann bound applies unchanged; a reverse-
+triangle argument on plaquette boundary layers bounds the 16-term
+sum by `16 · α^((plaqDist − 1)/2) / (1 − α)`.
+
+Step-by-step execution plan:
+[docs/mass-gap-completion-plan.md](mass-gap-completion-plan.md).
 
 ## Axiom status
 
@@ -33,8 +65,11 @@ link graph distance ≥ L₁ site distance minus a constant.
 -- propext, Classical.choice, Quot.sound
 ```
 
-**Zero sorry's. Zero custom axioms.** Only the three standard Lean
-axioms used by every Lean program.
+**`ym_mass_gap_UN`: zero sorry's, zero custom axioms.** Only the
+three standard Lean axioms used by every Lean program.
+`ym_mass_gap_exponential_decay` has one remaining sorry at
+`StrongCoupling.lean:2065`; see
+[mass-gap-completion-plan.md](mass-gap-completion-plan.md).
 
 ## Architecture
 
@@ -208,7 +243,7 @@ and representation continuity from `UnitaryGroup.lean`.
 | New Lean 4 code (both repos) | ~12,000 lines |
 | `ym_mass_gap_UN` sorry count | 0 |
 | `ym_mass_gap_UN` custom axioms | 0 |
-| `ym_mass_gap_exponential_decay` sorry count | 1 (combinatorial reduction) |
+| `ym_mass_gap_exponential_decay` sorry count | 1 (ambient link-graph distance — see `mass-gap-completion-plan.md`) |
 | Standard Lean axioms | 3 (propext, Classical.choice, Quot.sound) |
 
 ## References

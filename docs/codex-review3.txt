@@ -1,0 +1,47 @@
+Findings (Codex review, April 2026)
+
+P1 The new target theorem is still unproved. StrongCoupling.lean (line 2048)
+introduces ym_mass_gap_exponential_decay, and its proof still ends in
+sorry at StrongCoupling.lean (line 2065). The README now reflects this
+correctly, but the actual mass-gap theorem remains a target, not a proof.
+
+P2 Some older docs are still materially stale and contradict the current
+formulation. docs/mass-gap-blueprint.md (line 452) still identifies
+ym_mass_gap_UN with Chatterjee's final theorem and claims "Sorry count
+(lgt) | 0" at docs/mass-gap-blueprint.md (line 486). The LaTeX version
+says the same at docs/mass-gap-blueprint.tex (line 618). docs/mass-gap-proof.md
+(line 91) still says "all zero sorry's" for the Doeblin path. Those docs
+no longer match the codebase.
+
+P3 MassGap3D.lean still contains the older proxy theorems and wording,
+which is easy to misread as the finished result. For example,
+MassGap3D.lean (line 81) and MassGap3D.lean (line 100) are still stated
+as "mass gap" results even though the real proved theorem surface is now
+the weaker Dobrushin-contraction statement in StrongCoupling.lean.
+
+What Improved
+
+The main README and proof outline are now materially better aligned with
+the code. README.md (line 1) correctly says the proved result is
+Dobrushin contraction, distinguishes "What this proves" from "What
+remains," and explicitly marks ym_mass_gap_exponential_decay as
+unproved.
+
+StrongCoupling.lean (line 1950) also now describes ym_mass_gap_UN
+accurately as a coarse 16-term boundary-link bound rather than
+exponential decay.
+
+Bottom line
+
+The current public story is much cleaner: the proved theorem is a
+connected 2-point contraction bound with coarse distance, and the true
+geometric mass-gap statement is clearly identified as future work.
+
+The main remaining issue is documentation drift in the older blueprint
+and proof notes, plus the fact that ym_mass_gap_exponential_decay is
+still a sorry-backed target rather than a completed theorem.
+
+Checked against the current source and build state. `lake build
+LGT.MassGap.StrongCoupling` succeeds, and the build still reports the
+single relevant theorem-level sorry in
+StrongCoupling.lean:ym_mass_gap_exponential_decay.

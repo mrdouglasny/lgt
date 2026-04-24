@@ -1,5 +1,9 @@
 # lgt — Lattice Gauge Theory in Lean 4
 
+> **Starting here?** See [`docs/mass-gap-roadmap.md`](docs/mass-gap-roadmap.md)
+> for a short human-facing summary of the project's goal, current status,
+> and the plan to close the remaining sorry.
+
 Formal proof of **Dobrushin contraction for the d ≥ 2 lattice
 Yang-Mills theory at strong coupling**. Establishes a connected
 2-point function bound with contraction factor α < 1. The
@@ -22,28 +26,52 @@ link distance (currently 0, 1, or 2 based on plaquette-sharing).
 function is bounded by α < 1 raised to a graph distance power.
 
 **What remains**: replacing the coarse `ymLinkDist` (which caps at 2)
-with true lattice graph distance and proving the 16-term boundary sum
-≤ C · α^{dist(p,q)}. This is the step from "Dobrushin contraction"
-to "exponential decay in geometric distance" (mass gap).
+with the ambient shared-plaquette graph distance on links, and
+bounding the 16-term boundary sum by
+`16 · α^((plaqDist − 1)/2) / (1 − α)`. This is the step from
+"Dobrushin contraction" to "exponential decay in geometric
+distance" (mass gap). See
+[docs/mass-gap-completion-plan.md](docs/mass-gap-completion-plan.md).
 
 The theorem is stated for U(n); other compact gauge groups G ⊆ U(n)
 require supplying the `HasGaugeTrace` instance.
 
 **Mass gap target** (`ym_mass_gap_exponential_decay`, **not yet proved**).
-The Dobrushin bound above would imply exponential decay in plaquette
-distance if the 16-term boundary sum can be bounded by C · α^{dist(p,q)}:
+Exponential decay of the connected 2-point function in periodic L¹
+plaquette distance:
 
-    |⟨Re Tr(U_p) · Re Tr(U_q)⟩_c| ≤ C(n) · e^{−m · dist(p,q)}
+    |⟨Re Tr(U_p) · Re Tr(U_q)⟩_c|
+        ≤ 32 n² / (1 − α) · α^((latticePlaquetteDist p q − 1) / 2)
 
-with m = −log α > 0 (the mass gap) and dist = periodic L₁ distance
-between plaquette sites. This is stated as a sorry in `StrongCoupling.lean`.
-The reduction requires showing that link graph distance ≥ L₁ site
-distance minus a constant — a combinatorial lattice geometry fact that
-has not yet been formalized.
+(`Nat` subtraction and division; exponent saturates at 0 for
+close-range plaquettes).
+
+**Rate corollary** (`ym_mass_gap_rate_exists`, companion theorem).
+Under the extra hypothesis β > 0, there exists a mass-gap rate
+`m > 0` with
+
+    ∃ m > 0, |⟨Re Tr(U_p) · Re Tr(U_q)⟩_c|
+        ≤ 32 n² / (α (1 − α)) · e^{−m · plaqDist(p, q)}
+
+where `m := (−log α) / 2`. The factor `1/2` is forced by the
+geometry (one shared-plaquette influence-graph step displaces a
+link anchor by up to 2 L¹ site-units). At β = 0, α = 0, the
+algebraic bound degenerates to 0 (correct: the measure factorizes),
+but the rate corollary is vacuous.
+
+The route: replace the coarse `ymLinkDist` with the shortest-path
+distance in the ambient link graph (edges = links sharing a
+plaquette). That distance has nearest-neighbor influence support
+natively, so upstream's distance-aware Neumann bound applies
+unchanged. A reverse-triangle argument on boundary layers bounds
+the 16-term sum by `16 · α^((plaqDist − 1)/2) / (1 − α)`. Step-by-
+step roadmap: [docs/mass-gap-completion-plan.md](docs/mass-gap-completion-plan.md).
 
 See [docs/mass-gap-proof-outline.md](docs/mass-gap-proof-outline.md)
-for the full proof outline, and [docs/codex-review.txt](docs/codex-review.txt)
-for an independent review.
+for the full proof outline,
+[docs/mass-gap-completion-plan.md](docs/mass-gap-completion-plan.md)
+for the plan to discharge the remaining sorry, and
+[docs/codex-review.txt](docs/codex-review.txt) for independent review.
 
 ## Status
 
@@ -57,15 +85,24 @@ for an independent review.
 Only the three standard Lean axioms. This theorem proves the Dobrushin
 contraction bound (16-term sum with coarse link distance).
 
-**`ym_mass_gap_exponential_decay`: 1 sorry** (the combinatorial
-reduction from coarse distance to geometric L₁ plaquette distance).
+**`ym_mass_gap_exponential_decay`: 1 sorry** at
+`LGT/MassGap/StrongCoupling.lean:2065`. The route to close it is
+specified in
+[docs/mass-gap-completion-plan.md](docs/mass-gap-completion-plan.md):
+define a plaq-independent graph distance on links (shortest path
+in the ambient shared-plaquette graph), prove the boundary-layer
+incidence geometry, and compose with an R=1 instance of
+`ym_mass_gap_strong_coupling` (after a small refactor to make
+that wrapper distance-parameterized). No upstream changes in
+`markov-semigroups` required.
 
 See [docs/mass-gap-proof-outline.md](docs/mass-gap-proof-outline.md)
 for the full proof outline.
 
 ## Proof architecture
 
-Seven layers:
+Eight layers (1–7 are the main Dobrushin path; 8 is an independent
+bridge to tensor-network models):
 
 1. **Lattice geometry** (`Lattice/CellComplex.lean`) — sites, links,
    plaquettes on (ℤ/Nℤ)^d with boundary links and shift operations.
@@ -95,8 +132,6 @@ Seven layers:
    integrability/measurability from continuity, influence bounds via
    action splitting, link distance, U(n) specialization.
 
-Also: 2D mass gap via Doeblin (`MassGap2D.lean`, partially complete).
-
 8. **EKR-Dobrushin bridge** (`Bridge/`) — connects tensor
    renormalization group (TRG) convergence to Dobrushin mass gap.
    For any nearest-neighbor spin model with an EKR-style certificate
@@ -104,6 +139,8 @@ Also: 2D mass gap via Doeblin (`MassGap2D.lean`, partially complete).
    decay on the original lattice. Zero sorries, zero axioms.
    Applicable to Ising, XY, O(3) NLSM, Potts, or any model with a
    tensor RG certificate. See `docs/mass-gap-blueprint.md` for details.
+
+Also: 2D mass gap via Doeblin (`MassGap2D.lean`, partially complete).
 
 ## File structure
 
@@ -134,25 +171,78 @@ LGT/
     ScaleTransfer.lean                -- RG scale transfer (coarse → fine)
     O3MassGap.lean                    -- assembly for O(3) / general models
 docs/
-  mass-gap-proof-outline.md           -- detailed proof outline
-  mass-gap-proof-outline.tex          -- LaTeX version
+  mass-gap-roadmap.md                 -- short human-facing summary (START HERE)
+  mass-gap-completion-plan.md         -- detailed Lean roadmap for the open sorry
+  mass-gap-proof-outline.md           -- proof outline
+  mass-gap-blueprint.md               -- full math blueprint
+  mass-gap-blueprint.tex              -- LaTeX version
+  mass-gap-proof.md                   -- 2D Doeblin path notes
+  codex-review*.txt                   -- historical review record
 ```
 
 ## Dependencies
 
-- [markov-semigroups](https://github.com/mrdouglasny/markov-semigroups) —
+- **Lean 4**: `leanprover/lean4:v4.29.0` (pinned in `lean-toolchain`;
+  installed automatically by `elan` when you enter the directory).
+- **[Mathlib](https://github.com/leanprover-community/mathlib4)** v4.29.0
+- **[markov-semigroups](https://github.com/mrdouglasny/markov-semigroups)** —
   Dobrushin uniqueness theory, canonical maximal coupling, covariance
-  bounds, Neumann series, single-site disintegration, condKernel wiring
-- [gaussian-field](https://github.com/mrdouglasny/gaussian-field) —
-  lattice site types
-- [Mathlib](https://github.com/leanprover-community/mathlib4) v4.29.0
+  bounds, Neumann series, single-site disintegration, condKernel wiring.
+- **[gaussian-field](https://github.com/mrdouglasny/gaussian-field)** —
+  lattice site types.
+
+All resolved via `lakefile.toml`; `lake-manifest.json` pins the
+exact commits.
 
 ## Building
 
 ```bash
-lake update
-lake build
+git clone https://github.com/mrdouglasny/lgt.git
+cd lgt
+lake build          # fetches deps on first run via the pinned manifest
 ```
+
+Full build takes ~15–30 min on first run (Mathlib cache download +
+local compilation). Incremental rebuilds are seconds.
+
+To verify the main result builds and the axiom footprint is clean:
+
+```bash
+lake build LGT.MassGap.StrongCoupling
+```
+
+## Contributing
+
+**New collaborator?** Read in this order:
+
+1. **[`docs/mass-gap-roadmap.md`](docs/mass-gap-roadmap.md)** —
+   two-page human summary: goal, status, approach, timeline.
+2. **[`docs/mass-gap-completion-plan.md`](docs/mass-gap-completion-plan.md)** —
+   detailed Lean roadmap, phase-by-phase, with concrete lemma
+   signatures and line-count estimates for each phase.
+3. **[`docs/mass-gap-proof-outline.md`](docs/mass-gap-proof-outline.md)** —
+   deeper math context for the existing proofs.
+
+**Open work** lives in the completion plan as Phases 1–9. Phases 1
+(ZMod periodic distance), 7 (renaming proxy theorems), and 8 (docs
+cleanup) are the most independent entry points. Phase 4 (ambient link
+graph + connectedness) is the largest and benefits from being taken
+on in one piece. The dependency graph in the plan file shows which
+phases block which.
+
+**Conventions**: this project follows Mathlib-style naming and layout
+(see `CLAUDE.md` in the root for the working-methods summary; detailed
+rules in `~/Documents/GitHub/mathlib-ready/docs/` for those with
+access). Before writing a new lemma, check whether it exists upstream
+or in sibling projects — the `markov-semigroups` and `gaussian-field`
+libraries cover most of the Dobrushin / lattice-geometry machinery
+already. Axioms are budgeted: see `research-dev/library/lean/AXIOM_MANAGEMENT.md`
+for the vetting protocol if a new one is truly needed.
+
+**How to propose a change**: fork, branch, PR to `main`. For anything
+non-trivial, open an issue first to coordinate — several of the
+phases touch the same files. Commit messages: concise, describe the
+*why*, point at the phase number where relevant.
 
 ## References
 
@@ -162,9 +252,9 @@ lake build
 - H.-O. Georgii, *Gibbs Measures and Phase Transitions* (1988), §8
 - K. G. Wilson, "Confinement of quarks," Phys. Rev. D 10 (1974) 2445
 
-## Author
+## Authors
 
-Michael R. Douglas
+Michael R. Douglas (CMSA, Harvard), with collaborators.
 
 ## License
 
