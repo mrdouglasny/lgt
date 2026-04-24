@@ -97,7 +97,7 @@ theorem influenceBound_lt_one (β : ℝ) :
   linarith [exp_pos (-4 * ↑n * β)]
 
 /-- For small β: 1 - exp(-4nβ) ≤ 4nβ (from 1 - e^{-x} ≤ x for x ≥ 0). -/
-theorem influenceBound_le_linear (β : ℝ) (hβ : 0 ≤ β) :
+theorem influenceBound_le_linear (β : ℝ) (_hβ : 0 ≤ β) :
     influenceBound n β ≤ 4 * n * β := by
   unfold influenceBound
   -- Need: 1 - exp(-x) ≤ x for x ≥ 0, with x = 4nβ
@@ -141,8 +141,8 @@ def dobrushinColumnSum (d : ℕ) (β : ℝ) : ℝ :=
   maxNeighbors d * influenceBound n β
 
 /-- The column sum is < 1 when β < β₀(n,d). -/
-theorem dobrushinColumnSum_lt_one (d : ℕ) (hd : 2 ≤ d)
-    (β : ℝ) (hβ : 0 ≤ β)
+theorem dobrushinColumnSum_lt_one (d : ℕ) (_hd : 2 ≤ d)
+    (β : ℝ) (_hβ : 0 ≤ β)
     (hβ_small : dobrushinColumnSum n d β < 1) :
     -- The Dobrushin condition is satisfied
     dobrushinColumnSum n d β < 1 := hβ_small

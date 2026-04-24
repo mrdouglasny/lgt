@@ -15,6 +15,8 @@ S(U) = β · Σ_p Re Tr(I - U_p), summed over plaquettes.
 import LGT.GaugeField.Connection
 import LGT.GaugeField.GaugeGroup
 
+set_option linter.unusedSectionVars false
+
 open GaussianField
 
 noncomputable section

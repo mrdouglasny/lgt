@@ -45,6 +45,9 @@ import LGT.MassGap.YMMeasure
 import LGT.Gibbs.YMSpec
 import MarkovSemigroups.Dobrushin.Specification
 
+set_option linter.unusedSectionVars false
+set_option linter.unusedSimpArgs false
+
 open MeasureTheory
 
 noncomputable section
@@ -195,7 +198,7 @@ measure-preserving map `γ(u, σ) := glue Λ u σ`, then
 theorem integral_glue_split_eq
     (Λ : Finset (LatticeLink d N))
     (F : GaugeConnection G d N → ℝ)
-    (hF_meas : Measurable F)
+    (_hF_meas : Measurable F)
     (hF_int : Integrable F (productHaar G d N)) :
     ∫ σ, (∫ uΛ, F (gluedConfig G d N Λ uΛ σ)
             ∂(productHaar G d N)) ∂(productHaar G d N)

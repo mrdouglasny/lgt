@@ -30,6 +30,9 @@ import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Mathlib.MeasureTheory.Measure.Prod
 import Mathlib.MeasureTheory.Constructions.Pi
 
+set_option linter.unusedSectionVars false
+set_option linter.unusedSimpArgs false
+
 open MeasureTheory
 
 noncomputable section
@@ -139,7 +142,7 @@ Z > 0 because the integrand exp(-S) is strictly positive everywhere
 and the product Haar measure has full support on the compact space. -/
 theorem partitionFn_pos (β : ℝ) (hβ : 0 ≤ β)
     (plaq : Finset (LatticePlaquette d N))
-    (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
+    (_hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
     (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
     (hIntegrable : Integrable (fun U => boltzmannWeight G n d N β U plaq)
         (productHaar G d N)) :
@@ -265,8 +268,8 @@ theorem ymExpect_eq_integral_ymMeasure
         (productHaar G d N))
     (hw_meas : Measurable (fun U => boltzmannWeight G n d N β U plaq))
     (f : GaugeConnection G d N → ℝ)
-    (hf_meas : Measurable f)
-    (hfw_integrable : Integrable (fun U => f U * boltzmannWeight G n d N β U plaq)
+    (_hf_meas : Measurable f)
+    (_hfw_integrable : Integrable (fun U => f U * boltzmannWeight G n d N β U plaq)
         (productHaar G d N)) :
     ymExpect G n d N β plaq f = ∫ U, f U ∂(ymMeasure G n d N β plaq) := by
   have hZ_pos : 0 < partitionFn G n d N β plaq :=
@@ -341,7 +344,7 @@ theorem ymMeasure_isProbabilityMeasure
   have hlt : (ymMeasure G n d N β plaq) Set.univ < ⊤ := by
     -- If univ had measure ⊤, toReal would be 0, contradicting 1.
     by_contra h
-    push_neg at h
+    push Not at h
     have htop : (ymMeasure G n d N β plaq) Set.univ = ⊤ := le_antisymm le_top h
     rw [htop] at this
     norm_num at this

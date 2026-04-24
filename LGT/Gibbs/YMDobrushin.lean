@@ -34,6 +34,8 @@ import LGT.Gibbs.YMSpec
 import LGT.MassGap.DobrushinVerification
 import MarkovSemigroups.Dobrushin.Uniqueness
 
+set_option linter.unusedSectionVars false
+
 open MeasureTheory
 
 noncomputable section
@@ -267,8 +269,8 @@ def ymInfluenceZeroOffPlaquette (β : ℝ) (plaq : Finset (LatticePlaquette d N)
       MeasurableSet A →
       Measurable (fun σ : GaugeConnection G d N =>
         ((gibbsCondMeasure G n d N plaq β Λ σ) A).toReal))
-    (x y : LatticeLink d N) (hne : x ≠ y)
-    (h_no_shared : ¬ sharesPlaquette d N plaq x y) : Prop :=
+    (x y : LatticeLink d N) (_hne : x ≠ y)
+    (_h_no_shared : ¬ sharesPlaquette d N plaq x y) : Prop :=
   influenceCoeff
     (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
     x y = 0

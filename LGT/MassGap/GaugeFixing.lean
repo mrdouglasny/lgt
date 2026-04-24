@@ -41,6 +41,8 @@ import LGT.MassGap.SingleSiteKernel
 import LGT.MassGap.YMMeasure
 import MarkovSemigroups.Dobrushin.NeumannSeries
 
+set_option linter.unusedSectionVars false
+
 open MeasureTheory
 
 noncomputable section
@@ -83,7 +85,7 @@ Retained for the 2D path (W4'), which would discharge `hFP`
 by Fubini + Haar left-invariance on the torus. -/
 theorem faddeevPopov
     (β : ℝ) (plaq : Finset (LatticePlaquette d N))
-    (f : GaugeConnection G d N → ℝ) (hf : IsGaugeInvariant f)
+    (f : GaugeConnection G d N → ℝ) (_hf : IsGaugeInvariant f)
     (gfExpect : ℝ)
     -- The FP identity: full = gauge-fixed expectation
     -- This is Fubini + Haar invariance on the finite lattice
@@ -125,12 +127,12 @@ The hypothesis `hBridge` encodes steps 1–4 as a single correlation-
 decay statement, exposing the precise inequality that the Faddeev-
 Popov + Fubini + Doeblin mixing argument is meant to produce. -/
 theorem doeblin_correlation_bound_2d
-    (β : ℝ) (hβ : 0 ≤ β)
+    (β : ℝ) (_hβ : 0 ≤ β)
     (plaq : Finset (LatticePlaquette d N))
-    (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
-    (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
+    (_hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
+    (_hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
     (f g : GaugeConnection G d N → ℝ)
-    (B : ℝ) (hfB : ∀ U, |f U| ≤ B) (hgB : ∀ U, |g U| ≤ B)
+    (B : ℝ) (_hfB : ∀ U, |f U| ≤ B) (_hgB : ∀ U, |g U| ≤ B)
     (dist : ℕ)
     -- Bridge hypothesis: FP + spatial factorization + Doeblin temporal mixing.
     -- Supplies the correlation-decay inequality one would obtain by
@@ -177,8 +179,8 @@ The body reduces `iterateInfluence γ dist x y ≤ α^dist` via
 theorem dobrushin_correlation_bound
     [DecidableEq (LatticeLink d N)]
     (β : ℝ) (hβ : 0 ≤ β)
-    (hd : 2 ≤ d) (hn : 1 ≤ n)
-    (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d)))
+    (_hd : 2 ≤ d) (_hn : 1 ≤ n)
+    (_hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d)))
     (plaq : Finset (LatticePlaquette d N))
     (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
     (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
@@ -195,7 +197,7 @@ theorem dobrushin_correlation_bound
     (hfgw_integrable :
         Integrable (fun U => (f U * g U) * boltzmannWeight G n d N β U plaq)
           (productHaar G d N))
-    (B : ℝ) (hfB : ∀ U, |f U| ≤ B) (hgB : ∀ U, |g U| ≤ B)
+    (B : ℝ) (_hfB : ∀ U, |f U| ≤ B) (_hgB : ∀ U, |g U| ≤ B)
     (dist : ℕ)
     -- Pre-built Gibbs specification and Dobrushin witness on the link lattice.
     -- Expected to be `γ := ymGibbsSpec …` and `hD := ymDobrushinCondition …`,

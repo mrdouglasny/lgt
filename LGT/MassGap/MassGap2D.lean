@@ -52,9 +52,9 @@ theorem mass_gap_2d
     (β : ℝ) (hβ : 0 ≤ β)
     (hTrace_lower : ∀ g : G, -↑n ≤ gaugeReTr G n g)
     (hTrace_upper : ∀ g : G, gaugeReTr G n g ≤ ↑n)
-    (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
+    (_hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
     (plaq : Finset (LatticePlaquette d N))
-    (hIntegrable : Integrable (fun U => boltzmannWeight G n d N β U plaq)
+    (_hIntegrable : Integrable (fun U => boltzmannWeight G n d N β U plaq)
         (productHaar G d N))
     (p q : LatticePlaquette d N)
     -- Bridge: FP + spatial factorization + Doeblin temporal mixing.

@@ -23,6 +23,8 @@ to the Doeblin verification.
 import LGT.MassGap.TransferMatrix
 import LGT.MassGap.Integrability
 
+set_option linter.unusedSectionVars false
+
 open MeasureTheory
 
 noncomputable section

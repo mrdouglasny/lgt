@@ -39,6 +39,9 @@ import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Mathlib.MeasureTheory.Integral.Bochner.Set
 import Mathlib.Topology.Algebra.Group.Basic
 
+set_option linter.unusedSectionVars false
+set_option linter.unusedSimpArgs false
+
 open MeasureTheory
 
 noncomputable section

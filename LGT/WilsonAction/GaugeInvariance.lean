@@ -24,6 +24,8 @@ gauge transformations U ↦ g·U·g⁻¹, because:
 
 import LGT.MassGap.YMMeasure
 
+set_option linter.unusedSectionVars false
+
 open MeasureTheory GaussianField
 
 noncomputable section

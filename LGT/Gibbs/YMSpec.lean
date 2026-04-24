@@ -42,6 +42,9 @@ import LGT.MassGap.YMMeasure
 import LGT.WilsonAction.GaugeInvariance
 import MarkovSemigroups.Dobrushin.Specification
 
+set_option linter.unusedSectionVars false
+set_option linter.unusedSimpArgs false
+
 open MeasureTheory
 
 noncomputable section
