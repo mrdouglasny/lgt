@@ -1,19 +1,13 @@
-# Formal Proof of Dobrushin Contraction for Lattice Yang-Mills at Strong Coupling
+# Formal Proof of the Lattice Yang-Mills Mass Gap at Strong Coupling
 
-## Proved theorem
+## Status
 
-**Theorem** (`ym_mass_gap_UN` in `LGT/MassGap/StrongCoupling.lean`).
-For the U(n) Wilson lattice gauge theory on the d-dimensional periodic
-lattice (ℤ/Nℤ)^d with d ≥ 2, N ≥ 3, n ≥ 1, and coupling
-β < 1/(32n(d−1)), the connected 2-point function of plaquette
-observables p, q is bounded:
-
-    |⟨Re Tr(U_p) · Re Tr(U_q)⟩ − ⟨Re Tr(U_p)⟩ · ⟨Re Tr(U_q)⟩|
-        ≤ 2n² · ∑_{x ∈ ∂p, y ∈ ∂q} α^{d(x,y)} / (1 − α)
-
-where α = dobrushinColumnSum(n, d, β) < 1 and d(x,y) = ymLinkDist
-is a coarse link distance taking values in {0, 1, 2}. Zero sorry's,
-zero custom axioms.
+The proof infrastructure is in place — the YM Gibbs specification,
+DLR identity, Dobrushin condition verification, and the
+distance-parameterized hypothesis-discharging wrapper
+`ym_mass_gap_strong_coupling` (`LGT/MassGap/StrongCoupling.lean`)
+all build with zero sorries and zero custom axioms. What remains
+is the geometric reduction described below.
 
 ## Mass gap target (not yet proved)
 
@@ -44,11 +38,10 @@ with `m := (−log α)/2`. Matches the physics-literature shape for a
 mass-gap statement. Degenerate at `β = 0` (`α = 0`, `m = +∞`,
 constant `1/α` infinite), so stated separately.
 
-Route (not derivable from `ym_mass_gap_UN` — the coarse
-`ymLinkDist` caps at 2 and cannot yield geometric decay): replace
-the distance with the shortest-path distance in the **ambient link
-graph** (edges = two links sharing any lattice plaquette,
-plaq-independent). This distance has R=1 nearest-neighbor support
+Route: instantiate the wrapper at the shortest-path distance in
+the **ambient link graph** (edges = two links sharing any lattice
+plaquette, plaq-independent). This distance has R=1
+nearest-neighbor support
 against the YM influence graph automatically (via monotonicity
 from `ambient adjacency ⊇ sharesPlaquette d N plaq`). Upstream's
 distance-aware Neumann bound applies unchanged; a reverse-
@@ -61,14 +54,13 @@ Step-by-step execution plan:
 ## Axiom status
 
 ```
-#print axioms ym_mass_gap_UN
+#print axioms ym_mass_gap_strong_coupling
 -- propext, Classical.choice, Quot.sound
 ```
 
-**`ym_mass_gap_UN`: zero sorry's, zero custom axioms.** Only the
-three standard Lean axioms used by every Lean program.
-`ym_mass_gap_exponential_decay` has one remaining sorry at
-`StrongCoupling.lean:2065`; see
+The hypothesis-discharging wrapper `ym_mass_gap_strong_coupling`
+depends only on the three standard Lean axioms. The target
+`ym_mass_gap_exponential_decay` has one remaining sorry; see
 [mass-gap-completion-plan.md](mass-gap-completion-plan.md).
 
 ## Architecture
@@ -220,7 +212,7 @@ the link lattice (sites = links, spin space = G):
 
 1. **Build γ**: `ymGibbsSpec G n d N plaq β`.
 2. **Dobrushin condition**: `ymDobrushinCondition` with
-   α = dobrushinColumnSum < 1 at strong coupling.
+   α = dobrushinAlpha < 1 at strong coupling.
 3. **ymMeasure is Gibbs**: `ymMeasure_isGibbs`.
 4. **Plaquette locality**: `plaqObs p` depends on 4 boundary links
    (N_f = {p.boundaryLinks i | i : Fin 4}).
@@ -233,16 +225,17 @@ the link lattice (sites = links, spin space = G):
    from markov-semigroups.
 8. **Convert** connected2pt ↔ covariance via `ymExpect_eq_integral_ymMeasure`.
 
-`ym_mass_gap_UN` specializes to G = U(n), supplying trace bounds
-and representation continuity from `UnitaryGroup.lean`.
+The U(n) specialization (in `ym_mass_gap_exponential_decay`)
+supplies trace bounds and representation continuity from
+`UnitaryGroup.lean`.
 
 ## Statistics
 
 | Metric | Count |
 |---|---|
 | New Lean 4 code (both repos) | ~12,000 lines |
-| `ym_mass_gap_UN` sorry count | 0 |
-| `ym_mass_gap_UN` custom axioms | 0 |
+| `ym_mass_gap_strong_coupling` sorry count | 0 |
+| `ym_mass_gap_strong_coupling` custom axioms | 0 |
 | `ym_mass_gap_exponential_decay` sorry count | 1 (ambient link-graph distance — see `mass-gap-completion-plan.md`) |
 | Standard Lean axioms | 3 (propext, Classical.choice, Quot.sound) |
 

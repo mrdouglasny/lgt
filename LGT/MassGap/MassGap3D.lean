@@ -9,7 +9,7 @@ dimension d ≥ 2, and coupling β < β₀(n,d), the Wilson plaquette
 2-point function decays exponentially:
 
   |⟨Re Tr(U_p) · Re Tr(U_q)⟩ - ⟨Re Tr(U_p)⟩ · ⟨Re Tr(U_q)⟩|
-    ≤ 4n² · c^{dist(p,q)}  where c = dobrushinColumnSum < 1
+    ≤ 4n² · c^{dist(p,q)}  where c = dobrushinAlpha < 1
 
 The proof uses the Dobrushin uniqueness method:
 1. DobrushinVerification: column sum < 1 at strong coupling
@@ -28,6 +28,10 @@ import LGT.Gibbs.YMSpec
 import LGT.Gibbs.YMDobrushin
 import LGT.Gibbs.YMIsGibbs
 import MarkovSemigroups.Dobrushin.CovarianceBoundMultisite
+
+set_option linter.unusedSectionVars false
+set_option linter.unusedSimpArgs false
+set_option linter.unusedVariables false
 
 open MeasureTheory Real
 
@@ -84,11 +88,11 @@ theorem ym_mass_gap
     (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d)))
     (p q : LatticePlaquette d N) :
     -- The Dobrushin column sum is < 1
-    dobrushinColumnSum n d β < 1 ∧
+    dobrushinAlpha n d β < 1 ∧
     -- There exists a mass gap rate m > 0 such that
     -- the correlation bound decays exponentially
     ∃ (m : ℝ), 0 < m ∧
-      4 * (↑n : ℝ) ^ 2 * (dobrushinColumnSum n d β) ^ plaquetteDist d N p q ≤
+      4 * (↑n : ℝ) ^ 2 * (dobrushinAlpha n d β) ^ plaquetteDist d N p q ≤
       4 * (↑n : ℝ) ^ 2 * exp (-m * ↑(plaquetteDist d N p q)) := by
   -- Step 1: Dobrushin condition from DobrushinVerification
   have hdob := ym_satisfies_dobrushin n d hd hn β hβ hβ_small
@@ -104,7 +108,7 @@ theorem ym_mass_gap_uniform
     -- The rate m > 0 is independent of N, p, q
     ∃ (m : ℝ), 0 < m ∧
     ∀ (N' : ℕ) (p q : LatticePlaquette d N'),
-      (dobrushinColumnSum n d β) ^ plaquetteDist d N' p q ≤
+      (dobrushinAlpha n d β) ^ plaquetteDist d N' p q ≤
         exp (-m * ↑(plaquetteDist d N' p q)) := by
   have hdob := ym_satisfies_dobrushin n d hd hn β hβ hβ_small
   obtain ⟨_, m, hm_pos, hm_decay⟩ := hdob
@@ -166,7 +170,7 @@ theorem ym_mass_gap_2pt
           boltzmannWeight G n d N β U plaq) (productHaar G d N))
     (γ : GibbsSpec (LatticeLink d N) G)
     (hD : DobrushinCondition γ)
-    (hα_eq : hD.α = dobrushinColumnSum n d β)
+    (hα_eq : hD.α = dobrushinAlpha n d β)
     (x y : LatticeLink d N)
     -- Narrow bridge: covariance ≤ 4n² · iterateInfluence γ dist x y.
     (hIterInf :
@@ -186,7 +190,7 @@ theorem ym_mass_gap_2pt
     fun U => plaqObs_bounded G n d N q U (fun g => abs_le.mpr
       ⟨by linarith [hTrace_lower g], hTrace_upper g⟩)
   calc |connected2pt G n d N β plaq (plaqObs G n d N p) (plaqObs G n d N q)|
-      ≤ 4 * ↑n ^ 2 * (dobrushinColumnSum n d β) ^ plaquetteDist d N p q :=
+      ≤ 4 * ↑n ^ 2 * (dobrushinAlpha n d β) ^ plaquetteDist d N p q :=
         dobrushin_correlation_bound G n d N β hβ hd hn hβ_small plaq
           hTrace_upper hTrace_lower hIntegrable_w hw_meas
           (plaqObs G n d N p) (plaqObs G n d N q)
@@ -377,8 +381,8 @@ theorem ym_mass_gap_2pt_via_multisite
                 (LatticePlaquette.boundaryLinks p)),
           ∑ y ∈ ((Finset.univ : Finset (Fin 4)).image
                 (LatticePlaquette.boundaryLinks q)),
-            (dobrushinColumnSum n d β) ^ dLink y x /
-              (1 - dobrushinColumnSum n d β) := by
+            (dobrushinAlpha n d β) ^ dLink y x /
+              (1 - dobrushinAlpha n d β) := by
   -- Step 1: Build the Gibbs spec γ and Dobrushin witness hD.
   set γ : GibbsSpec (LatticeLink d N) G :=
     ymGibbsSpec G n d N plaq β hZcond_pos hw_meas
@@ -387,7 +391,7 @@ theorem ym_mass_gap_2pt_via_multisite
     ymDobrushinCondition G n d N β hβ plaq hd hn hβ_small
       hZcond_pos hw_meas hw_integrable_cond hmeas_condDist
       hInfluence hMaxNeighborsCol hMaxNeighborsRow
-  have hα_eq : hD.α = dobrushinColumnSum n d β := rfl
+  have hα_eq : hD.α = dobrushinAlpha n d β := rfl
   -- Step 2: `ymMeasure` is a probability measure and is γ-Gibbs.
   haveI hμ_inst : IsProbabilityMeasure (ymMeasure G n d N β plaq) := hμ_prob
   haveI : IsProbabilityMeasure
@@ -487,7 +491,7 @@ theorem ym_mass_gap_2pt_via_multisite
       hPlaqObs_p_int hPlaqObs_q_int hPlaqObs_pq_int
       dLink h_refl h_triangle h_support hfinsupp h_dep_F
       hcond_ae_bound
-  -- Step 8: Rewrite in terms of `connected2pt` and `dobrushinColumnSum`.
+  -- Step 8: Rewrite in terms of `connected2pt` and `dobrushinAlpha`.
   rw [hconn_eq, ← hα_eq]
   exact hUpstream
 

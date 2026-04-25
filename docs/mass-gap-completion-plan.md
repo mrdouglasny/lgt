@@ -1,14 +1,26 @@
 # Plan: completing the Yang–Mills mass gap in lgt
 
+> **Plan-state update (after the 2026-04-25 cleanup):** the coarse
+> 0/1/2 `ymLinkDist` and the placeholder theorem `ym_mass_gap_UN`
+> that wrapped it have been **removed**. The wrapper
+> `ym_mass_gap_strong_coupling` is now distance-parameterized (Phase
+> 5.5 of the original plan, completed inline). The constant
+> `dobrushinColumnSum` was renamed `dobrushinAlpha` for clarity (it
+> is the upper bound used as `α` in `DobrushinCondition`, not the
+> column sum itself). Phases 1–6 below are otherwise unchanged. Some
+> historical references to `ymLinkDist` / `ym_mass_gap_UN` remain in
+> the rationale sections — they describe the route that brought us
+> here.
+
 ## Status
 
 One remaining sorry in the repository, at
-`LGT/MassGap/StrongCoupling.lean:2065`, inside
-`ym_mass_gap_exponential_decay`. The already-proved `ym_mass_gap_UN`
-bounds the connected 2-point function by a 16-term sum involving a
-coarse link distance `ymLinkDist ∈ {0, 1, 2}`, which does not decay
-with geometric separation. This plan replaces that coarse distance
-with a genuine graph distance, closing the sorry.
+`LGT/MassGap/StrongCoupling.lean`, inside
+`ym_mass_gap_exponential_decay`. This plan describes how to close
+it: define a genuine ambient shared-plaquette graph distance on
+links, prove the boundary-layer incidence geometry, and instantiate
+the (now distance-parameterized) `ym_mass_gap_strong_coupling`
+wrapper at that distance.
 
 ## Inventory — what already exists
 
@@ -40,7 +52,7 @@ with a genuine graph distance, closing the sorry.
   1823–1826. Not yet distance-parameterized. `ym_mass_gap_UN` (line
   1966) wraps it.
 - `dobrushin_sufficient` (`DobrushinVerification.lean:154`). Proves
-  `(0 ≤ β) ∧ (β < 1/(4 n · maxNeighbors d)) → dobrushinColumnSum n d β
+  `(0 ≤ β) ∧ (β < 1/(4 n · maxNeighbors d)) → dobrushinAlpha n d β
   < 1`. Used downstream (`YMDobrushin.lean:367`) as the `hα_lt` input
   to `DobrushinCondition`.
 
@@ -81,8 +93,8 @@ contain
         |connected2pt (unitaryGroup (Fin n) ℂ) n d N β plaq
             (plaqObs (unitaryGroup (Fin n) ℂ) n d N p)
             (plaqObs (unitaryGroup (Fin n) ℂ) n d N q)| ≤
-          32 * (↑n : ℝ) ^ 2 / (1 - dobrushinColumnSum n d β) *
-            (dobrushinColumnSum n d β)
+          32 * (↑n : ℝ) ^ 2 / (1 - dobrushinAlpha n d β) *
+            (dobrushinAlpha n d β)
               ^ ((latticePlaquetteDist d N p q - 1) / 2) := by
       ...
 
@@ -112,14 +124,14 @@ The companion rate corollary (result L, Phase 6b):
               (plaqObs (unitaryGroup (Fin n) ℂ) n d N p)
               (plaqObs (unitaryGroup (Fin n) ℂ) n d N q)| ≤
             32 * (↑n : ℝ) ^ 2 /
-              (dobrushinColumnSum n d β * (1 - dobrushinColumnSum n d β)) *
+              (dobrushinAlpha n d β * (1 - dobrushinAlpha n d β)) *
               Real.exp (-m * ↑(latticePlaquetteDist d N p q)) := by
       ...
 
-with `m := (−Real.log (dobrushinColumnSum n d β)) / 2`. The
+with `m := (−Real.log (dobrushinAlpha n d β)) / 2`. The
 existential-`m` shape matches the physics mass-gap form.
 
-with `α = dobrushinColumnSum n d β < 1`. The current sorry-backed
+with `α = dobrushinAlpha n d β < 1`. The current sorry-backed
 header claims `α^{latticePlaquetteDist p q}` — this is what the
 Dobrushin machinery cannot deliver; the corrected exponent is
 `(latticePlaquetteDist p q - 1) / 2` (`Nat` subtraction and
@@ -353,11 +365,11 @@ the `plaq`-restricted one.
 Standard. Handles `α = 0` cleanly: `0^0 = 1, 0^k = 0` for `k ≥ 1`.
 
 Sourcing the hypotheses: `0 ≤ α` is immediate from nonnegativity of
-`dobrushinColumnSum = maxNeighbors(d) · influenceBound(n, β)` (each
+`dobrushinAlpha = maxNeighbors(d) · influenceBound(n, β)` (each
 factor nonneg when `β ≥ 0`). The strict bound `α < 1` is
 `dobrushin_sufficient` at
 `LGT/MassGap/DobrushinVerification.lean:154`, which already proves
-`(0 ≤ β) ∧ (β < 1/(4 n · maxNeighbors d)) → dobrushinColumnSum n d
+`(0 ≤ β) ∧ (β < 1/(4 n · maxNeighbors d)) → dobrushinAlpha n d
 β < 1` and is used downstream (`YMDobrushin.lean:367` threads it as
 `hα_lt`). No new lemma needed.
 

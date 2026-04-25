@@ -4,96 +4,68 @@
 > for a short human-facing summary of the project's goal, current status,
 > and the plan to close the remaining sorry.
 
-Formal proof of **Dobrushin contraction for the d ≥ 2 lattice
-Yang-Mills theory at strong coupling**. Establishes a connected
-2-point function bound with contraction factor α < 1. The
-reduction to exponential decay in geometric plaquette distance
-is stated (`ym_mass_gap_exponential_decay`) but not yet proved.
+**Status**: in-progress formalization of the **d ≥ 2 lattice
+Yang-Mills mass gap at strong coupling**, via the Dobrushin
+uniqueness method (Chatterjee 2026, Ch. 16). The target theorem
+`ym_mass_gap_exponential_decay` is stated but not yet proved
+— see [docs/mass-gap-completion-plan.md](docs/mass-gap-completion-plan.md)
+for the worked-out route.
 
-## Main result
+## Target theorem
 
-**Theorem** (`ym_mass_gap_UN`). For U(n) Wilson lattice gauge theory
-on (ℤ/Nℤ)^d with d ≥ 2, N ≥ 3, n ≥ 1, and coupling β < 1/(32n(d−1)),
-the connected 2-point function of plaquette observables is bounded:
+`ym_mass_gap_exponential_decay` in `LGT/MassGap/StrongCoupling.lean`.
+For U(n) Wilson lattice gauge theory on (ℤ/Nℤ)^d with d ≥ 2,
+N ≥ 3, n ≥ 1, coupling β < 1/(32n(d−1)):
 
-    |⟨Re Tr(U_p) · Re Tr(U_q)⟩ − ⟨Re Tr(U_p)⟩⟨Re Tr(U_q)⟩|
-        ≤ 2n² · ∑_{x ∈ ∂p} ∑_{y ∈ ∂q} α^{d(x,y)} / (1 − α)
+    |⟨Re Tr(U_p) · Re Tr(U_q)⟩_c|
+        ≤ 32 n² / (1 − α) · α^{latticePlaquetteDist p q}
 
-where α = dobrushinColumnSum(n, d, β) < 1, and d(x,y) is a coarse
-link distance (currently 0, 1, or 2 based on plaquette-sharing).
-
-**What this proves**: Dobrushin contraction — the connected 2-point
-function is bounded by α < 1 raised to a graph distance power.
-
-**What remains**: replacing the coarse `ymLinkDist` (which caps at 2)
-with the ambient shared-plaquette graph distance on links, and
-bounding the 16-term boundary sum by
-`16 · α^((plaqDist − 1)/2) / (1 − α)`. This is the step from
-"Dobrushin contraction" to "exponential decay in geometric
-distance" (mass gap). See
-[docs/mass-gap-completion-plan.md](docs/mass-gap-completion-plan.md).
+where α = dobrushinAlpha(n, d, β) < 1 and `latticePlaquetteDist`
+is the periodic L¹ distance between plaquette anchor sites. (The
+exponent in the eventual proved statement may be slightly weaker —
+e.g. `α^{(plaqDist − 1) / 2}` — see the completion plan for the
+geometric reason.)
 
 The theorem is stated for U(n); other compact gauge groups G ⊆ U(n)
 require supplying the `HasGaugeTrace` instance.
 
-**Mass gap target** (`ym_mass_gap_exponential_decay`, **not yet proved**).
-Exponential decay of the connected 2-point function in periodic L¹
-plaquette distance:
+## What's in the repository
 
-    |⟨Re Tr(U_p) · Re Tr(U_q)⟩_c|
-        ≤ 32 n² / (1 − α) · α^((latticePlaquetteDist p q − 1) / 2)
+**Infrastructure (proved, axiom-free):** all the upstream plumbing
+for the proof — Wilson action, gauge invariance, the YM measure, the
+Gibbs specification framework, DLR identity, Dobrushin condition
+verification, U(n) instances, and the distance-parameterized
+hypothesis-discharging wrapper `ym_mass_gap_strong_coupling`.
 
-(`Nat` subtraction and division; exponent saturates at 0 for
-close-range plaquettes).
+**Remaining work (the open sorry):** the geometric reduction that
+turns the Dobrushin output (a 16-term boundary-link sum) into
+exponential decay in plaquette distance. Phase-by-phase plan:
+[docs/mass-gap-completion-plan.md](docs/mass-gap-completion-plan.md).
 
-**Rate corollary** (`ym_mass_gap_rate_exists`, companion theorem).
-Under the extra hypothesis β > 0, there exists a mass-gap rate
-`m > 0` with
-
-    ∃ m > 0, |⟨Re Tr(U_p) · Re Tr(U_q)⟩_c|
-        ≤ 32 n² / (α (1 − α)) · e^{−m · plaqDist(p, q)}
-
-where `m := (−log α) / 2`. The factor `1/2` is forced by the
-geometry (one shared-plaquette influence-graph step displaces a
-link anchor by up to 2 L¹ site-units). At β = 0, α = 0, the
-algebraic bound degenerates to 0 (correct: the measure factorizes),
-but the rate corollary is vacuous.
-
-The route: replace the coarse `ymLinkDist` with the shortest-path
-distance in the ambient link graph (edges = links sharing a
-plaquette). That distance has nearest-neighbor influence support
-natively, so upstream's distance-aware Neumann bound applies
-unchanged. A reverse-triangle argument on boundary layers bounds
-the 16-term sum by `16 · α^((plaqDist − 1)/2) / (1 − α)`. Step-by-
-step roadmap: [docs/mass-gap-completion-plan.md](docs/mass-gap-completion-plan.md).
-
-See [docs/mass-gap-proof-outline.md](docs/mass-gap-proof-outline.md)
-for the full proof outline,
-[docs/mass-gap-completion-plan.md](docs/mass-gap-completion-plan.md)
-for the plan to discharge the remaining sorry, and
-[docs/codex-review.txt](docs/codex-review.txt) for independent review.
+See [docs/mass-gap-roadmap.md](docs/mass-gap-roadmap.md) for a
+two-page human-facing summary,
+[docs/mass-gap-proof-outline.md](docs/mass-gap-proof-outline.md)
+for the full proof outline, and
+[docs/codex-review.txt](docs/codex-review.txt) for independent
+review records.
 
 ## Status
 
-**`ym_mass_gap_UN`: zero sorry's, zero custom axioms.**
+**`ym_mass_gap_strong_coupling`: zero sorries, zero custom axioms**
+(distance-parameterized wrapper).
 
 ```
-#print axioms ym_mass_gap_UN
+#print axioms ym_mass_gap_strong_coupling
 -- propext, Classical.choice, Quot.sound
 ```
 
-Only the three standard Lean axioms. This theorem proves the Dobrushin
-contraction bound (16-term sum with coarse link distance).
-
-**`ym_mass_gap_exponential_decay`: 1 sorry** at
-`LGT/MassGap/StrongCoupling.lean:2065`. The route to close it is
-specified in
+**`ym_mass_gap_exponential_decay`: 1 sorry**, the only one in the
+repository. The route to close it is specified in
 [docs/mass-gap-completion-plan.md](docs/mass-gap-completion-plan.md):
-define a plaq-independent graph distance on links (shortest path
-in the ambient shared-plaquette graph), prove the boundary-layer
-incidence geometry, and compose with an R=1 instance of
-`ym_mass_gap_strong_coupling` (after a small refactor to make
-that wrapper distance-parameterized). No upstream changes in
+define a plaq-independent ambient shared-plaquette graph distance
+on links, prove the boundary-layer incidence geometry, and
+compose with the (already distance-parameterized)
+`ym_mass_gap_strong_coupling` wrapper. No upstream changes in
 `markov-semigroups` required.
 
 See [docs/mass-gap-proof-outline.md](docs/mass-gap-proof-outline.md)

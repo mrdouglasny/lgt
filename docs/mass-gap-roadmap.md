@@ -25,12 +25,17 @@ multisite observables, the DLR identity for the YM measure, the
 Wilson action, the U(n) instantiation, and the hypothesis
 discharges are all formalized with zero sorries.
 
-One intermediate theorem is fully proved (`ym_mass_gap_UN`), but
-its conclusion uses a coarse three-valued "link distance" that
-caps at 2 and therefore does not actually decay with geometric
-separation. The genuine exponential-decay statement is stated in
-the file as `ym_mass_gap_exponential_decay` but the proof is a
-single `sorry` — the only one left in the repository.
+The genuine exponential-decay statement is stated in
+`LGT/MassGap/StrongCoupling.lean` as
+`ym_mass_gap_exponential_decay` but the proof is a single `sorry`
+— the only one left in the repository. (An earlier intermediate
+theorem dressed in a coarse three-valued "link distance" was
+removed: the 0/1/2 metric capped at 2, which made the bound
+non-decreasing in geometric separation and therefore not a mass
+gap. The wrapper that powered it, `ym_mass_gap_strong_coupling`,
+is kept and is now distance-parameterized — ready to be
+specialized to the genuine ambient shared-plaquette graph
+distance once the reduction in the completion plan lands.)
 
 The remaining work replaces the coarse distance with a real graph
 distance and proves the combinatorial inequality that converts the

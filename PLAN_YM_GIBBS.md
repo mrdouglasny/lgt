@@ -18,7 +18,7 @@ a simpler product structure.
 Prove `dobrushin_correlation_bound` in `LGT/MassGap/GaugeFixing.lean`:
 
 ```
-|connected2pt(f, g)| ≤ 4B²·(dobrushinColumnSum n d β)^dist
+|connected2pt(f, g)| ≤ 4B²·(dobrushinAlpha n d β)^dist
 ```
 
 for gauge-fixed YM with β small enough.
@@ -135,7 +135,7 @@ theorem dobrushin_correlation_bound
     (hd : 2 ≤ d) (hn : 1 ≤ n)
     (hβ_small : β < 1 / (2 * n * maxNeighbors d))
     ... :
-    |connected2pt G n d N β plaq f g| ≤ 4 * B^2 * (dobrushinColumnSum n d β)^dist := by
+    |connected2pt G n d N β plaq f g| ≤ 4 * B^2 * (dobrushinAlpha n d β)^dist := by
   -- Step 1: Faddeev-Popov: connected2pt under YM = under gauge-fixed
   rw [faddeevPopov ...]
   -- Step 2: Get the Dobrushin condition via strong_coupling

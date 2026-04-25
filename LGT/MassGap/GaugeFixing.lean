@@ -159,7 +159,7 @@ The caller supplies:
 * a Gibbs specification `γ : GibbsSpec (LatticeLink d N) G`
   (built via `ymGibbsSpec`) together with a Dobrushin witness
   `hD : DobrushinCondition γ` whose contraction constant is
-  exactly `dobrushinColumnSum n d β` (this is the shape of the
+  exactly `dobrushinAlpha n d β` (this is the shape of the
   `ymDobrushinCondition` term);
 * integrability / measurability witnesses for the Boltzmann
   weight and for `f * w`, `g * w`, `(f·g) * w`, sufficient to
@@ -175,7 +175,7 @@ The caller supplies:
 
 The body reduces `iterateInfluence γ dist x y ≤ α^dist` via
 `iterateInfluence_pointwise_bound`, yielding the output shape
-`4·B² · α^dist = 4·B² · (dobrushinColumnSum n d β)^dist`. -/
+`4·B² · α^dist = 4·B² · (dobrushinAlpha n d β)^dist`. -/
 theorem dobrushin_correlation_bound
     [DecidableEq (LatticeLink d N)]
     (β : ℝ) (hβ : 0 ≤ β)
@@ -201,10 +201,10 @@ theorem dobrushin_correlation_bound
     (dist : ℕ)
     -- Pre-built Gibbs specification and Dobrushin witness on the link lattice.
     -- Expected to be `γ := ymGibbsSpec …` and `hD := ymDobrushinCondition …`,
-    -- so that `hD.α = dobrushinColumnSum n d β` holds definitionally.
+    -- so that `hD.α = dobrushinAlpha n d β` holds definitionally.
     (γ : GibbsSpec (LatticeLink d N) G)
     (hD : DobrushinCondition γ)
-    (hα_eq : hD.α = dobrushinColumnSum n d β)
+    (hα_eq : hD.α = dobrushinAlpha n d β)
     -- Representative links (one per plaquette): the path between them has
     -- length `dist` in the influence graph.
     (x y : LatticeLink d N)
@@ -214,7 +214,7 @@ theorem dobrushin_correlation_bound
     (hIterInf : |connected2pt G n d N β plaq f g| ≤
         4 * B ^ 2 * iterateInfluence γ dist x y) :
     |connected2pt G n d N β plaq f g| ≤
-      4 * B ^ 2 * (dobrushinColumnSum n d β) ^ dist := by
+      4 * B ^ 2 * (dobrushinAlpha n d β) ^ dist := by
   -- Step 1: `ymMeasure` is a probability measure, so
   -- `dobrushin_correlation_decay_direct` accepts it. We also give the
   -- same instance under the `SpinConfig (LatticeLink d N) G` shape, since
