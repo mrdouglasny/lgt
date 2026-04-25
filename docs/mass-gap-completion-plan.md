@@ -131,13 +131,13 @@ The companion rate corollary (result L, Phase 6b):
 with `m := (−Real.log (dobrushinAlpha n d β)) / 2`. The
 existential-`m` shape matches the physics mass-gap form.
 
-with `α = dobrushinAlpha n d β < 1`. The current sorry-backed
-header claims `α^{latticePlaquetteDist p q}` — this is what the
-Dobrushin machinery cannot deliver; the corrected exponent is
-`(latticePlaquetteDist p q - 1) / 2` (`Nat` subtraction and
-division throughout, so the expression saturates at 0 for
-plaquettes at close range). The change is flagged as user-visible
-in the PR.
+with `α = dobrushinAlpha n d β < 1`. The exponent
+`(latticePlaquetteDist p q - 1) / 2` uses `Nat` subtraction and
+division (saturating at 0 for close-range plaquettes). An earlier
+draft of the theorem instead claimed `α^{latticePlaquetteDist}`,
+which the Dobrushin machinery cannot deliver — that overclaim was
+removed in the 2026-04-25 cleanup; the theorem header in
+`StrongCoupling.lean` now matches the weaker exponent shown above.
 
 For the mass-gap rate form (β > 0 only), with `m := (−log α) / 2 > 0`,
 a companion theorem `ym_mass_gap_rate_exists` packages the
@@ -584,13 +584,12 @@ connectedness proof surfaces an unexpected edge case in
    any-to-any reachability by induction on coordinate-wise site
    displacement. See Phase 4 for the formalization plan.
 
-3. **Theorem statement change is user-visible.** The current header
-   at `StrongCoupling.lean:2048–2065` claims
-   `α^{latticePlaquetteDist p q}`; the proof delivers
-   `α^((latticePlaquetteDist p q - 1) / 2)` (`Nat` subtraction and
-   division). Must be flagged in the PR description. The weaker
-   form is what the Dobrushin machinery actually produces; the
-   stronger form was overclaimed.
+3. **Theorem statement (resolved).** The 2026-04-25 cleanup
+   replaced the earlier overclaim `α^{latticePlaquetteDist p q}`
+   with `α^((latticePlaquetteDist p q - 1) / 2)` (`Nat`
+   subtraction and division) in the header of
+   `ym_mass_gap_exponential_decay`. Code and docs now agree on
+   the weaker, geometry-compatible exponent.
 
 4. **β = 0 case.** The algebraic bound K stays valid at `α = 0`
    (gives trivial 0 bound; connected correlators vanish when the
