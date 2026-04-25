@@ -3,6 +3,10 @@
 > **Starting here?** See [`docs/mass-gap-roadmap.md`](docs/mass-gap-roadmap.md)
 > for a short human-facing summary of the project's goal, current status,
 > and the plan to close the remaining sorry.
+>
+> **Per-file informal summaries** (auto-generated, English + LaTeX):
+> [`summary/`](summary/README.md) — declaration-by-declaration walk-through
+> of the 10 core files, with proof dependencies cross-linked to source.
 
 **Status**: in-progress formalization of the **d ≥ 2 lattice
 Yang-Mills mass gap at strong coupling**, via the Dobrushin
