@@ -1923,18 +1923,21 @@ the connected 2-point function decays exponentially in the periodic
 L₁ plaquette distance:
 
     |⟨Re Tr(U_p) · Re Tr(U_q)⟩_c|
-        ≤ 32 n² / (1 − α) · α^{latticePlaquetteDist p q}
+        ≤ 32 n² / (1 − α) · α^((latticePlaquetteDist p q − 1) / 2)
 
-where α = dobrushinAlpha(n, d, β) < 1.
+where α = dobrushinAlpha(n, d, β) < 1, and the exponent uses `Nat`
+subtraction and division (so it saturates at 0 for plaquettes at
+close range).
 
 **Status: open.** The proof route is laid out in
 `docs/mass-gap-completion-plan.md`: instantiate
 `ym_mass_gap_strong_coupling` with the ambient shared-plaquette
 graph distance on links, then bound the 16-term boundary-link sum
 geometrically using the boundary-layer incidence structure. The
-exponent in the eventual proved statement may be slightly weaker
-than `α^{latticePlaquetteDist}` — see the plan for the actual
-form, e.g. `α^{(latticePlaquetteDist − 1) / 2}`. -/
+factor of `1/2` in the exponent is forced by the geometry: one
+shared-plaquette influence-graph step displaces a link anchor by up
+to 2 L₁ site-units, so `α^k` decay in graph-step count translates
+to `(log α)/2` rate in L₁ plaqDist. -/
 theorem ym_mass_gap_exponential_decay
     (n : ℕ) (hn : 1 ≤ n)
     (d N : ℕ) (hd : 2 ≤ d) (hN : 2 < N) [NeZero N]
@@ -1951,7 +1954,8 @@ theorem ym_mass_gap_exponential_decay
         (plaqObs (unitaryGroup (Fin n) ℂ) n d N p)
         (plaqObs (unitaryGroup (Fin n) ℂ) n d N q)| ≤
       32 * (↑n : ℝ) ^ 2 / (1 - dobrushinAlpha n d β) *
-        (dobrushinAlpha n d β) ^ latticePlaquetteDist d N p q := by
+        (dobrushinAlpha n d β)
+          ^ ((latticePlaquetteDist d N p q - 1) / 2) := by
   sorry
 
 end MassGapProper

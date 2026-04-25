@@ -43,14 +43,14 @@ wrapper at that distance.
   bound with YM Gibbs spec, plaquette observables, and `sharesPlaquette`
   influence bound; takes `(dLink : LatticeLink d N → LatticeLink d N →
   ℕ)` plus refl / triangle / support hypotheses as explicit parameters.
-- `ym_mass_gap_strong_coupling` in lgt (`StrongCoupling.lean:1651`,
-  already proved). A **hypothesis-discharging wrapper** over
-  `ym_mass_gap_2pt_via_multisite`: takes `hRep_cont` and derives ~20
-  measurability/integrability hypotheses from it. **Currently hardcodes
-  `d := ymLinkDist d N plaq` in its conclusion** (line 1672) and
-  derives `ymLinkDist_refl / _triangle / _support` internally at lines
-  1823–1826. Not yet distance-parameterized. `ym_mass_gap_UN` (line
-  1966) wraps it.
+- `ym_mass_gap_strong_coupling` in lgt
+  (`StrongCoupling.lean`, already proved). A **distance-parameterized
+  hypothesis-discharging wrapper** over `ym_mass_gap_2pt_via_multisite`:
+  takes `hRep_cont` (and derives ~20 measurability/integrability
+  hypotheses from it) plus a generic `(dLink, h_refl, h_triangle,
+  h_support)`, and threads the distance through to the inner
+  multisite covariance bound. Phase 6 below specializes it at the
+  ambient shared-plaquette graph distance.
 - `dobrushin_sufficient` (`DobrushinVerification.lean:154`). Proves
   `(0 ≤ β) ∧ (β < 1/(4 n · maxNeighbors d)) → dobrushinAlpha n d β
   < 1`. Used downstream (`YMDobrushin.lean:367`) as the `hα_lt` input
@@ -385,18 +385,14 @@ pointwise; aggregate the 16 terms.
 
 **K. Final composition.**
 
-Blocked by a prerequisite refactor: `ym_mass_gap_strong_coupling`
-currently hardcodes `ymLinkDist d N plaq` in its conclusion and
-derives its refl / triangle / support hypotheses internally from
-`ymLinkDist_*`. To instantiate with `linkGraphDist`, we first
-**parameterize that wrapper by an arbitrary distance** (see Phase
-5.5 below). Then plug `d := linkGraphDist` in with metric
-hypotheses supplied by Mathlib's `SimpleGraph.dist_self` /
-`SimpleGraph.dist_comm` / `SimpleGraph.dist_triangle` on
-`ambientLinkGraph d N`, and R=1 support from H. The `plaq`
-quantifier in the target theorem passes through because H does
-not depend on which plaquettes are active in the Wilson action.
-Output:
+`ym_mass_gap_strong_coupling` is already distance-parameterized
+(Phase 5.5, completed in the 2026-04-25 cleanup). Plug `d :=
+linkGraphDist` in with metric hypotheses supplied by Mathlib's
+`SimpleGraph.dist_self` / `SimpleGraph.dist_comm` /
+`SimpleGraph.dist_triangle` on `ambientLinkGraph d N`, and R=1
+support from H. The `plaq` quantifier in the target theorem
+passes through because H does not depend on which plaquettes are
+active in the Wilson action. Output:
 
     |conn2pt(p, q)| ≤ 2 n² · Σ_{x, y} α^{linkGraphDist y x} / (1 − α).
 
@@ -516,38 +512,17 @@ slowly). Budget more time here than any other phase.
 Reverse triangle on boundary; power monotonicity; sum aggregation.
 
 **Phase 5.5 — Distance-parameterize `ym_mass_gap_strong_coupling`.**
-~20–30 lines edit at `StrongCoupling.lean:1651–1906`, plus a
-~15-line specialization. The current wrapper hardcodes
-`ymLinkDist d N plaq` (line 1672) and derives refl / triangle /
-support at lines 1823–1826. Refactor as follows:
-
-- Add parameters `(dLink : LatticeLink d N → LatticeLink d N → ℕ)`,
-  `(h_refl : ∀ x, dLink x x = 0)`,
-  `(h_triangle : ∀ x y z, dLink x y ≤ dLink x z + dLink z y)`,
-  and a `h_support`-style hypothesis (matching the `h_support`
-  shape already required by `ym_mass_gap_2pt_via_multisite`).
-- Replace the conclusion's `ymLinkDist d N plaq y x` with
-  `dLink y x`.
-- Remove the three internal `ymLinkDist_*` derivations at
-  1823–1826; the arguments now come in as hypotheses.
-- At line 1902, pass `dLink` and the new hypotheses through to
-  `ym_mass_gap_2pt_via_multisite` instead of the `ymLinkDist`
-  ones. Everything else in the proof is unchanged.
-
-Then keep the old API surface of `ym_mass_gap_UN` by adding a
-~15-line specialization that invokes the new wrapper with
-`dLink := ymLinkDist d N plaq` and the three existing
-`ymLinkDist_*` lemmas, yielding the original conclusion. No
-downstream caller break.
-
-This refactor is the only substantive change to existing code;
-Phases 1–5 only add new files/lemmas.
+**Done** (2026-04-25 cleanup). The wrapper now takes `(dLink,
+h_refl, h_triangle, h_support)` as explicit parameters and threads
+the distance through to `ym_mass_gap_2pt_via_multisite`. The old
+`ymLinkDist` def, its three lemmas, and the placeholder theorem
+`ym_mass_gap_UN` were removed in the same commit. `lake build`
+green; only the `ym_mass_gap_exponential_decay` sorry remains.
 
 **Phase 6.** Compose into `ym_mass_gap_exponential_decay` (result K).
-~30 lines. Instantiate the newly distance-parameterized
+~30 lines. Instantiate the (already distance-parameterized)
 `ym_mass_gap_strong_coupling` at `d := linkGraphDist` with refl /
-triangle / support coming from Mathlib and from result H. Apply
-J; adjust theorem header to the new exponent.
+triangle / support coming from Mathlib and from result H. Apply J.
 
 **Phase 6b.** Add the mass-gap rate corollary
 `ym_mass_gap_rate_exists` (result L). ~20–30 lines. Additional
@@ -571,15 +546,10 @@ ym_mass_gap_exponential_decay` shows only standard axioms;
 grep shows no `sorry` in `LGT/`.
 
 ```
-Phase 1 ─► Phase 2 ─► Phase 3 ─► Phase 4 ─► Phase 5 ─► Phase 5.5 ─► Phase 6 ─► Phase 6b ─► Phase 8 ─► Phase 9
-                                                                                        ▲
-                                                                            Phase 7 ────┘
+[Phase 5.5 done] ─► Phase 1 ─► Phase 2 ─► Phase 3 ─► Phase 4 ─► Phase 5 ─► Phase 6 ─► Phase 6b ─► Phase 8 ─► Phase 9
+                                                                                              ▲
+                                                                                  Phase 7 ────┘
 ```
-
-Phase 5.5 (wrapper refactor) can actually run in parallel with
-Phases 1–5, since it only touches `ym_mass_gap_strong_coupling`'s
-signature and doesn't depend on any of the new lemmas. It just
-needs to be done before Phase 6.
 
 ## Budget
 
@@ -647,17 +617,14 @@ connectedness proof surfaces an unexpected edge case in
    the ambient-vs-`plaq` adjacency relation. Codex review
    flagged this; fixed in the current revision.
 
-7. **`ym_mass_gap_strong_coupling` is not yet
-   distance-parameterized.** At the current API surface
-   (`StrongCoupling.lean:1651`), the theorem hardcodes
-   `ymLinkDist d N plaq` in its conclusion (line 1672) and derives
-   refl / triangle / support internally. The generic-distance
-   wrapper is `ym_mass_gap_2pt_via_multisite` at
-   `MassGap3D.lean:253`, one level down. Phase 5.5 refactors
-   `ym_mass_gap_strong_coupling` to take `dLink` as a parameter
-   and thread it through, leaving `ym_mass_gap_UN` as a
-   specialization. Codex review flagged this; fixed in the
-   current revision.
+7. **Wrapper distance-parameterization (resolved).** An earlier
+   draft of the plan flagged that `ym_mass_gap_strong_coupling`
+   hardcoded `ymLinkDist` in its conclusion. The 2026-04-25
+   cleanup (Phase 5.5) refactored it to take `(dLink, h_refl,
+   h_triangle, h_support)` as explicit hypotheses, and removed
+   the `ymLinkDist` def + `ym_mass_gap_UN` placeholder
+   altogether. Phase 6 below now proceeds without any prior
+   refactoring step.
 
 ## Review prompt for downstream agents
 

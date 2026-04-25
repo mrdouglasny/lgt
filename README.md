@@ -18,13 +18,16 @@ For U(n) Wilson lattice gauge theory on (ℤ/Nℤ)^d with d ≥ 2,
 N ≥ 3, n ≥ 1, coupling β < 1/(32n(d−1)):
 
     |⟨Re Tr(U_p) · Re Tr(U_q)⟩_c|
-        ≤ 32 n² / (1 − α) · α^{latticePlaquetteDist p q}
+        ≤ 32 n² / (1 − α) · α^((latticePlaquetteDist p q − 1) / 2)
 
 where α = dobrushinAlpha(n, d, β) < 1 and `latticePlaquetteDist`
-is the periodic L¹ distance between plaquette anchor sites. (The
-exponent in the eventual proved statement may be slightly weaker —
-e.g. `α^{(plaqDist − 1) / 2}` — see the completion plan for the
-geometric reason.)
+is the periodic L¹ distance between plaquette anchor sites. The
+exponent uses `Nat` subtraction and division (saturating at 0 for
+close-range plaquettes). The factor of `1/2` is forced by the
+geometry: one shared-plaquette influence-graph step displaces a
+link anchor by up to 2 L¹ site-units, so `α^k` decay in graph-step
+count yields `(log α) / 2` rate in L¹ plaqDist. See the completion
+plan for the full derivation.
 
 The theorem is stated for U(n); other compact gauge groups G ⊆ U(n)
 require supplying the `HasGaugeTrace` instance.
