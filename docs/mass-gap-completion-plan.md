@@ -168,6 +168,42 @@ picks up the factor of 1/2 from this conversion. This is tight:
 the (s+μ, ν) vs (s+ν, μ) pair realizes both the 1-graph-step
 adjacency and the 2-L¹-units site distance.
 
+## Alternative statement form: graph distance vs L¹ plaqDist
+
+Chatterjee (2026) Theorem 16.2.1 states the Dobrushin correlation
+decay directly in the dependency-graph distance $r$:
+$$|E(f(X_A) g(X_B)) - E(f(X_A))E(g(X_B))| \leq \frac{2 s^r \Delta^r |A| |B|}{1 - s\Delta}.$$
+In our notation $s\Delta = \mathrm{dobrushinAlpha}$ and $|A| = |B|
+= 4$, so this becomes $32 n^2 \alpha^r / (1 - \alpha)$ — exactly
+our target shape, except the exponent is the **link-graph
+distance**, not L¹ plaqDist. There is no `1/2` factor: it sits
+in the conversion to L¹ plaqDist, not in the underlying decay.
+
+Two clean ways to state the eventual proved theorem in lgt:
+
+1. **`ym_mass_gap_exponential_decay_graph`** *(graph-distance form,
+   matches Chatterjee 16.2.1 directly)*:
+   $$|\mathrm{conn2pt}\,p\,q| \leq \frac{32 n^2}{1 - \alpha} \cdot \alpha^{\mathrm{linkGraphDist}\,(x,y)}$$
+   for any $x \in \partial p$, $y \in \partial q$, where
+   `linkGraphDist` is the shortest-path distance in the ambient
+   shared-plaquette graph. No `1/2` factor; no Nat saturation; the
+   simplest statement.
+
+2. **`ym_mass_gap_exponential_decay`** *(L¹ plaqDist form, current
+   target)*:
+   $$|\mathrm{conn2pt}\,p\,q| \leq \frac{32 n^2}{1 - \alpha} \cdot \alpha^{(\mathrm{plaqDist}(p, q) - 1) / 2}.$$
+   More physical (decays in the natural geometric distance), at the
+   cost of the `1/2` factor and `Nat` arithmetic on the exponent.
+
+These are equivalent in the sense that (1) implies (2) via
+`linkGraphDist(x, y) ≥ (plaqDist(p, q) - 1) / 2` for $x \in
+\partial p$, $y \in \partial q$ (the boundary-layer reverse
+triangle inequality). Phase 6 of this plan can produce both: prove
+(1) directly as the natural intermediate, then specialize to (2)
+via the geometric reduction. Both are useful — (1) for direct
+comparison with the literature, (2) as the user-facing physical
+statement.
+
 ## The chain of intermediate results
 
 **Important: adjacency is ambient, not `plaq`-dependent.** The
