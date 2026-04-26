@@ -543,7 +543,8 @@ $\operatorname{dist}(y, x) \geq \operatorname{dist}(p, q) - 2$:
   \texttt{ymExpect\_eq\_integral\_ymMeasure}.
 \end{enumerate}
 
-\texttt{ym\_mass\_gap\_UN} specializes to $G = U(n)$, supplying:
+The U(n) specialization in \texttt{ym\_mass\_gap\_exponential\_decay}
+supplies:
 \begin{itemize}
 \item Trace bounds $|\ReTr(U)| \leq n$ (column-norm-one).
 \item Continuity of $\rho$ (\texttt{continuous\_subtype\_val}).
@@ -573,8 +574,6 @@ Chatterjee & This formalization \\
   \texttt{neumannSeriesCoeff}, resolvent bound \\
 \S16.3 Application (framework) &
   \texttt{ym\_mass\_gap\_strong\_coupling} \\
-\S16.3 Dobrushin bound (intermediate) &
-  \texttt{ym\_mass\_gap\_UN} \\
 Theorem 16.3.1 (exponential decay) &
   \texttt{ym\_mass\_gap\_exponential\_decay}
   \emph{(target; 1 sorry)} \\
@@ -618,7 +617,7 @@ Metric & Count \\
 \midrule
 New Lean 4 code (both repos) & ${\sim}12{,}000$ lines \\
 Files created & 8 (lgt) $+$ 6 (markov-semigroups) \\
-Sorry count (lgt, \texttt{ym\_mass\_gap\_UN}) & 0 \\
+Sorry count (lgt, \texttt{ym\_mass\_gap\_strong\_coupling}) & 0 \\
 Sorry count (lgt, \texttt{ym\_mass\_gap\_exponential\_decay}) & 1 \\
 Sorry count (markov-semigroups) & 0 \\
 Custom axioms (lgt) & 0 \\

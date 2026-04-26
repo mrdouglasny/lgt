@@ -137,15 +137,15 @@ def maxNeighbors (d : ℕ) : ℕ := 4 * maxPlaquettesPerLink d
 
 Each neighbor x of y has C(x,y) ≤ influenceBound(β) (one shared plaquette).
 Non-neighbors have C(x,y) = 0. -/
-def dobrushinColumnSum (d : ℕ) (β : ℝ) : ℝ :=
+def dobrushinAlpha (d : ℕ) (β : ℝ) : ℝ :=
   maxNeighbors d * influenceBound n β
 
 /-- The column sum is < 1 when β < β₀(n,d). -/
-theorem dobrushinColumnSum_lt_one (d : ℕ) (_hd : 2 ≤ d)
+theorem dobrushinAlpha_lt_one (d : ℕ) (_hd : 2 ≤ d)
     (β : ℝ) (_hβ : 0 ≤ β)
-    (hβ_small : dobrushinColumnSum n d β < 1) :
+    (hβ_small : dobrushinAlpha n d β < 1) :
     -- The Dobrushin condition is satisfied
-    dobrushinColumnSum n d β < 1 := hβ_small
+    dobrushinAlpha n d β < 1 := hβ_small
 
 /-- Sufficient condition for Dobrushin: β < 1/(4n · maxNeighbors(d)).
 From the linear bound influenceBound ≤ 4nβ:
@@ -154,8 +154,8 @@ From the linear bound influenceBound ≤ 4nβ:
 theorem dobrushin_sufficient (d : ℕ) (hd : 2 ≤ d) (hn : 1 ≤ n)
     (β : ℝ) (hβ : 0 ≤ β)
     (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d))) :
-    dobrushinColumnSum n d β < 1 := by
-  unfold dobrushinColumnSum
+    dobrushinAlpha n d β < 1 := by
+  unfold dobrushinAlpha
   calc (↑(maxNeighbors d) : ℝ) * influenceBound n β
       ≤ ↑(maxNeighbors d) * (4 * ↑n * β) := by
         apply mul_le_mul_of_nonneg_left (influenceBound_le_linear n β hβ)
@@ -178,7 +178,7 @@ Dobrushin's condition. By the Dobrushin uniqueness theorem
 (markov-semigroups/Dobrushin/Uniqueness.lean), this implies:
 1. Unique Gibbs measure for the gauge-fixed lattice model
 2. Exponential correlation decay with rate
-     m ≥ -log(dobrushinColumnSum) > 0
+     m ≥ -log(dobrushinAlpha) > 0
 3. Mass gap for the original Yang-Mills theory (gauge invariance
    transfers the result from gauge-fixed to full theory) -/
 
@@ -191,16 +191,16 @@ theorem ym_satisfies_dobrushin (d : ℕ) (hd : 2 ≤ d) (hn : 1 ≤ n)
     (β : ℝ) (hβ : 0 ≤ β)
     (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d))) :
     -- Dobrushin column sum < 1
-    dobrushinColumnSum n d β < 1 ∧
+    dobrushinAlpha n d β < 1 ∧
     -- Mass gap: ∃ positive decay rate
-    ∃ m : ℝ, 0 < m ∧ ∀ (k : ℕ), (dobrushinColumnSum n d β) ^ k ≤ exp (-m * k) := by
+    ∃ m : ℝ, 0 < m ∧ ∀ (k : ℕ), (dobrushinAlpha n d β) ^ k ≤ exp (-m * k) := by
   constructor
   · exact dobrushin_sufficient n d hd hn β hβ hβ_small
   · -- The decay rate m = -log(column sum) > 0
-    set c := dobrushinColumnSum n d β
+    set c := dobrushinAlpha n d β
     have hc_lt : c < 1 := dobrushin_sufficient n d hd hn β hβ hβ_small
     have hc_nn : 0 ≤ c := by
-      simp only [c, dobrushinColumnSum]
+      simp only [c, dobrushinAlpha]
       exact mul_nonneg (Nat.cast_nonneg' _) (influenceBound_nonneg n β hβ)
     -- Use m = 1. For 0 ≤ c < 1: c^k ≤ c ≤ 1 and exp(-k) > 0,
     -- but we actually just need c^k ≤ exp(-m*k) for SOME m > 0.
