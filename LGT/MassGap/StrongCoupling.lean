@@ -37,6 +37,7 @@ below and `docs/mass-gap-completion-plan.md`.
 -/
 
 import LGT.MassGap.MassGap3D
+import LGT.Lattice.LatticeDistance
 import LGT.GaugeField.UnitaryGroup
 import Mathlib.Topology.Algebra.Star.Unitary
 import MarkovSemigroups.Dobrushin.CondKernelDLR
@@ -1762,7 +1763,7 @@ theorem ym_mass_gap_strong_coupling
             x y hw_meas hZcond_pos hw_integrable_cond hSharedBound σ τ hdiff B hB)
       unfold influenceBound
       convert hkey using 2
-      ring
+      ring_nf
   -- Construct the full influence bound from the derived on-plaquette bound
   -- and the off-plaquette zero-influence theorem.
   have hInfluence : ∀ x y : LatticeLink d N,
@@ -1895,26 +1896,137 @@ into `ym_mass_gap_strong_coupling`.
 
 ### Distance on the torus
 
-The periodic L₁ distance on (ℤ/Nℤ)ᵈ: for each coordinate, the
-distance is min(|x−y|, N−|x−y|) in ℤ/Nℤ, summed over coordinates. -/
-
-/-- Periodic distance in one coordinate on ℤ/Nℤ. -/
-noncomputable def ZMod.periodicDist (N : ℕ) [NeZero N] (a b : ZMod N) : ℕ :=
-  min (ZMod.val (a - b)) (N - ZMod.val (a - b))
-
-/-- L₁ distance on the periodic lattice (ℤ/Nℤ)ᵈ. -/
-noncomputable def latticeSiteDist (d N : ℕ) [NeZero N]
-    (x y : GaussianField.FinLatticeSites d N) : ℕ :=
-  ∑ i : Fin d, ZMod.periodicDist N (x i) (y i)
-
-/-- Distance between plaquettes: L₁ distance between anchor sites. -/
-noncomputable def latticePlaquetteDist (d N : ℕ) [NeZero N]
-    (p q : LatticePlaquette d N) : ℕ :=
-  latticeSiteDist d N p.site q.site
+The periodic L₁ distance on (ℤ/Nℤ)ᵈ and the ambient link graph distance
+are defined in `LGT.Lattice.LatticeDistance`. -/
 
 section MassGapProper
 
 open Matrix
+
+/-- If two distinct links share a plaquette from `plaq`, then they are adjacent
+in the ambient shared-plaquette link graph. -/
+lemma sharesPlaquette_imp_linkAmbientAdj_of_ne
+    (d N : ℕ) (plaq : Finset (LatticePlaquette d N))
+    {x y : LatticeLink d N} (hxy : x ≠ y)
+    (hshare : sharesPlaquette d N plaq x y) :
+    linkAmbientAdj d N x y := by
+  rcases hshare with ⟨p, _hp, i, j, hxi, hyj⟩
+  exact ⟨hxy, p, ⟨i, hxi⟩, ⟨j, hyj⟩⟩
+
+/-- Step H: the ambient link graph distance has the support property required by
+`ym_mass_gap_strong_coupling`. Links at graph distance greater than one cannot
+share a plaquette, so the off-plaquette zero-influence theorem applies. -/
+theorem linkGraphDist_support
+    (G : Type*) (n d N : ℕ) [Group G] [TopologicalSpace G] [IsTopologicalGroup G]
+    [CompactSpace G] [T2Space G] [MeasurableSpace G] [BorelSpace G]
+    [SecondCountableTopology G] [HasHaarProbability G] [HasGaugeTrace G n]
+    [Fintype (LatticeLink d N)] [DecidableEq (LatticeLink d N)]
+    (plaq : Finset (LatticePlaquette d N)) (β : ℝ) :
+    ∀ Λ_pos hw_meas hw_int hmeas_cd,
+    ∀ (_hInfluence : ∀ x y : LatticeLink d N,
+        influenceCoeff
+          (ymGibbsSpec G n d N plaq β Λ_pos hw_meas hw_int hmeas_cd) x y ≤
+          (if sharesPlaquette d N plaq x y then influenceBound n β else 0)),
+    ∀ (u v : LatticeLink d N), linkGraphDist d N u v > 1 →
+      influenceCoeff
+        (ymGibbsSpec G n d N plaq β Λ_pos hw_meas hw_int hmeas_cd) u v = 0 := by
+  intro hZ_pos hw_meas hw_int hmeas_cd _hInfluence u v hdist
+  apply influenceCoeff_zero_off_plaquette G n d N plaq β hZ_pos hw_meas hw_int hmeas_cd
+  intro hshare
+  have huv : u ≠ v := by
+    intro huv
+    subst huv
+    rw [linkGraphDist_self] at hdist
+    omega
+  have hadj : (ambientLinkGraph d N).Adj u v := by
+    rw [ambientLinkGraph_adj_iff]
+    exact sharesPlaquette_imp_linkAmbientAdj_of_ne d N plaq huv hshare
+  have hdist_one : linkGraphDist d N u v = 1 := by
+    simpa [linkGraphDist] using
+      (SimpleGraph.dist_eq_one_iff_adj.mpr hadj)
+  omega
+
+/-- Step J: bound the double boundary-link sum by the geometric plaquette
+distance lower bound and the fact that each plaquette has at most four
+boundary links. The Step I power monotonicity argument is kept inline here. -/
+lemma boundary_sum_bound
+    (n d N : ℕ) [NeZero N] [Fintype (LatticeLink d N)]
+    [DecidableEq (LatticeLink d N)]
+    (hd : 2 ≤ d) (hN : 2 < N)
+    (β : ℝ) (hβ : 0 ≤ β)
+    (hα_lt : dobrushinAlpha n d β < 1)
+    (p q : LatticePlaquette d N) :
+    ∑ x ∈ p.boundaryLinkFinset,
+      ∑ y ∈ q.boundaryLinkFinset,
+        (dobrushinAlpha n d β) ^ linkGraphDist d N y x /
+          (1 - dobrushinAlpha n d β)
+      ≤
+        16 *
+          ((dobrushinAlpha n d β) ^
+              ((latticePlaquetteDist d N p q - 1) / 2) /
+            (1 - dobrushinAlpha n d β)) := by
+  classical
+  set α : ℝ := dobrushinAlpha n d β
+  set r : ℕ := (latticePlaquetteDist d N p q - 1) / 2
+  set C : ℝ := α ^ r / (1 - α) with hC_def
+  have hα_nonneg : 0 ≤ α := by
+    simp only [α, dobrushinAlpha]
+    exact mul_nonneg (Nat.cast_nonneg _) (influenceBound_nonneg n β hβ)
+  have hα_le_one : α ≤ 1 := le_of_lt hα_lt
+  have hden_pos : 0 < 1 - α := by linarith
+  have hC_nonneg : 0 ≤ C := by
+    exact div_nonneg (pow_nonneg hα_nonneg r) hden_pos.le
+  have hp_card_nat : p.boundaryLinkFinset.card ≤ 4 := by
+    simpa [LatticePlaquette.boundaryLinkFinset] using
+      (card_image_boundaryLinks_le d N p)
+  have hq_card_nat : q.boundaryLinkFinset.card ≤ 4 := by
+    simpa [LatticePlaquette.boundaryLinkFinset] using
+      (card_image_boundaryLinks_le d N q)
+  have hp_card : (p.boundaryLinkFinset.card : ℝ) ≤ 4 := by
+    exact_mod_cast hp_card_nat
+  have hq_card : (q.boundaryLinkFinset.card : ℝ) ≤ 4 := by
+    exact_mod_cast hq_card_nat
+  have hpoint : ∀ x ∈ p.boundaryLinkFinset, ∀ y ∈ q.boundaryLinkFinset,
+      α ^ linkGraphDist d N y x / (1 - α) ≤ C := by
+    intro x hx y hy
+    have hdist_xy :
+        r ≤ linkGraphDist d N x y := by
+      simpa [r] using
+        (linkGraphDist_boundary_lower_bound d N hd hN
+          (p := p) (q := q) (x := x) (y := y) hx hy)
+    have hdist_yx : r ≤ linkGraphDist d N y x := by
+      simpa [linkGraphDist_comm d N y x] using hdist_xy
+    have hpow : α ^ linkGraphDist d N y x ≤ α ^ r :=
+      pow_le_pow_of_le_one hα_nonneg hα_le_one hdist_yx
+    exact div_le_div_of_nonneg_right hpow hden_pos.le
+  have hinner : ∀ x ∈ p.boundaryLinkFinset,
+      ∑ y ∈ q.boundaryLinkFinset, α ^ linkGraphDist d N y x / (1 - α)
+        ≤ 4 * C := by
+    intro x hx
+    calc
+      ∑ y ∈ q.boundaryLinkFinset, α ^ linkGraphDist d N y x / (1 - α)
+          ≤ ∑ _y ∈ q.boundaryLinkFinset, C := by
+            apply Finset.sum_le_sum
+            intro y hy
+            exact hpoint x hx y hy
+      _ = (q.boundaryLinkFinset.card : ℝ) * C := by
+            simp [Finset.sum_const, nsmul_eq_mul]
+      _ ≤ 4 * C := by
+            exact mul_le_mul_of_nonneg_right hq_card hC_nonneg
+  calc
+    ∑ x ∈ p.boundaryLinkFinset,
+      ∑ y ∈ q.boundaryLinkFinset,
+        α ^ linkGraphDist d N y x / (1 - α)
+        ≤ ∑ _x ∈ p.boundaryLinkFinset, 4 * C := by
+          apply Finset.sum_le_sum
+          intro x hx
+          exact hinner x hx
+    _ = (p.boundaryLinkFinset.card : ℝ) * (4 * C) := by
+          simp [Finset.sum_const, nsmul_eq_mul]
+    _ ≤ 4 * (4 * C) := by
+          exact mul_le_mul_of_nonneg_right hp_card (mul_nonneg (by norm_num) hC_nonneg)
+    _ = 16 * C := by ring
+    _ = 16 * (α ^ r / (1 - α)) := by rw [hC_def]
 
 /-- **Mass gap theorem (target).**
 
@@ -1956,7 +2068,49 @@ theorem ym_mass_gap_exponential_decay
       32 * (↑n : ℝ) ^ 2 / (1 - dobrushinAlpha n d β) *
         (dobrushinAlpha n d β)
           ^ ((latticePlaquetteDist d N p q - 1) / 2) := by
-  sorry
+  classical
+  haveI : Inhabited (unitaryGroup (Fin n) ℂ) := ⟨1⟩
+  have hα_lt : dobrushinAlpha n d β < 1 :=
+    dobrushin_sufficient n d hd hn β hβ hβ_small
+  have hstrong :=
+    ym_mass_gap_strong_coupling
+      (G := unitaryGroup (Fin n) ℂ) (n := n) (d := d) (N := N)
+      hd hn hN β hβ hβ_small
+      (unitaryGroup_gaugeReTr_neg_le n)
+      (unitaryGroup_gaugeReTr_le n)
+      plaq p q
+      (unitaryGroup_rep_continuous n)
+      (fun x y : LatticeLink d N => linkGraphDist d N x y)
+      (fun x => linkGraphDist_self d N x)
+      (fun x y z => linkGraphDist_triangle d N hd hN x y z)
+      (linkGraphDist_support
+        (G := unitaryGroup (Fin n) ℂ) (n := n) (d := d) (N := N) plaq β)
+  have hsum :
+      ∑ x ∈ ((Finset.univ : Finset (Fin 4)).image
+              (LatticePlaquette.boundaryLinks p)),
+        ∑ y ∈ ((Finset.univ : Finset (Fin 4)).image
+              (LatticePlaquette.boundaryLinks q)),
+          (dobrushinAlpha n d β) ^ linkGraphDist d N y x /
+            (1 - dobrushinAlpha n d β)
+        ≤
+          16 *
+            ((dobrushinAlpha n d β) ^
+                ((latticePlaquetteDist d N p q - 1) / 2) /
+              (1 - dobrushinAlpha n d β)) := by
+    simpa [LatticePlaquette.boundaryLinkFinset] using
+      (boundary_sum_bound n d N hd hN β hβ hα_lt p q)
+  have hcoef_nonneg : 0 ≤ 2 * (↑n : ℝ) * (↑n : ℝ) := by positivity
+  have hbound := hstrong.trans (mul_le_mul_of_nonneg_left hsum hcoef_nonneg)
+  have harith :
+      2 * (↑n : ℝ) * (↑n : ℝ) *
+          (16 *
+            ((dobrushinAlpha n d β) ^
+                ((latticePlaquetteDist d N p q - 1) / 2) /
+              (1 - dobrushinAlpha n d β))) =
+        32 * (↑n : ℝ) ^ 2 / (1 - dobrushinAlpha n d β) *
+          (dobrushinAlpha n d β) ^
+            ((latticePlaquetteDist d N p q - 1) / 2) := by
+    ring
+  simpa [harith] using hbound
 
 end MassGapProper
-
