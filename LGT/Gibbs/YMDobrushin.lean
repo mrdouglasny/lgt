@@ -361,10 +361,10 @@ def ymDobrushinCondition
   -- Short-hand for the Gibbs spec in proofs below.
   let γ := ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist
   -- The contraction constant α := maxNeighbors(d) · influenceBound(n,β),
-  -- which is `dobrushinColumnSum n d β`.
-  { α := dobrushinColumnSum n d β
+  -- which is `dobrushinAlpha n d β`.
+  { α := dobrushinAlpha n d β
     hα_pos := by
-      unfold dobrushinColumnSum
+      unfold dobrushinAlpha
       exact mul_nonneg (Nat.cast_nonneg' _) (influenceBound_nonneg n β hβ)
     hα_lt := dobrushin_sufficient n d hd hn β hβ hβ_small
     col_summable := by
@@ -407,7 +407,7 @@ def ymDobrushinCondition
         _ ≤ (maxNeighbors d : ℝ) * influenceBound n β := by
             apply mul_le_mul_of_nonneg_right _ (influenceBound_nonneg n β hβ)
             exact_mod_cast hMaxNeighborsCol y
-        _ = dobrushinColumnSum n d β := rfl
+        _ = dobrushinAlpha n d β := rfl
     row_summable := by
       intro x
       exact summable_of_ne_finset_zero (s := Finset.univ)
@@ -444,7 +444,7 @@ def ymDobrushinCondition
         _ ≤ (maxNeighbors d : ℝ) * influenceBound n β := by
             apply mul_le_mul_of_nonneg_right _ (influenceBound_nonneg n β hβ)
             exact_mod_cast hMaxNeighborsRow x
-        _ = dobrushinColumnSum n d β := rfl }
+        _ = dobrushinAlpha n d β := rfl }
 
 /-! ## Convenience wrapper: Dobrushin from a plaquette-per-link bound
 

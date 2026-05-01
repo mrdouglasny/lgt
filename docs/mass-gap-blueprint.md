@@ -431,7 +431,8 @@ The final theorem `ym_mass_gap_strong_coupling` wires Parts 1–8:
 7. **Apply** the multi-site covariance bound (Part 8).
 8. **Convert** the covariance form back to connected2pt.
 
-The specialization `ym_mass_gap_UN` instantiates G = U(n), discharging:
+The U(n) specialization in `ym_mass_gap_exponential_decay` instantiates
+G = U(n), discharging:
 - Trace bounds |Re Tr(U)| ≤ n (from column-norm-one, Part 2).
 - Continuity of the fundamental representation (subtype inclusion).
 - CompactSpace (closed + bounded in finite-dim space, Heine-Borel).
@@ -450,7 +451,6 @@ Our formalization follows Chatterjee (2026) Chapter 16 closely:
 | §16.2 Influence coefficients | `influenceCoeff`, influence bounds (YMDobrushin.lean) |
 | §16.2 Neumann series | `neumannSeriesCoeff`, resolvent bound (NeumannSeries.lean) |
 | §16.3 Application to YM (framework) | `ym_mass_gap_strong_coupling` (StrongCoupling.lean) |
-| §16.3 Dobrushin contraction bound (intermediate) | `ym_mass_gap_UN` (StrongCoupling.lean) |
 | Theorem 16.3.1 (exponential decay) | `ym_mass_gap_exponential_decay` (StrongCoupling.lean, **target; 1 sorry**) |
 
 The main differences from Chatterjee's treatment:
@@ -484,7 +484,7 @@ semicontinuity (~300 lines of Mathlib infrastructure).
 |---|---|
 | New Lean 4 code (both repos) | ~12,000 lines |
 | Files created | 8 (lgt) + 6 (markov-semigroups) |
-| Sorry count (lgt, `ym_mass_gap_UN`) | 0 |
+| Sorry count (lgt, `ym_mass_gap_strong_coupling`) | 0 |
 | Sorry count (lgt, `ym_mass_gap_exponential_decay`) | 1 (see `docs/mass-gap-completion-plan.md` for the route to close) |
 | Sorry count (markov-semigroups) | 0 |
 | Custom axioms (lgt) | 0 |

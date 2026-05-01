@@ -7,14 +7,15 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Discharges the measure-theoretic "plumbing" hypotheses of
 `ym_mass_gap_2pt_via_multisite` (integrability, boundedness,
 indicator-integrability, conditional partition function positivity,
-finite support), the link distance structure, and conditional
-integrability from first principles — leaving only the genuinely
-hard analytic hypotheses (parametrised-integral measurability,
-influence coefficient bounds, local dependence).
+finite support) and conditional integrability from first principles
+— leaving only the genuinely hard analytic hypotheses
+(parametrised-integral measurability, influence coefficient bounds,
+local dependence) and a caller-supplied distance on links with the
+standard refl / triangle / nearest-neighbor support hypotheses.
 
 ## Main result
 
-`ym_mass_gap_strong_coupling` takes ~8 hypotheses instead of ~28.
+`ym_mass_gap_strong_coupling` takes ~10 hypotheses instead of ~28.
 The ~20 discharged ones (including `hcond_ae_bound` via
 `condKernel_ae_bound`) are all consequences of:
 - `Continuous (HasGaugeTrace.rep)` implies measurability of
@@ -23,10 +24,12 @@ The ~20 discharged ones (including `hcond_ae_bound` via
 - plaqObs is bounded by n
 - productHaar / ymMeasure are probability measures
 - LatticeLink d N is a Fintype
-- Concrete link distance `ymLinkDist` (0/1/2 based on plaquette
-  adjacency) satisfies reflexivity, triangle inequality, and
-  support property
 - Bounded measurable functions are integrable on probability measures
+
+The link distance is taken as a parameter; concrete instantiations
+(an ambient shared-plaquette graph distance) yield genuine
+geometric exponential decay — see `ym_mass_gap_exponential_decay`
+below and `docs/mass-gap-completion-plan.md`.
 
 ## References
 
@@ -37,6 +40,10 @@ import LGT.MassGap.MassGap3D
 import LGT.GaugeField.UnitaryGroup
 import Mathlib.Topology.Algebra.Star.Unitary
 import MarkovSemigroups.Dobrushin.CondKernelDLR
+
+set_option linter.unusedSectionVars false
+set_option linter.unusedSimpArgs false
+set_option linter.unusedVariables false
 
 open MeasureTheory Real
 
@@ -390,85 +397,14 @@ theorem influenceCoeff_finsupp
 
 /-! ## Link distance structure
 
-A crude distance on `LatticeLink d N` based on plaquette adjacency:
-- `ymLinkDist e₁ e₂ = 0` when `e₁ = e₂`
-- `ymLinkDist e₁ e₂ = 1` when they share a plaquette
-- `ymLinkDist e₁ e₂ = 2` otherwise
+`ym_mass_gap_strong_coupling` below is parameterized by an arbitrary
+distance `dLink : LatticeLink d N → LatticeLink d N → ℕ` together
+with reflexivity, triangle inequality, and a nearest-neighbor
+support hypothesis. The completion plan in
+`docs/mass-gap-completion-plan.md` instantiates this at the ambient
+shared-plaquette graph distance to obtain a genuine geometric
+exponential decay theorem (`ym_mass_gap_exponential_decay`). -/
 
-All values lie in `{0, 1, 2}`, making the triangle inequality
-and support property trivial by case analysis. -/
-
-/-- Crude metric on links: 0 if equal, 1 if plaquette-neighbors, 2 otherwise.
-Uses classical decidability (via `open Classical`). -/
-def ymLinkDist (plaq : Finset (LatticePlaquette d N))
-    (e₁ e₂ : LatticeLink d N) : ℕ :=
-  if e₁ = e₂ then 0
-  else if sharesPlaquette d N plaq e₁ e₂ then 1
-  else 2
-
-omit [Fintype (LatticeLink d N)] in
-theorem ymLinkDist_refl (plaq : Finset (LatticePlaquette d N))
-    (e : LatticeLink d N) :
-    ymLinkDist d N plaq e e = 0 := by
-  simp [ymLinkDist]
-
-omit [Fintype (LatticeLink d N)] in
-theorem ymLinkDist_triangle (plaq : Finset (LatticePlaquette d N))
-    (x y z : LatticeLink d N) :
-    ymLinkDist d N plaq x y ≤ ymLinkDist d N plaq x z + ymLinkDist d N plaq z y := by
-  simp only [ymLinkDist]
-  -- All values are in {0, 1, 2}; case split on equality conditions.
-  by_cases hxy : x = y
-  · -- x = y: LHS = 0 ≤ RHS
-    simp [hxy]
-  · by_cases hxz : x = z
-    · subst hxz; simp [hxy]
-    · by_cases hzy : z = y
-      · subst hzy; simp [hxy]
-      · -- x ≠ z, z ≠ y: each summand ≥ 1, so RHS ≥ 2 ≥ LHS
-        simp only [hxz, hzy, hxy, ↓reduceIte]
-        have h1 : 1 ≤ (if sharesPlaquette d N plaq x z then 1 else 2) := by
-          split_ifs <;> omega
-        have h2 : 1 ≤ (if sharesPlaquette d N plaq z y then 1 else 2) := by
-          split_ifs <;> omega
-        have h3 : (if sharesPlaquette d N plaq x y then 1 else 2) ≤ 2 := by
-          split_ifs <;> omega
-        omega
-
-omit [SecondCountableTopology G] in
-/-- The distance-support property: links at distance > 1 have zero
-influence coefficient. Follows from `hInfluence` (which bounds
-influence by 0 off-plaquette) and nonnegativity of `influenceCoeff`. -/
-theorem ymLinkDist_support (plaq : Finset (LatticePlaquette d N))
-    (β : ℝ)
-    (hZ_pos : ∀ Λ σ, 0 < gibbsConditionalZ G n d N plaq β Λ σ)
-    (hw_meas : Measurable fun U => boltzmannWeight G n d N β U plaq)
-    (hw_integrable : ∀ (Λ : Finset (LatticeLink d N))
-        (σ : GaugeConnection G d N),
-        Integrable (fun uΛ : LatticeLink d N → G =>
-            gibbsConditionalWeight G n d N plaq β Λ σ uΛ)
-          (Measure.pi (fun _ : LatticeLink d N => haarG G)))
-    (hmeas_condDist : ∀ (Λ : Finset (LatticeLink d N))
-        (A : Set (GaugeConnection G d N)), MeasurableSet A →
-        Measurable (fun σ : GaugeConnection G d N =>
-          (gibbsCondMeasure G n d N plaq β Λ σ A).toReal))
-    (hInfluence : ∀ x y : LatticeLink d N,
-      influenceCoeff
-        (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
-        x y ≤ (if sharesPlaquette d N plaq x y then influenceBound n β else 0))
-    (u v : LatticeLink d N) (h : ymLinkDist d N plaq u v > 1) :
-    influenceCoeff
-      (ymGibbsSpec G n d N plaq β hZ_pos hw_meas hw_integrable hmeas_condDist)
-      u v = 0 := by
-  -- ymLinkDist > 1 means the value is 2, which means ¬ sharesPlaquette
-  unfold ymLinkDist at h
-  split_ifs at h with h1 h2
-  · omega
-  · omega
-  · -- ¬ sharesPlaquette, so hInfluence gives influenceCoeff ≤ 0
-    have hle := hInfluence u v
-    simp only [↓reduceIte, h2] at hle
-    exact le_antisymm hle (influenceCoeff_nonneg _ u v)
 
 /-! ## Conditional integrability of bounded observables
 
@@ -1659,6 +1595,23 @@ theorem ym_mass_gap_strong_coupling
     (p q : LatticePlaquette d N)
     -- Core continuity (implies measurability of boltzmannWeight and plaqObs):
     (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
+    -- Distance on links + its metric/support hypotheses. The caller
+    -- chooses the distance; the theorem is generic. Concrete instantiations:
+    -- a genuine ambient shared-plaquette graph distance (see
+    -- `docs/mass-gap-completion-plan.md`) yields exponential decay in
+    -- geometric plaquette separation.
+    (dLink : LatticeLink d N → LatticeLink d N → ℕ)
+    (h_refl : ∀ x, dLink x x = 0)
+    (h_triangle : ∀ x y z, dLink x y ≤ dLink x z + dLink z y)
+    (h_support :
+      ∀ Λ_pos hw_meas hw_int hmeas_cd,
+      ∀ (_hInfluence : ∀ x y : LatticeLink d N,
+          influenceCoeff
+            (ymGibbsSpec G n d N plaq β Λ_pos hw_meas hw_int hmeas_cd) x y ≤
+            (if sharesPlaquette d N plaq x y then influenceBound n β else 0)),
+      ∀ (u v : LatticeLink d N), dLink u v > 1 →
+        influenceCoeff
+          (ymGibbsSpec G n d N plaq β Λ_pos hw_meas hw_int hmeas_cd) u v = 0)
     -- (Shared plaquette bound and plaquette-per-link bound are now discharged
     --  from the CellComplex incidence lemmas shared_plaquettes_le_one and
     --  plaquettes_per_link_le'.)
@@ -1669,8 +1622,8 @@ theorem ym_mass_gap_strong_coupling
                 (LatticePlaquette.boundaryLinks p)),
           ∑ y ∈ ((Finset.univ : Finset (Fin 4)).image
                 (LatticePlaquette.boundaryLinks q)),
-            (dobrushinColumnSum n d β) ^ ymLinkDist d N plaq y x /
-              (1 - dobrushinColumnSum n d β) := by
+            (dobrushinAlpha n d β) ^ dLink y x /
+              (1 - dobrushinAlpha n d β) := by
   -- Derive measurability from representation continuity
   have hw_meas : Measurable (fun U => boltzmannWeight G n d N β U plaq) :=
     measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq
@@ -1819,11 +1772,14 @@ theorem ym_mass_gap_strong_coupling
         (if sharesPlaquette d N plaq x y then influenceBound n β else 0) :=
     influenceCoeff_le_bound G n d N plaq β hZcond_pos hw_meas
       hw_integrable_cond hmeas_condDist hOnPlaq
-  -- Discharge link distance structure
-  have h_refl := ymLinkDist_refl d N plaq
-  have h_triangle := ymLinkDist_triangle d N plaq
-  have h_support := ymLinkDist_support G n d N plaq β hZcond_pos
-    hw_meas hw_integrable_cond hmeas_condDist hInfluence
+  -- Distance refl/triangle come straight from caller's hypotheses.
+  -- Specialize the caller-supplied support hypothesis to the YM Gibbs
+  -- spec and the influence-bound just derived.
+  have h_support_inst : ∀ u v : LatticeLink d N, dLink u v > 1 →
+      influenceCoeff
+        (ymGibbsSpec G n d N plaq β hZcond_pos hw_meas
+          hw_integrable_cond hmeas_condDist) u v = 0 :=
+    h_support hZcond_pos hw_meas hw_integrable_cond hmeas_condDist hInfluence
   -- Derive neighbor-count bounds from plaquette-per-link bound.
   -- Since maxNeighbors d = 4 * maxPlaquettesPerLink d, the hLoose
   -- condition 4 * M ≤ maxNeighbors d is le_refl.
@@ -1899,40 +1855,20 @@ theorem ym_mass_gap_strong_coupling
     hPlaqObs_pw_int hPlaqObs_qw_int hPlaqObs_pqw_int
     hInfluence hMaxNeighborsCol hMaxNeighborsRow
     hμ_prob hcond_ae_bound
-    (ymLinkDist d N plaq) h_refl h_triangle h_support hfinsupp
+    dLink h_refl h_triangle h_support_inst hfinsupp
     (fun z B hB σ τ hagree =>
       condDist_cylinder_eq_of_agree_on_support γ_spec z B hB (hfinsupp z) σ τ hagree)
 
 end
 
-/-! ## Mass gap for U(n) lattice gauge theory
+/-! ## U(n) measurable-space instances
 
-Specialization of `ym_mass_gap_strong_coupling` to the concrete gauge
-group `G := Matrix.unitaryGroup (Fin n) ℂ`, discharging the trace
-bounds and representation continuity from `UnitaryGroup.lean`.
-
-### Instance status for `Matrix.unitaryGroup (Fin n) ℂ`
-
-The following instances are synthesized automatically by Lean/Mathlib:
-- `Group`, `TopologicalSpace`, `T2Space`, `Inhabited`
-- `IsTopologicalGroup` (from `Mathlib.Topology.Algebra.Star.Unitary`)
-
-The following are defined locally via `borel`:
-- `MeasurableSpace`, `BorelSpace`
-
-The following are **not** available in Mathlib and appear as explicit
-hypotheses (they are true for U(n) but require nontrivial proofs):
-- `CompactSpace` (U(n) is a closed bounded subset of M_n(ℂ))
-- `SecondCountableTopology` (compact metrizable implies second-countable)
-- `HasHaarProbability` (existence of normalized Haar measure)
-
-### Measurability hypotheses
-
-The `_nocount` variants in `MarkovSemigroups` replace the former
-`[Fintype S]` requirement with `[CompactSpace S] [T2Space S]
-[SecondCountableTopology S] [BorelSpace S]`. The needed
-`[MeasurableSingletonClass S]` and `[MeasurableEq S]` instances
-are auto-inferred from these typeclasses. -/
+Borel measurable space + `BorelSpace` for `Matrix.unitaryGroup (Fin n) ℂ`,
+needed by the U(n) specialization in `ym_mass_gap_exponential_decay`
+below. The remaining U(n) hypotheses (`CompactSpace`,
+`SecondCountableTopology`, `HasHaarProbability`) are proved in
+`UnitaryGroup.lean` but appear as explicit instance arguments due to
+Lean instance-resolution limits across files. -/
 
 noncomputable section UNMassGap
 
@@ -1947,64 +1883,15 @@ instance instMeasurableSpaceUN (n : ℕ) :
 instance instBorelSpaceUN (n : ℕ) :
     BorelSpace (unitaryGroup (Fin n) ℂ) := ⟨rfl⟩
 
-/-- **Dobrushin contraction for U(n) lattice gauge theory.**
-
-For the unitary group U(n) on a d-dimensional periodic lattice
-(d ≥ 2, N ≥ 3) at coupling β < 1/(4n · maxNeighbors(d)), the connected
-2-point function of plaquette observables p, q is bounded by a 16-term
-sum over boundary link pairs, each weighted by α^{ymLinkDist(x,y)}
-where α = dobrushinColumnSum(n, d, β) < 1.
-
-Note: `ymLinkDist` is a coarse distance taking values in {0, 1, 2}.
-The genuine mass gap (exponential decay in geometric plaquette distance)
-requires replacing this with the lattice L₁ distance — see
-`ym_mass_gap_exponential_decay` for the proper formulation.
-
-The typeclass instances `CompactSpace`, `SecondCountableTopology`, and
-`HasHaarProbability` for U(n) are proved in `UnitaryGroup.lean` but
-passed as explicit parameters due to Lean instance resolution limits. -/
-theorem ym_mass_gap_UN
-    (n : ℕ) (hn : 1 ≤ n)
-    (d N : ℕ) (hd : 2 ≤ d) (hN : 2 < N) [NeZero N]
-    -- Typeclass instances not yet in Mathlib for U(n):
-    [CompactSpace (unitaryGroup (Fin n) ℂ)]
-    [SecondCountableTopology (unitaryGroup (Fin n) ℂ)]
-    [HasHaarProbability (unitaryGroup (Fin n) ℂ)]
-    [Fintype (LatticeLink d N)]
-    [DecidableEq (LatticeLink d N)]
-    -- Coupling and plaquette data:
-    (β : ℝ) (hβ : 0 ≤ β)
-    (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d)))
-    (plaq : Finset (LatticePlaquette d N))
-    (p q : LatticePlaquette d N)
-    -- (Lattice combinatorics discharged from CellComplex incidence lemmas.)
-    :
-    |connected2pt (unitaryGroup (Fin n) ℂ) n d N β plaq
-        (plaqObs (unitaryGroup (Fin n) ℂ) n d N p)
-        (plaqObs (unitaryGroup (Fin n) ℂ) n d N q)| ≤
-      2 * (↑n : ℝ) * (↑n : ℝ) *
-        ∑ x ∈ ((Finset.univ : Finset (Fin 4)).image
-                (LatticePlaquette.boundaryLinks p)),
-          ∑ y ∈ ((Finset.univ : Finset (Fin 4)).image
-                (LatticePlaquette.boundaryLinks q)),
-            (dobrushinColumnSum n d β) ^ ymLinkDist d N plaq y x /
-              (1 - dobrushinColumnSum n d β) :=
-  ym_mass_gap_strong_coupling
-    (unitaryGroup (Fin n) ℂ) n d N
-    hd hn hN β hβ hβ_small
-    (unitaryGroup_gaugeReTr_neg_le n)
-    (unitaryGroup_gaugeReTr_le n)
-    plaq p q
-    (unitaryGroup_rep_continuous n)
-
 end UNMassGap
 
-/-! ## Proper mass gap formulation
+/-! ## Mass gap target
 
-The theorem `ym_mass_gap_UN` bounds the connected 2-point function by a
-16-term sum involving `ymLinkDist`, a coarse distance that only takes
-values {0, 1, 2}. For a genuine mass gap, we need exponential decay in
-a distance that grows with geometric separation on the lattice.
+For a genuine mass gap statement we need exponential decay of the
+connected 2-point function in a distance that grows with geometric
+separation on the lattice — not the upstream Dobrushin-contraction
+output, which only bounds `α^{dLink}` for whatever distance is fed
+into `ym_mass_gap_strong_coupling`.
 
 ### Distance on the torus
 
@@ -2029,22 +1916,28 @@ section MassGapProper
 
 open Matrix
 
-/-- **Mass gap theorem (proper formulation).**
+/-- **Mass gap theorem (target).**
 
 For U(n) Wilson lattice gauge theory on (ℤ/Nℤ)ᵈ at strong coupling,
-the connected 2-point function decays exponentially in the plaquette
-distance:
+the connected 2-point function decays exponentially in the periodic
+L₁ plaquette distance:
 
-    |⟨Re Tr(U_p) · Re Tr(U_q)⟩_c| ≤ C(n,d,β) · α^{dist(p,q)}
+    |⟨Re Tr(U_p) · Re Tr(U_q)⟩_c|
+        ≤ 32 n² / (1 − α) · α^((latticePlaquetteDist p q − 1) / 2)
 
-where α = dobrushinColumnSum(n, d, β) < 1 and dist is the periodic
-L₁ distance between plaquette sites.
+where α = dobrushinAlpha(n, d, β) < 1, and the exponent uses `Nat`
+subtraction and division (so it saturates at 0 for plaquettes at
+close range).
 
-This reduces to `ym_mass_gap_UN` plus the purely combinatorial bound
-that the 16-term boundary-link sum is ≤ C · α^{latticePlaquetteDist(p,q)}.
-That bound follows from: each boundary link of p has site within L₁
-distance 1 of site(p), and the link graph distance is ≥ the L₁ site
-distance minus a constant. -/
+**Status: open.** The proof route is laid out in
+`docs/mass-gap-completion-plan.md`: instantiate
+`ym_mass_gap_strong_coupling` with the ambient shared-plaquette
+graph distance on links, then bound the 16-term boundary-link sum
+geometrically using the boundary-layer incidence structure. The
+factor of `1/2` in the exponent is forced by the geometry: one
+shared-plaquette influence-graph step displaces a link anchor by up
+to 2 L₁ site-units, so `α^k` decay in graph-step count translates
+to `(log α)/2` rate in L₁ plaqDist. -/
 theorem ym_mass_gap_exponential_decay
     (n : ℕ) (hn : 1 ≤ n)
     (d N : ℕ) (hd : 2 ≤ d) (hN : 2 < N) [NeZero N]
@@ -2060,8 +1953,9 @@ theorem ym_mass_gap_exponential_decay
     |connected2pt (unitaryGroup (Fin n) ℂ) n d N β plaq
         (plaqObs (unitaryGroup (Fin n) ℂ) n d N p)
         (plaqObs (unitaryGroup (Fin n) ℂ) n d N q)| ≤
-      32 * (↑n : ℝ) ^ 2 / (1 - dobrushinColumnSum n d β) *
-        (dobrushinColumnSum n d β) ^ latticePlaquetteDist d N p q := by
+      32 * (↑n : ℝ) ^ 2 / (1 - dobrushinAlpha n d β) *
+        (dobrushinAlpha n d β)
+          ^ ((latticePlaquetteDist d N p q - 1) / 2) := by
   sorry
 
 end MassGapProper
