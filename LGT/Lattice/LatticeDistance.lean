@@ -509,4 +509,146 @@ lemma linkGraphDist_boundary_lower_bound (d N : ℕ) [NeZero N]
   linkGraphDist_boundary_lower_bound_of_connected d N
     (ambientLinkGraph_connected d N hd hN) hx hy
 
+/-! ## Concrete checks -/
+
+section ConcreteChecks
+
+/-! Concrete checks on `(ZMod 5)^2`. -/
+
+private abbrev checkD2 : ℕ := 2
+private abbrev checkN2 : ℕ := 5
+
+private def check2Site00 : FinLatticeSites checkD2 checkN2 := fun _ => 0
+
+private def check2Site14 : FinLatticeSites checkD2 checkN2 :=
+  fun i => if i = (0 : Fin checkD2) then (1 : ZMod checkN2) else (4 : ZMod checkN2)
+
+private def check2Site23 : FinLatticeSites checkD2 checkN2 :=
+  fun i => if i = (0 : Fin checkD2) then (2 : ZMod checkN2) else (3 : ZMod checkN2)
+
+private def check2Site01 : FinLatticeSites checkD2 checkN2 :=
+  siteShift checkD2 checkN2 check2Site00 1
+
+private def check2Link00x : LatticeLink checkD2 checkN2 := ⟨check2Site00, 0⟩
+private def check2Link00y : LatticeLink checkD2 checkN2 := ⟨check2Site00, 1⟩
+private def check2Link01x : LatticeLink checkD2 checkN2 := ⟨check2Site01, 0⟩
+
+private def check2Plaquette00 : LatticePlaquette checkD2 checkN2 :=
+  ⟨check2Site00, 0, 1, by decide⟩
+
+private def check2Plaquette14 : LatticePlaquette checkD2 checkN2 :=
+  ⟨check2Site14, 0, 1, by decide⟩
+
+example : ZMod.periodicDist checkN2 (0 : ZMod checkN2) (4 : ZMod checkN2) = 1 := by
+  native_decide
+
+example : ZMod.periodicDist checkN2 (0 : ZMod checkN2) (2 : ZMod checkN2) = 2 := by
+  native_decide
+
+example : latticeSiteDist checkD2 checkN2 check2Site00 check2Site00 = 0 := by
+  native_decide
+
+example : latticeSiteDist checkD2 checkN2 check2Site00 check2Site14 = 2 := by
+  native_decide
+
+example : latticeSiteDist checkD2 checkN2 check2Site00 check2Site23 = 4 := by
+  native_decide
+
+example : linkGraphDist checkD2 checkN2 check2Link00x check2Link00x = 0 := by
+  simp [linkGraphDist]
+
+example : linkGraphDist checkD2 checkN2 check2Link00x check2Link00y = 1 := by
+  rw [linkGraphDist, SimpleGraph.dist_eq_one_iff_adj, ambientLinkGraph_adj_iff]
+  refine ⟨?_, check2Plaquette00, ?_, ?_⟩
+  · decide
+  · exact ⟨0, rfl⟩
+  · exact ⟨3, rfl⟩
+
+example : linkGraphDist checkD2 checkN2 check2Link00x check2Link01x = 1 := by
+  rw [linkGraphDist, SimpleGraph.dist_eq_one_iff_adj, ambientLinkGraph_adj_iff]
+  refine ⟨?_, check2Plaquette00, ?_, ?_⟩
+  · native_decide
+  · exact ⟨0, rfl⟩
+  · exact ⟨2, rfl⟩
+
+example : latticePlaquetteDist checkD2 checkN2 check2Plaquette00 check2Plaquette00 = 0 := by
+  native_decide
+
+example : latticePlaquetteDist checkD2 checkN2 check2Plaquette00 check2Plaquette14 = 2 := by
+  native_decide
+
+example : plaquetteDist checkD2 checkN2 check2Plaquette00 check2Plaquette14 = 2 := by
+  native_decide
+
+/-! Concrete checks on `(ZMod 5)^4`. -/
+
+private abbrev checkD4 : ℕ := 4
+private abbrev checkN4 : ℕ := 5
+
+private def check4Site0000 : FinLatticeSites checkD4 checkN4 := fun _ => 0
+
+private def check4Site1423 : FinLatticeSites checkD4 checkN4 :=
+  fun i =>
+    if i = (0 : Fin checkD4) then (1 : ZMod checkN4)
+    else if i = (1 : Fin checkD4) then (4 : ZMod checkN4)
+    else if i = (2 : Fin checkD4) then (2 : ZMod checkN4)
+    else (3 : ZMod checkN4)
+
+private def check4Site0120 : FinLatticeSites checkD4 checkN4 :=
+  fun i =>
+    if i = (0 : Fin checkD4) then (0 : ZMod checkN4)
+    else if i = (1 : Fin checkD4) then (1 : ZMod checkN4)
+    else if i = (2 : Fin checkD4) then (2 : ZMod checkN4)
+    else (0 : ZMod checkN4)
+
+private def check4Site0100 : FinLatticeSites checkD4 checkN4 :=
+  siteShift checkD4 checkN4 check4Site0000 1
+
+private def check4Link0x : LatticeLink checkD4 checkN4 := ⟨check4Site0000, 0⟩
+private def check4Link0y : LatticeLink checkD4 checkN4 := ⟨check4Site0000, 1⟩
+private def check4LinkShiftX : LatticeLink checkD4 checkN4 := ⟨check4Site0100, 0⟩
+
+private def check4Plaquette01 : LatticePlaquette checkD4 checkN4 :=
+  ⟨check4Site0000, 0, 1, by decide⟩
+
+private def check4Plaquette1423 : LatticePlaquette checkD4 checkN4 :=
+  ⟨check4Site1423, 0, 1, by decide⟩
+
+example : latticeSiteDist checkD4 checkN4 check4Site0000 check4Site0000 = 0 := by
+  native_decide
+
+example : latticeSiteDist checkD4 checkN4 check4Site0000 check4Site1423 = 6 := by
+  native_decide
+
+example : latticeSiteDist checkD4 checkN4 check4Site0000 check4Site0120 = 3 := by
+  native_decide
+
+example : linkGraphDist checkD4 checkN4 check4Link0x check4Link0x = 0 := by
+  simp [linkGraphDist]
+
+example : linkGraphDist checkD4 checkN4 check4Link0x check4Link0y = 1 := by
+  rw [linkGraphDist, SimpleGraph.dist_eq_one_iff_adj, ambientLinkGraph_adj_iff]
+  refine ⟨?_, check4Plaquette01, ?_, ?_⟩
+  · decide
+  · exact ⟨0, rfl⟩
+  · exact ⟨3, rfl⟩
+
+example : linkGraphDist checkD4 checkN4 check4Link0x check4LinkShiftX = 1 := by
+  rw [linkGraphDist, SimpleGraph.dist_eq_one_iff_adj, ambientLinkGraph_adj_iff]
+  refine ⟨?_, check4Plaquette01, ?_, ?_⟩
+  · native_decide
+  · exact ⟨0, rfl⟩
+  · exact ⟨2, rfl⟩
+
+example : latticePlaquetteDist checkD4 checkN4 check4Plaquette01 check4Plaquette01 = 0 := by
+  native_decide
+
+example : latticePlaquetteDist checkD4 checkN4 check4Plaquette01 check4Plaquette1423 = 6 := by
+  native_decide
+
+example : plaquetteDist checkD4 checkN4 check4Plaquette01 check4Plaquette1423 = 6 := by
+  native_decide
+
+end ConcreteChecks
+
 end
