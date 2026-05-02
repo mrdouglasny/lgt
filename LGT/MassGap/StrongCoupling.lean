@@ -2113,4 +2113,124 @@ theorem ym_mass_gap_exponential_decay
     ring
   simpa [harith] using hbound
 
+/-- Positivity of the single shared-plaquette influence bound at positive coupling. -/
+private lemma influenceBound_pos (n : ℕ) (hn : 1 ≤ n) (β : ℝ) (hβ_pos : 0 < β) :
+    0 < influenceBound n β := by
+  unfold influenceBound
+  have hn_pos : (0 : ℝ) < n := by exact_mod_cast hn
+  have hneg : -4 * (n : ℝ) * β < 0 := by nlinarith [hn_pos, hβ_pos]
+  linarith [Real.exp_lt_one_iff.mpr hneg]
+
+/-- Positivity of the Dobrushin column-sum parameter at positive coupling. -/
+private lemma dobrushinAlpha_pos (n d : ℕ) (hn : 1 ≤ n) (hd : 2 ≤ d)
+    (β : ℝ) (hβ_pos : 0 < β) :
+    0 < dobrushinAlpha n d β := by
+  unfold dobrushinAlpha
+  have hmax_pos : (0 : ℝ) < maxNeighbors d := by
+    unfold maxNeighbors maxPlaquettesPerLink
+    have hd' : 0 < d - 1 := by omega
+    exact_mod_cast (Nat.mul_pos (by omega : 0 < 4) (Nat.mul_pos (by omega : 0 < 2) hd'))
+  exact mul_pos hmax_pos (influenceBound_pos n hn β hβ_pos)
+
+/-- The truncated exponent `(t - 1) / 2` is large enough for rate conversion. -/
+private lemma plaquetteDist_rate_floor_bound (t : ℕ) :
+    ((t : ℝ) - 2) / 2 ≤ (((t - 1) / 2 : ℕ) : ℝ) := by
+  have hnat : t ≤ 2 * ((t - 1) / 2) + 2 := by
+    have h : (t - 1) - 1 ≤ 2 * ((t - 1) / 2) := by
+      have hdecomp := Nat.mod_add_div (t - 1) 2
+      have hmod : (t - 1) % 2 = 0 ∨ (t - 1) % 2 = 1 := by omega
+      rcases hmod with hmod | hmod <;> omega
+    omega
+  have hreal : (t : ℝ) ≤ 2 * (((t - 1) / 2 : ℕ) : ℝ) + 2 := by
+    exact_mod_cast hnat
+  nlinarith
+
+/-- Convert the concrete algebraic decay exponent to an exponential rate. -/
+private lemma pow_floor_le_exp_rate {α : ℝ} (hα_pos : 0 < α) (hα_lt : α < 1)
+    (t : ℕ) :
+    α ^ ((t - 1) / 2) ≤ α⁻¹ * Real.exp (-((-Real.log α) / 2) * (t : ℝ)) := by
+  set r : ℕ := (t - 1) / 2
+  have hlog_neg : Real.log α < 0 := Real.log_neg hα_pos hα_lt
+  have hr : ((t : ℝ) - 2) / 2 ≤ (r : ℝ) := by
+    simpa only [r] using plaquetteDist_rate_floor_bound t
+  have hmul : Real.log α * (r : ℝ) ≤ Real.log α * (((t : ℝ) - 2) / 2) := by
+    exact mul_le_mul_of_nonpos_left hr hlog_neg.le
+  calc
+    α ^ r = Real.exp (Real.log α * (r : ℝ)) := by
+      rw [mul_comm, Real.exp_nat_mul, Real.exp_log hα_pos]
+    _ ≤ Real.exp (Real.log α * (((t : ℝ) - 2) / 2)) := Real.exp_le_exp.mpr hmul
+    _ = α⁻¹ * Real.exp (-((-Real.log α) / 2) * (t : ℝ)) := by
+      rw [show Real.log α * (((t : ℝ) - 2) / 2) =
+          -Real.log α + (Real.log α / 2) * (t : ℝ) by ring]
+      rw [Real.exp_add, Real.exp_neg, Real.exp_log hα_pos]
+      congr 1
+      ring_nf
+
+/-- Multiply the rate-conversion bound by a nonnegative prefactor. -/
+private lemma decay_bound_to_rate {α C : ℝ} (hα_pos : 0 < α) (hα_lt : α < 1)
+    (hC_nonneg : 0 ≤ C) (t : ℕ) :
+    C * α ^ ((t - 1) / 2) ≤
+      C / α * Real.exp (-((-Real.log α) / 2) * (t : ℝ)) := by
+  have hpow := pow_floor_le_exp_rate hα_pos hα_lt t
+  calc
+    C * α ^ ((t - 1) / 2)
+        ≤ C * (α⁻¹ * Real.exp (-((-Real.log α) / 2) * (t : ℝ))) := by
+          exact mul_le_mul_of_nonneg_left hpow hC_nonneg
+    _ = C / α * Real.exp (-((-Real.log α) / 2) * (t : ℝ)) := by
+          field_simp [hα_pos.ne']
+
+/-- Step L: package the concrete strong-coupling bound as an existential
+positive mass-gap rate in the periodic L₁ plaquette distance. -/
+theorem ym_mass_gap_rate_exists
+    (n : ℕ) (hn : 1 ≤ n)
+    (d N : ℕ) (hd : 2 ≤ d) (hN : 2 < N) [NeZero N]
+    [CompactSpace (unitaryGroup (Fin n) ℂ)]
+    [SecondCountableTopology (unitaryGroup (Fin n) ℂ)]
+    [HasHaarProbability (unitaryGroup (Fin n) ℂ)]
+    [Fintype (LatticeLink d N)] [DecidableEq (LatticeLink d N)]
+    (β : ℝ) (hβ_pos : 0 < β)
+    (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d))) :
+    ∃ (m : ℝ), 0 < m ∧ ∀ (plaq : Finset (LatticePlaquette d N))
+        (p q : LatticePlaquette d N),
+      |connected2pt (unitaryGroup (Fin n) ℂ) n d N β plaq
+          (plaqObs (unitaryGroup (Fin n) ℂ) n d N p)
+          (plaqObs (unitaryGroup (Fin n) ℂ) n d N q)| ≤
+        32 * (↑n : ℝ) ^ 2 /
+          (dobrushinAlpha n d β * (1 - dobrushinAlpha n d β)) *
+          Real.exp (-m * ↑(latticePlaquetteDist d N p q)) := by
+  classical
+  set α : ℝ := dobrushinAlpha n d β
+  refine ⟨(-Real.log α) / 2, ?_, ?_⟩
+  · have hα_pos : 0 < α := by
+      simpa [α] using dobrushinAlpha_pos n d hn hd β hβ_pos
+    have hα_lt : α < 1 := by
+      simpa [α] using dobrushin_sufficient n d hd hn β hβ_pos.le hβ_small
+    exact div_pos (neg_pos.mpr (Real.log_neg hα_pos hα_lt)) (by norm_num)
+  · intro plaq p q
+    have hα_pos : 0 < α := by
+      simpa [α] using dobrushinAlpha_pos n d hn hd β hβ_pos
+    have hα_lt : α < 1 := by
+      simpa [α] using dobrushin_sufficient n d hd hn β hβ_pos.le hβ_small
+    have hden_pos : 0 < 1 - α := by linarith
+    have hC_nonneg : 0 ≤ 32 * (↑n : ℝ) ^ 2 / (1 - α) := by positivity
+    have hK :=
+      ym_mass_gap_exponential_decay n hn d N hd hN β hβ_pos.le hβ_small plaq p q
+    have hrate := decay_bound_to_rate (α := α)
+      (C := 32 * (↑n : ℝ) ^ 2 / (1 - α)) hα_pos hα_lt hC_nonneg
+      (latticePlaquetteDist d N p q)
+    have htarget :
+        32 * (↑n : ℝ) ^ 2 / (1 - α) / α *
+            Real.exp (-((-Real.log α) / 2) * ↑(latticePlaquetteDist d N p q)) =
+          32 * (↑n : ℝ) ^ 2 / (α * (1 - α)) *
+            Real.exp (-((-Real.log α) / 2) * ↑(latticePlaquetteDist d N p q)) := by
+      field_simp [hα_pos.ne', hden_pos.ne']
+    have hrate' :
+        32 * (↑n : ℝ) ^ 2 / (1 - α) *
+            α ^ ((latticePlaquetteDist d N p q - 1) / 2) ≤
+          32 * (↑n : ℝ) ^ 2 / (α * (1 - α)) *
+            Real.exp (-((-Real.log α) / 2) * ↑(latticePlaquetteDist d N p q)) := by
+      rw [← htarget]
+      exact hrate
+    exact hK.trans (by simpa [α] using hrate')
+
 end MassGapProper
