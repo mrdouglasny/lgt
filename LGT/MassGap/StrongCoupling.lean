@@ -28,8 +28,8 @@ The ~20 discharged ones (including `hcond_ae_bound` via
 
 The link distance is taken as a parameter; concrete instantiations
 (an ambient shared-plaquette graph distance) yield genuine
-geometric exponential decay — see `ym_mass_gap_exponential_decay`
-below and `docs/mass-gap-completion-plan.md`.
+geometric exponential decay; see `ym_mass_gap_exponential_decay`
+below.
 
 ## References
 
@@ -401,10 +401,9 @@ theorem influenceCoeff_finsupp
 `ym_mass_gap_strong_coupling` below is parameterized by an arbitrary
 distance `dLink : LatticeLink d N → LatticeLink d N → ℕ` together
 with reflexivity, triangle inequality, and a nearest-neighbor
-support hypothesis. The completion plan in
-`docs/mass-gap-completion-plan.md` instantiates this at the ambient
-shared-plaquette graph distance to obtain a genuine geometric
-exponential decay theorem (`ym_mass_gap_exponential_decay`). -/
+support hypothesis. The ambient shared-plaquette graph distance is
+the geometric instantiation used below to obtain
+`ym_mass_gap_exponential_decay`. -/
 
 
 /-! ## Conditional integrability of bounded observables
@@ -851,8 +850,8 @@ theorem integrable_inner_w_over_Z
           / gibbsConditionalZ G n d N plaq β Λ σ
         * boltzmannWeight G n d N β σ plaq) (productHaar G d N) := by
   have hw_meas := measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq
-  -- Strategy: rewrite as (gibbsCondMeasure σ A).toReal * w(σ), both bounded by 1.
-  -- Step 1: Show the function equals condMeasure.toReal * w
+  -- Rewrite as (gibbsCondMeasure σ A).toReal * w(σ), both bounded by 1.
+  -- First identify the integrand with condMeasure.toReal * w.
   have hfun_eq : (fun σ => (∫ uΛ, Set.indicator A
           (fun U => boltzmannWeight G n d N β U plaq)
           (gluedConfig G d N Λ uΛ σ) ∂(productHaar G d N))
@@ -866,10 +865,10 @@ theorem integrable_inner_w_over_Z
       (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper hw_meas Λ σ)
       A hA]
   rw [hfun_eq]
-  -- Step 2: Measurability
+  -- Measurability of the conditional mass factor.
   have hmeas_condDist := measurable_gibbsCondMeasure_toReal G n d N hRep_cont β hβ plaq
     hTrace_upper hTrace_lower Λ A hA
-  -- Step 3: Bounded by 1 on probability measure
+  -- The product is bounded by 1 on a probability measure.
   haveI : IsProbabilityMeasure (productHaar G d N) := by
     unfold productHaar
     exact MeasureTheory.Measure.pi.instIsProbabilityMeasure _
@@ -1597,9 +1596,8 @@ theorem ym_mass_gap_strong_coupling
     -- Core continuity (implies measurability of boltzmannWeight and plaqObs):
     (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
     -- Distance on links + its metric/support hypotheses. The caller
-    -- chooses the distance; the theorem is generic. Concrete instantiations:
-    -- a genuine ambient shared-plaquette graph distance (see
-    -- `docs/mass-gap-completion-plan.md`) yields exponential decay in
+    -- chooses the distance; the theorem is generic. The ambient
+    -- shared-plaquette graph distance yields exponential decay in
     -- geometric plaquette separation.
     (dLink : LatticeLink d N → LatticeLink d N → ℕ)
     (h_refl : ∀ x, dLink x x = 0)
@@ -1913,7 +1911,7 @@ lemma sharesPlaquette_imp_linkAmbientAdj_of_ne
   rcases hshare with ⟨p, _hp, i, j, hxi, hyj⟩
   exact ⟨hxy, p, ⟨i, hxi⟩, ⟨j, hyj⟩⟩
 
-/-- Step H: the ambient link graph distance has the support property required by
+/-- The ambient link graph distance has the support property required by
 `ym_mass_gap_strong_coupling`. Links at graph distance greater than one cannot
 share a plaquette, so the off-plaquette zero-influence theorem applies. -/
 theorem linkGraphDist_support
@@ -1946,9 +1944,9 @@ theorem linkGraphDist_support
       (SimpleGraph.dist_eq_one_iff_adj.mpr hadj)
   omega
 
-/-- Step J: bound the double boundary-link sum by the geometric plaquette
+/-- Bound the double boundary-link sum by the geometric plaquette
 distance lower bound and the fact that each plaquette has at most four
-boundary links. The Step I power monotonicity argument is kept inline here. -/
+boundary links. The power monotonicity argument is kept inline here. -/
 lemma boundary_sum_bound
     (n d N : ℕ) [NeZero N] [Fintype (LatticeLink d N)]
     [DecidableEq (LatticeLink d N)]
@@ -2041,15 +2039,13 @@ where α = dobrushinAlpha(n, d, β) < 1, and the exponent uses `Nat`
 subtraction and division (so it saturates at 0 for plaquettes at
 close range).
 
-**Status: open.** The proof route is laid out in
-`docs/mass-gap-completion-plan.md`: instantiate
-`ym_mass_gap_strong_coupling` with the ambient shared-plaquette
-graph distance on links, then bound the 16-term boundary-link sum
-geometrically using the boundary-layer incidence structure. The
-factor of `1/2` in the exponent is forced by the geometry: one
-shared-plaquette influence-graph step displaces a link anchor by up
-to 2 L₁ site-units, so `α^k` decay in graph-step count translates
-to `(log α)/2` rate in L₁ plaqDist. -/
+The proof instantiates `ym_mass_gap_strong_coupling` with the
+ambient shared-plaquette graph distance on links, then bounds the
+16-term boundary-link sum geometrically using the boundary-layer
+incidence structure. The factor of `1/2` in the exponent is forced
+by the geometry: one shared-plaquette influence-graph edge displaces
+a link anchor by up to 2 L₁ site-units, so `α^k` decay in graph-edge
+count translates to `(log α)/2` rate in L₁ plaqDist. -/
 theorem ym_mass_gap_exponential_decay
     (n : ℕ) (hn : 1 ≤ n)
     (d N : ℕ) (hd : 2 ≤ d) (hN : 2 < N) [NeZero N]
@@ -2179,7 +2175,7 @@ private lemma decay_bound_to_rate {α C : ℝ} (hα_pos : 0 < α) (hα_lt : α <
     _ = C / α * Real.exp (-((-Real.log α) / 2) * (t : ℝ)) := by
           field_simp [hα_pos.ne']
 
-/-- Step L: package the concrete strong-coupling bound as an existential
+/-- Package the concrete strong-coupling bound as an existential
 positive mass-gap rate in the periodic L₁ plaquette distance. -/
 theorem ym_mass_gap_rate_exists
     (n : ℕ) (hn : 1 ≤ n)

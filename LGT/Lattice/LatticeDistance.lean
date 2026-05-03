@@ -420,9 +420,8 @@ private lemma link_reachable_siteMoveToCoords (d N : ℕ) [NeZero N]
 
 /-- The ambient shared-plaquette graph is connected for `d ≥ 2` and torus side length `N ≥ 3`.
 
-The proof follows the primitive-move construction from
-`docs/mass-gap-completion-plan.md`: a shared-plaquette edge changes link direction at a
-fixed anchor, shifts a link transversely, and realizes a parallel shift by a three-step
+The proof uses primitive moves: a shared-plaquette edge changes link direction at a
+fixed anchor, shifts a link transversely, and realizes a parallel shift by a three-edge
 walk through a transverse direction. Iterating these moves connects arbitrary anchors. -/
 theorem ambientLinkGraph_connected (d N : ℕ) [NeZero N] (_hd : 2 ≤ d) (_hN : 2 < N) :
     (ambientLinkGraph d N).Connected := by
