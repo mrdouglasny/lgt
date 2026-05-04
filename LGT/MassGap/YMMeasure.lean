@@ -22,7 +22,7 @@ configurations for a compact gauge group G on a finite lattice.
 - Chatterjee (2026), §15.3–15.4
 -/
 
-import LGT.Lattice.CellComplex
+import LGT.Lattice.LatticeDistance
 import LGT.GaugeField.Connection
 import LGT.GaugeField.GaugeGroup
 import LGT.MassGap.Integrability
@@ -222,10 +222,6 @@ theorem plaqObs_bounded (p : LatticePlaquette d N) (U : GaugeConnection G d N)
     (hTrace : ∀ g : G, |gaugeReTr G n g| ≤ ↑n) :
     |plaqObs G n d N p U| ≤ ↑n :=
   hTrace _
-
-/-- Distance between plaquettes (ℓ¹ torus distance). -/
-def plaquetteDist (p q : LatticePlaquette d N) : ℕ :=
-  ∑ i : Fin d, min (p.site i - q.site i).val (q.site i - p.site i).val
 
 /-! ## The Yang-Mills measure as a `Measure` on gauge configurations
 
