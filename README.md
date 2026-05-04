@@ -1,53 +1,70 @@
 # lgt — Lattice Gauge Theory in Lean 4
 
 > **Starting here?** See [`docs/mass-gap-roadmap.md`](docs/mass-gap-roadmap.md)
-> for a short human-facing summary of the project's goal, current status,
-> and the plan to close the remaining sorry.
+> for a short human-facing summary of the project's goal and architecture.
 >
 > **Per-file informal summaries** (auto-generated, English + LaTeX):
 > [`summary/`](summary/README.md) — declaration-by-declaration walk-through
-> of the 10 core files, with proof dependencies cross-linked to source.
+> of the core files, with proof dependencies cross-linked to source.
 
-**Status**: in-progress formalization of the **d ≥ 2 lattice
-Yang-Mills mass gap at strong coupling**, via the Dobrushin
-uniqueness method (Chatterjee 2026, Ch. 16). The target theorem
-`ym_mass_gap_exponential_decay` is stated but not yet proved
-— see [docs/mass-gap-completion-plan.md](docs/mass-gap-completion-plan.md)
-for the worked-out route.
+**Status**: formalisation of the **d ≥ 2 lattice Yang–Mills mass gap
+at strong coupling**, via the Dobrushin uniqueness method
+(Chatterjee 2026, Ch. 16). Both headline theorems
+(`ym_mass_gap_exponential_decay`, `ym_mass_gap_rate_exists`) are
+fully proved as of PR #2 (2026-05-04) — zero sorries, zero project
+axioms.
 
-## Target theorem
+## Headline theorems
 
-`ym_mass_gap_exponential_decay` in `LGT/MassGap/StrongCoupling.lean`.
-For U(n) Wilson lattice gauge theory on (ℤ/Nℤ)^d with d ≥ 2,
-N ≥ 3, n ≥ 1, coupling β < 1/(32n(d−1)):
+Both in `LGT/MassGap/StrongCoupling.lean`. For U(n) Wilson lattice
+gauge theory on (ℤ/Nℤ)^d with d ≥ 2, N ≥ 3, n ≥ 1, coupling
+β < 1/(32n(d−1)) (equivalently `β < 1/(4n · maxNeighbors d)`):
+
+**1. Algebraic decay** (`ym_mass_gap_exponential_decay`):
 
     |⟨Re Tr(U_p) · Re Tr(U_q)⟩_c|
         ≤ 32 n² / (1 − α) · α^((latticePlaquetteDist p q − 1) / 2)
 
-where α = dobrushinAlpha(n, d, β) < 1 and `latticePlaquetteDist`
-is the periodic L¹ distance between plaquette anchor sites. The
+where α = dobrushinAlpha(n, d, β) < 1 and `latticePlaquetteDist` is
+the periodic L¹ distance between plaquette anchor sites. The
 exponent uses `Nat` subtraction and division (saturating at 0 for
 close-range plaquettes). The factor of `1/2` is forced by the
 geometry: one shared-plaquette influence-graph step displaces a
 link anchor by up to 2 L¹ site-units, so `α^k` decay in graph-step
-count yields `(log α) / 2` rate in L¹ plaqDist. See the completion
-plan for the full derivation.
+count yields `(log α) / 2` rate in L¹ plaqDist.
 
-The theorem is stated for U(n); other compact gauge groups G ⊆ U(n)
-require supplying the `HasGaugeTrace` instance.
+**2. Existential mass-gap rate** (`ym_mass_gap_rate_exists`,
+companion form, requires β > 0):
+
+    ∃ m > 0, |⟨Re Tr(U_p) · Re Tr(U_q)⟩_c|
+        ≤ 32 n² / (α (1 − α)) · exp(−m · latticePlaquetteDist p q)
+
+with `m = (−log α) / 2`. This packages the algebraic bound as the
+canonical exponential-decay statement of mass gap.
+
+The theorems are stated for U(n); other compact gauge groups
+G ⊆ U(n) require supplying the `HasGaugeTrace` instance.
 
 ## What's in the repository
 
-**Infrastructure (proved, axiom-free):** all the upstream plumbing
-for the proof — Wilson action, gauge invariance, the YM measure, the
-Gibbs specification framework, DLR identity, Dobrushin condition
-verification, U(n) instances, and the distance-parameterized
-hypothesis-discharging wrapper `ym_mass_gap_strong_coupling`.
+**Lean infrastructure (proved, axiom-clean):**
 
-**Remaining work (the open sorry):** the geometric reduction that
-turns the Dobrushin output (a 16-term boundary-link sum) into
-exponential decay in plaquette distance. Phase-by-phase plan:
-[docs/mass-gap-completion-plan.md](docs/mass-gap-completion-plan.md).
+* Wilson action, gauge invariance, the YM measure, the Gibbs
+  specification framework, DLR identity, Dobrushin-condition
+  verification, U(n) instances.
+* The distance-parameterised wrapper `ym_mass_gap_strong_coupling`
+  that takes ~10 hypotheses (continuity, `dobrushinAlpha < 1`, a
+  caller-supplied distance with refl/triangle/nearest-neighbour
+  support) and discharges the ~28 hypotheses of
+  `ym_mass_gap_2pt_via_multisite` from first principles.
+* Periodic-torus distance machinery in
+  `LGT/Lattice/LatticeDistance.lean` (`ZMod.periodicDist`,
+  `latticeSiteDist`, `latticePlaquetteDist`, `linkAmbientAdj`,
+  `ambientLinkGraph`, `linkGraphDist`).
+* The geometric closure (this PR): `linkGraphDist_support` (Dobrushin
+  α^k decay carried through the shared-plaquette link graph),
+  `boundary_sum_bound` (16-term boundary-link sum bounded by
+  `16 · α^((plaqDist−1)/2) / (1−α)`), and the two headline theorems.
 
 See [docs/mass-gap-roadmap.md](docs/mass-gap-roadmap.md) for a
 two-page human-facing summary,
@@ -56,27 +73,25 @@ for the full proof outline, and
 [docs/codex-review.txt](docs/codex-review.txt) for independent
 review records.
 
-## Status
+## Axiom footprint
 
-**`ym_mass_gap_strong_coupling`: zero sorries, zero custom axioms**
-(distance-parameterized wrapper).
+Verified by `#print axioms` on a fresh build:
 
 ```
 #print axioms ym_mass_gap_strong_coupling
 -- propext, Classical.choice, Quot.sound
+
+#print axioms ym_mass_gap_exponential_decay
+-- propext, Classical.choice, Quot.sound
+
+#print axioms ym_mass_gap_rate_exists
+-- propext, Classical.choice, Quot.sound
 ```
 
-**`ym_mass_gap_exponential_decay`: 1 sorry**, the only one in the
-repository. The route to close it is specified in
-[docs/mass-gap-completion-plan.md](docs/mass-gap-completion-plan.md):
-define a plaq-independent ambient shared-plaquette graph distance
-on links, prove the boundary-layer incidence geometry, and
-compose with the (already distance-parameterized)
-`ym_mass_gap_strong_coupling` wrapper. No upstream changes in
-`markov-semigroups` required.
-
-See [docs/mass-gap-proof-outline.md](docs/mass-gap-proof-outline.md)
-for the full proof outline.
+Only Lean foundationals — no project axioms, no Mathlib analytic
+axioms beyond standard. The wider repository (Wilson action, YM
+measure, Gibbs spec, DLR, Dobrushin verification) is also fully
+sorry-free and axiom-clean as of PR #2.
 
 ## Proof architecture
 
