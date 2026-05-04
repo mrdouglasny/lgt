@@ -28,8 +28,8 @@ The ~20 discharged ones (including `hcond_ae_bound` via
 
 The link distance is taken as a parameter; concrete instantiations
 (an ambient shared-plaquette graph distance) yield genuine
-geometric exponential decay — see `ym_mass_gap_exponential_decay`
-below and `docs/mass-gap-completion-plan.md`.
+geometric exponential decay; see `ym_mass_gap_exponential_decay`
+below.
 
 ## References
 
@@ -37,6 +37,7 @@ below and `docs/mass-gap-completion-plan.md`.
 -/
 
 import LGT.MassGap.MassGap3D
+import LGT.Lattice.LatticeDistance
 import LGT.GaugeField.UnitaryGroup
 import Mathlib.Topology.Algebra.Star.Unitary
 import MarkovSemigroups.Dobrushin.CondKernelDLR
@@ -400,10 +401,9 @@ theorem influenceCoeff_finsupp
 `ym_mass_gap_strong_coupling` below is parameterized by an arbitrary
 distance `dLink : LatticeLink d N → LatticeLink d N → ℕ` together
 with reflexivity, triangle inequality, and a nearest-neighbor
-support hypothesis. The completion plan in
-`docs/mass-gap-completion-plan.md` instantiates this at the ambient
-shared-plaquette graph distance to obtain a genuine geometric
-exponential decay theorem (`ym_mass_gap_exponential_decay`). -/
+support hypothesis. The ambient shared-plaquette graph distance is
+the geometric instantiation used below to obtain
+`ym_mass_gap_exponential_decay`. -/
 
 
 /-! ## Conditional integrability of bounded observables
@@ -850,8 +850,8 @@ theorem integrable_inner_w_over_Z
           / gibbsConditionalZ G n d N plaq β Λ σ
         * boltzmannWeight G n d N β σ plaq) (productHaar G d N) := by
   have hw_meas := measurable_boltzmannWeight_of_rep G n d N hRep_cont β plaq
-  -- Strategy: rewrite as (gibbsCondMeasure σ A).toReal * w(σ), both bounded by 1.
-  -- Step 1: Show the function equals condMeasure.toReal * w
+  -- Rewrite as (gibbsCondMeasure σ A).toReal * w(σ), both bounded by 1.
+  -- First identify the integrand with condMeasure.toReal * w.
   have hfun_eq : (fun σ => (∫ uΛ, Set.indicator A
           (fun U => boltzmannWeight G n d N β U plaq)
           (gluedConfig G d N Λ uΛ σ) ∂(productHaar G d N))
@@ -865,10 +865,10 @@ theorem integrable_inner_w_over_Z
       (gibbsConditionalWeight_integrable G n d N β hβ plaq hTrace_upper hw_meas Λ σ)
       A hA]
   rw [hfun_eq]
-  -- Step 2: Measurability
+  -- Measurability of the conditional mass factor.
   have hmeas_condDist := measurable_gibbsCondMeasure_toReal G n d N hRep_cont β hβ plaq
     hTrace_upper hTrace_lower Λ A hA
-  -- Step 3: Bounded by 1 on probability measure
+  -- The product is bounded by 1 on a probability measure.
   haveI : IsProbabilityMeasure (productHaar G d N) := by
     unfold productHaar
     exact MeasureTheory.Measure.pi.instIsProbabilityMeasure _
@@ -1596,9 +1596,8 @@ theorem ym_mass_gap_strong_coupling
     -- Core continuity (implies measurability of boltzmannWeight and plaqObs):
     (hRep_cont : Continuous (HasGaugeTrace.rep (G := G) (n := n)))
     -- Distance on links + its metric/support hypotheses. The caller
-    -- chooses the distance; the theorem is generic. Concrete instantiations:
-    -- a genuine ambient shared-plaquette graph distance (see
-    -- `docs/mass-gap-completion-plan.md`) yields exponential decay in
+    -- chooses the distance; the theorem is generic. The ambient
+    -- shared-plaquette graph distance yields exponential decay in
     -- geometric plaquette separation.
     (dLink : LatticeLink d N → LatticeLink d N → ℕ)
     (h_refl : ∀ x, dLink x x = 0)
@@ -1762,7 +1761,7 @@ theorem ym_mass_gap_strong_coupling
             x y hw_meas hZcond_pos hw_integrable_cond hSharedBound σ τ hdiff B hB)
       unfold influenceBound
       convert hkey using 2
-      ring
+      ring_nf
   -- Construct the full influence bound from the derived on-plaquette bound
   -- and the off-plaquette zero-influence theorem.
   have hInfluence : ∀ x y : LatticeLink d N,
@@ -1895,26 +1894,137 @@ into `ym_mass_gap_strong_coupling`.
 
 ### Distance on the torus
 
-The periodic L₁ distance on (ℤ/Nℤ)ᵈ: for each coordinate, the
-distance is min(|x−y|, N−|x−y|) in ℤ/Nℤ, summed over coordinates. -/
-
-/-- Periodic distance in one coordinate on ℤ/Nℤ. -/
-noncomputable def ZMod.periodicDist (N : ℕ) [NeZero N] (a b : ZMod N) : ℕ :=
-  min (ZMod.val (a - b)) (N - ZMod.val (a - b))
-
-/-- L₁ distance on the periodic lattice (ℤ/Nℤ)ᵈ. -/
-noncomputable def latticeSiteDist (d N : ℕ) [NeZero N]
-    (x y : GaussianField.FinLatticeSites d N) : ℕ :=
-  ∑ i : Fin d, ZMod.periodicDist N (x i) (y i)
-
-/-- Distance between plaquettes: L₁ distance between anchor sites. -/
-noncomputable def latticePlaquetteDist (d N : ℕ) [NeZero N]
-    (p q : LatticePlaquette d N) : ℕ :=
-  latticeSiteDist d N p.site q.site
+The periodic L₁ distance on (ℤ/Nℤ)ᵈ and the ambient link graph distance
+are defined in `LGT.Lattice.LatticeDistance`. -/
 
 section MassGapProper
 
 open Matrix
+
+/-- If two distinct links share a plaquette from `plaq`, then they are adjacent
+in the ambient shared-plaquette link graph. -/
+lemma sharesPlaquette_imp_linkAmbientAdj_of_ne
+    (d N : ℕ) (plaq : Finset (LatticePlaquette d N))
+    {x y : LatticeLink d N} (hxy : x ≠ y)
+    (hshare : sharesPlaquette d N plaq x y) :
+    linkAmbientAdj d N x y := by
+  rcases hshare with ⟨p, _hp, i, j, hxi, hyj⟩
+  exact ⟨hxy, p, ⟨i, hxi⟩, ⟨j, hyj⟩⟩
+
+/-- The ambient link graph distance has the support property required by
+`ym_mass_gap_strong_coupling`. Links at graph distance greater than one cannot
+share a plaquette, so the off-plaquette zero-influence theorem applies. -/
+theorem linkGraphDist_support
+    (G : Type*) (n d N : ℕ) [Group G] [TopologicalSpace G] [IsTopologicalGroup G]
+    [CompactSpace G] [T2Space G] [MeasurableSpace G] [BorelSpace G]
+    [SecondCountableTopology G] [HasHaarProbability G] [HasGaugeTrace G n]
+    [Fintype (LatticeLink d N)] [DecidableEq (LatticeLink d N)]
+    (plaq : Finset (LatticePlaquette d N)) (β : ℝ) :
+    ∀ Λ_pos hw_meas hw_int hmeas_cd,
+    ∀ (_hInfluence : ∀ x y : LatticeLink d N,
+        influenceCoeff
+          (ymGibbsSpec G n d N plaq β Λ_pos hw_meas hw_int hmeas_cd) x y ≤
+          (if sharesPlaquette d N plaq x y then influenceBound n β else 0)),
+    ∀ (u v : LatticeLink d N), linkGraphDist d N u v > 1 →
+      influenceCoeff
+        (ymGibbsSpec G n d N plaq β Λ_pos hw_meas hw_int hmeas_cd) u v = 0 := by
+  intro hZ_pos hw_meas hw_int hmeas_cd _hInfluence u v hdist
+  apply influenceCoeff_zero_off_plaquette G n d N plaq β hZ_pos hw_meas hw_int hmeas_cd
+  intro hshare
+  have huv : u ≠ v := by
+    intro huv
+    subst huv
+    rw [linkGraphDist_self] at hdist
+    omega
+  have hadj : (ambientLinkGraph d N).Adj u v := by
+    rw [ambientLinkGraph_adj_iff]
+    exact sharesPlaquette_imp_linkAmbientAdj_of_ne d N plaq huv hshare
+  have hdist_one : linkGraphDist d N u v = 1 := by
+    simpa [linkGraphDist] using
+      (SimpleGraph.dist_eq_one_iff_adj.mpr hadj)
+  omega
+
+/-- Bound the double boundary-link sum by the geometric plaquette
+distance lower bound and the fact that each plaquette has at most four
+boundary links. The power monotonicity argument is kept inline here. -/
+lemma boundary_sum_bound
+    (n d N : ℕ) [NeZero N] [Fintype (LatticeLink d N)]
+    [DecidableEq (LatticeLink d N)]
+    (hd : 2 ≤ d) (hN : 2 < N)
+    (β : ℝ) (hβ : 0 ≤ β)
+    (hα_lt : dobrushinAlpha n d β < 1)
+    (p q : LatticePlaquette d N) :
+    ∑ x ∈ p.boundaryLinkFinset,
+      ∑ y ∈ q.boundaryLinkFinset,
+        (dobrushinAlpha n d β) ^ linkGraphDist d N y x /
+          (1 - dobrushinAlpha n d β)
+      ≤
+        16 *
+          ((dobrushinAlpha n d β) ^
+              ((latticePlaquetteDist d N p q - 1) / 2) /
+            (1 - dobrushinAlpha n d β)) := by
+  classical
+  set α : ℝ := dobrushinAlpha n d β
+  set r : ℕ := (latticePlaquetteDist d N p q - 1) / 2
+  set C : ℝ := α ^ r / (1 - α) with hC_def
+  have hα_nonneg : 0 ≤ α := by
+    simp only [α, dobrushinAlpha]
+    exact mul_nonneg (Nat.cast_nonneg _) (influenceBound_nonneg n β hβ)
+  have hα_le_one : α ≤ 1 := le_of_lt hα_lt
+  have hden_pos : 0 < 1 - α := by linarith
+  have hC_nonneg : 0 ≤ C := by
+    exact div_nonneg (pow_nonneg hα_nonneg r) hden_pos.le
+  have hp_card_nat : p.boundaryLinkFinset.card ≤ 4 := by
+    simpa [LatticePlaquette.boundaryLinkFinset] using
+      (card_image_boundaryLinks_le d N p)
+  have hq_card_nat : q.boundaryLinkFinset.card ≤ 4 := by
+    simpa [LatticePlaquette.boundaryLinkFinset] using
+      (card_image_boundaryLinks_le d N q)
+  have hp_card : (p.boundaryLinkFinset.card : ℝ) ≤ 4 := by
+    exact_mod_cast hp_card_nat
+  have hq_card : (q.boundaryLinkFinset.card : ℝ) ≤ 4 := by
+    exact_mod_cast hq_card_nat
+  have hpoint : ∀ x ∈ p.boundaryLinkFinset, ∀ y ∈ q.boundaryLinkFinset,
+      α ^ linkGraphDist d N y x / (1 - α) ≤ C := by
+    intro x hx y hy
+    have hdist_xy :
+        r ≤ linkGraphDist d N x y := by
+      simpa [r] using
+        (linkGraphDist_boundary_lower_bound d N hd hN
+          (p := p) (q := q) (x := x) (y := y) hx hy)
+    have hdist_yx : r ≤ linkGraphDist d N y x := by
+      simpa [linkGraphDist_comm d N y x] using hdist_xy
+    have hpow : α ^ linkGraphDist d N y x ≤ α ^ r :=
+      pow_le_pow_of_le_one hα_nonneg hα_le_one hdist_yx
+    exact div_le_div_of_nonneg_right hpow hden_pos.le
+  have hinner : ∀ x ∈ p.boundaryLinkFinset,
+      ∑ y ∈ q.boundaryLinkFinset, α ^ linkGraphDist d N y x / (1 - α)
+        ≤ 4 * C := by
+    intro x hx
+    calc
+      ∑ y ∈ q.boundaryLinkFinset, α ^ linkGraphDist d N y x / (1 - α)
+          ≤ ∑ _y ∈ q.boundaryLinkFinset, C := by
+            apply Finset.sum_le_sum
+            intro y hy
+            exact hpoint x hx y hy
+      _ = (q.boundaryLinkFinset.card : ℝ) * C := by
+            simp [Finset.sum_const, nsmul_eq_mul]
+      _ ≤ 4 * C := by
+            exact mul_le_mul_of_nonneg_right hq_card hC_nonneg
+  calc
+    ∑ x ∈ p.boundaryLinkFinset,
+      ∑ y ∈ q.boundaryLinkFinset,
+        α ^ linkGraphDist d N y x / (1 - α)
+        ≤ ∑ _x ∈ p.boundaryLinkFinset, 4 * C := by
+          apply Finset.sum_le_sum
+          intro x hx
+          exact hinner x hx
+    _ = (p.boundaryLinkFinset.card : ℝ) * (4 * C) := by
+          simp [Finset.sum_const, nsmul_eq_mul]
+    _ ≤ 4 * (4 * C) := by
+          exact mul_le_mul_of_nonneg_right hp_card (mul_nonneg (by norm_num) hC_nonneg)
+    _ = 16 * C := by ring
+    _ = 16 * (α ^ r / (1 - α)) := by rw [hC_def]
 
 /-- **Mass gap theorem (target).**
 
@@ -1929,15 +2039,13 @@ where α = dobrushinAlpha(n, d, β) < 1, and the exponent uses `Nat`
 subtraction and division (so it saturates at 0 for plaquettes at
 close range).
 
-**Status: open.** The proof route is laid out in
-`docs/mass-gap-completion-plan.md`: instantiate
-`ym_mass_gap_strong_coupling` with the ambient shared-plaquette
-graph distance on links, then bound the 16-term boundary-link sum
-geometrically using the boundary-layer incidence structure. The
-factor of `1/2` in the exponent is forced by the geometry: one
-shared-plaquette influence-graph step displaces a link anchor by up
-to 2 L₁ site-units, so `α^k` decay in graph-step count translates
-to `(log α)/2` rate in L₁ plaqDist. -/
+The proof instantiates `ym_mass_gap_strong_coupling` with the
+ambient shared-plaquette graph distance on links, then bounds the
+16-term boundary-link sum geometrically using the boundary-layer
+incidence structure. The factor of `1/2` in the exponent is forced
+by the geometry: one shared-plaquette influence-graph edge displaces
+a link anchor by up to 2 L₁ site-units, so `α^k` decay in graph-edge
+count translates to `(log α)/2` rate in L₁ plaqDist. -/
 theorem ym_mass_gap_exponential_decay
     (n : ℕ) (hn : 1 ≤ n)
     (d N : ℕ) (hd : 2 ≤ d) (hN : 2 < N) [NeZero N]
@@ -1956,7 +2064,169 @@ theorem ym_mass_gap_exponential_decay
       32 * (↑n : ℝ) ^ 2 / (1 - dobrushinAlpha n d β) *
         (dobrushinAlpha n d β)
           ^ ((latticePlaquetteDist d N p q - 1) / 2) := by
-  sorry
+  classical
+  haveI : Inhabited (unitaryGroup (Fin n) ℂ) := ⟨1⟩
+  have hα_lt : dobrushinAlpha n d β < 1 :=
+    dobrushin_sufficient n d hd hn β hβ hβ_small
+  have hstrong :=
+    ym_mass_gap_strong_coupling
+      (G := unitaryGroup (Fin n) ℂ) (n := n) (d := d) (N := N)
+      hd hn hN β hβ hβ_small
+      (unitaryGroup_gaugeReTr_neg_le n)
+      (unitaryGroup_gaugeReTr_le n)
+      plaq p q
+      (unitaryGroup_rep_continuous n)
+      (fun x y : LatticeLink d N => linkGraphDist d N x y)
+      (fun x => linkGraphDist_self d N x)
+      (fun x y z => linkGraphDist_triangle d N hd hN x y z)
+      (linkGraphDist_support
+        (G := unitaryGroup (Fin n) ℂ) (n := n) (d := d) (N := N) plaq β)
+  have hsum :
+      ∑ x ∈ ((Finset.univ : Finset (Fin 4)).image
+              (LatticePlaquette.boundaryLinks p)),
+        ∑ y ∈ ((Finset.univ : Finset (Fin 4)).image
+              (LatticePlaquette.boundaryLinks q)),
+          (dobrushinAlpha n d β) ^ linkGraphDist d N y x /
+            (1 - dobrushinAlpha n d β)
+        ≤
+          16 *
+            ((dobrushinAlpha n d β) ^
+                ((latticePlaquetteDist d N p q - 1) / 2) /
+              (1 - dobrushinAlpha n d β)) := by
+    simpa [LatticePlaquette.boundaryLinkFinset] using
+      (boundary_sum_bound n d N hd hN β hβ hα_lt p q)
+  have hcoef_nonneg : 0 ≤ 2 * (↑n : ℝ) * (↑n : ℝ) := by positivity
+  have hbound := hstrong.trans (mul_le_mul_of_nonneg_left hsum hcoef_nonneg)
+  have harith :
+      2 * (↑n : ℝ) * (↑n : ℝ) *
+          (16 *
+            ((dobrushinAlpha n d β) ^
+                ((latticePlaquetteDist d N p q - 1) / 2) /
+              (1 - dobrushinAlpha n d β))) =
+        32 * (↑n : ℝ) ^ 2 / (1 - dobrushinAlpha n d β) *
+          (dobrushinAlpha n d β) ^
+            ((latticePlaquetteDist d N p q - 1) / 2) := by
+    ring
+  simpa [harith] using hbound
+
+/-- Positivity of the single shared-plaquette influence bound at positive coupling. -/
+private lemma influenceBound_pos (n : ℕ) (hn : 1 ≤ n) (β : ℝ) (hβ_pos : 0 < β) :
+    0 < influenceBound n β := by
+  unfold influenceBound
+  have hn_pos : (0 : ℝ) < n := by exact_mod_cast hn
+  have hneg : -4 * (n : ℝ) * β < 0 := by nlinarith [hn_pos, hβ_pos]
+  linarith [Real.exp_lt_one_iff.mpr hneg]
+
+/-- Positivity of the Dobrushin column-sum parameter at positive coupling. -/
+private lemma dobrushinAlpha_pos (n d : ℕ) (hn : 1 ≤ n) (hd : 2 ≤ d)
+    (β : ℝ) (hβ_pos : 0 < β) :
+    0 < dobrushinAlpha n d β := by
+  unfold dobrushinAlpha
+  have hmax_pos : (0 : ℝ) < maxNeighbors d := by
+    unfold maxNeighbors maxPlaquettesPerLink
+    have hd' : 0 < d - 1 := by omega
+    exact_mod_cast (Nat.mul_pos (by omega : 0 < 4) (Nat.mul_pos (by omega : 0 < 2) hd'))
+  exact mul_pos hmax_pos (influenceBound_pos n hn β hβ_pos)
+
+/-- The truncated exponent `(t - 1) / 2` is large enough for rate conversion. -/
+private lemma plaquetteDist_rate_floor_bound (t : ℕ) :
+    ((t : ℝ) - 2) / 2 ≤ (((t - 1) / 2 : ℕ) : ℝ) := by
+  have hnat : t ≤ 2 * ((t - 1) / 2) + 2 := by
+    have h : (t - 1) - 1 ≤ 2 * ((t - 1) / 2) := by
+      have hdecomp := Nat.mod_add_div (t - 1) 2
+      have hmod : (t - 1) % 2 = 0 ∨ (t - 1) % 2 = 1 := by omega
+      rcases hmod with hmod | hmod <;> omega
+    omega
+  have hreal : (t : ℝ) ≤ 2 * (((t - 1) / 2 : ℕ) : ℝ) + 2 := by
+    exact_mod_cast hnat
+  nlinarith
+
+/-- Convert the concrete algebraic decay exponent to an exponential rate. -/
+private lemma pow_floor_le_exp_rate {α : ℝ} (hα_pos : 0 < α) (hα_lt : α < 1)
+    (t : ℕ) :
+    α ^ ((t - 1) / 2) ≤ α⁻¹ * Real.exp (-((-Real.log α) / 2) * (t : ℝ)) := by
+  set r : ℕ := (t - 1) / 2
+  have hlog_neg : Real.log α < 0 := Real.log_neg hα_pos hα_lt
+  have hr : ((t : ℝ) - 2) / 2 ≤ (r : ℝ) := by
+    simpa only [r] using plaquetteDist_rate_floor_bound t
+  have hmul : Real.log α * (r : ℝ) ≤ Real.log α * (((t : ℝ) - 2) / 2) := by
+    exact mul_le_mul_of_nonpos_left hr hlog_neg.le
+  calc
+    α ^ r = Real.exp (Real.log α * (r : ℝ)) := by
+      rw [mul_comm, Real.exp_nat_mul, Real.exp_log hα_pos]
+    _ ≤ Real.exp (Real.log α * (((t : ℝ) - 2) / 2)) := Real.exp_le_exp.mpr hmul
+    _ = α⁻¹ * Real.exp (-((-Real.log α) / 2) * (t : ℝ)) := by
+      rw [show Real.log α * (((t : ℝ) - 2) / 2) =
+          -Real.log α + (Real.log α / 2) * (t : ℝ) by ring]
+      rw [Real.exp_add, Real.exp_neg, Real.exp_log hα_pos]
+      congr 1
+      ring_nf
+
+/-- Multiply the rate-conversion bound by a nonnegative prefactor. -/
+private lemma decay_bound_to_rate {α C : ℝ} (hα_pos : 0 < α) (hα_lt : α < 1)
+    (hC_nonneg : 0 ≤ C) (t : ℕ) :
+    C * α ^ ((t - 1) / 2) ≤
+      C / α * Real.exp (-((-Real.log α) / 2) * (t : ℝ)) := by
+  have hpow := pow_floor_le_exp_rate hα_pos hα_lt t
+  calc
+    C * α ^ ((t - 1) / 2)
+        ≤ C * (α⁻¹ * Real.exp (-((-Real.log α) / 2) * (t : ℝ))) := by
+          exact mul_le_mul_of_nonneg_left hpow hC_nonneg
+    _ = C / α * Real.exp (-((-Real.log α) / 2) * (t : ℝ)) := by
+          field_simp [hα_pos.ne']
+
+/-- Package the concrete strong-coupling bound as an existential
+positive mass-gap rate in the periodic L₁ plaquette distance. -/
+theorem ym_mass_gap_rate_exists
+    (n : ℕ) (hn : 1 ≤ n)
+    (d N : ℕ) (hd : 2 ≤ d) (hN : 2 < N) [NeZero N]
+    [CompactSpace (unitaryGroup (Fin n) ℂ)]
+    [SecondCountableTopology (unitaryGroup (Fin n) ℂ)]
+    [HasHaarProbability (unitaryGroup (Fin n) ℂ)]
+    [Fintype (LatticeLink d N)] [DecidableEq (LatticeLink d N)]
+    (β : ℝ) (hβ_pos : 0 < β)
+    (hβ_small : β < 1 / (4 * ↑n * ↑(maxNeighbors d))) :
+    ∃ (m : ℝ), 0 < m ∧ ∀ (plaq : Finset (LatticePlaquette d N))
+        (p q : LatticePlaquette d N),
+      |connected2pt (unitaryGroup (Fin n) ℂ) n d N β plaq
+          (plaqObs (unitaryGroup (Fin n) ℂ) n d N p)
+          (plaqObs (unitaryGroup (Fin n) ℂ) n d N q)| ≤
+        32 * (↑n : ℝ) ^ 2 /
+          (dobrushinAlpha n d β * (1 - dobrushinAlpha n d β)) *
+          Real.exp (-m * ↑(latticePlaquetteDist d N p q)) := by
+  classical
+  set α : ℝ := dobrushinAlpha n d β
+  refine ⟨(-Real.log α) / 2, ?_, ?_⟩
+  · have hα_pos : 0 < α := by
+      simpa [α] using dobrushinAlpha_pos n d hn hd β hβ_pos
+    have hα_lt : α < 1 := by
+      simpa [α] using dobrushin_sufficient n d hd hn β hβ_pos.le hβ_small
+    exact div_pos (neg_pos.mpr (Real.log_neg hα_pos hα_lt)) (by norm_num)
+  · intro plaq p q
+    have hα_pos : 0 < α := by
+      simpa [α] using dobrushinAlpha_pos n d hn hd β hβ_pos
+    have hα_lt : α < 1 := by
+      simpa [α] using dobrushin_sufficient n d hd hn β hβ_pos.le hβ_small
+    have hden_pos : 0 < 1 - α := by linarith
+    have hC_nonneg : 0 ≤ 32 * (↑n : ℝ) ^ 2 / (1 - α) := by positivity
+    have hK :=
+      ym_mass_gap_exponential_decay n hn d N hd hN β hβ_pos.le hβ_small plaq p q
+    have hrate := decay_bound_to_rate (α := α)
+      (C := 32 * (↑n : ℝ) ^ 2 / (1 - α)) hα_pos hα_lt hC_nonneg
+      (latticePlaquetteDist d N p q)
+    have htarget :
+        32 * (↑n : ℝ) ^ 2 / (1 - α) / α *
+            Real.exp (-((-Real.log α) / 2) * ↑(latticePlaquetteDist d N p q)) =
+          32 * (↑n : ℝ) ^ 2 / (α * (1 - α)) *
+            Real.exp (-((-Real.log α) / 2) * ↑(latticePlaquetteDist d N p q)) := by
+      field_simp [hα_pos.ne', hden_pos.ne']
+    have hrate' :
+        32 * (↑n : ℝ) ^ 2 / (1 - α) *
+            α ^ ((latticePlaquetteDist d N p q - 1) / 2) ≤
+          32 * (↑n : ℝ) ^ 2 / (α * (1 - α)) *
+            Real.exp (-((-Real.log α) / 2) * ↑(latticePlaquetteDist d N p q)) := by
+      rw [← htarget]
+      exact hrate
+    exact hK.trans (by simpa [α] using hrate')
 
 end MassGapProper
-

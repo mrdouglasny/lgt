@@ -3,6 +3,7 @@
 
 -- Layer 1: Discrete geometry (cell complex, forms, d/d*)
 import LGT.Lattice.CellComplex
+import LGT.Lattice.LatticeDistance
 import LGT.Lattice.DiscreteForms
 import LGT.Lattice.DiscreteExteriorDerivative
 
