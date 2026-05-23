@@ -1,7 +1,10 @@
 # Yang–Mills mass gap in lgt: roadmap
 
-A short human-facing summary of where the project stands and how it
-finishes. For the detailed per-step Lean plan, see
+A short human-facing summary of where the project stands. The proof is
+**complete**; this page records what the result says, how it was
+closed, and where the pieces live. For the math see
+[mass-gap-blueprint.md](mass-gap-blueprint.md); for the step-by-step
+record of the geometric closure see
 [mass-gap-completion-plan.md](mass-gap-completion-plan.md).
 
 ## The goal
@@ -17,119 +20,95 @@ Dobrushin uniqueness method (Chatterjee 2026, §16.3). It is not the
 continuum Clay Millennium problem — the continuum limit is a
 separate, harder story.
 
-## Where we are
+## Status: complete
 
-Roughly 95% of the proof is in place. The Gibbs-specification
-framework, the Dobrushin coupling, the covariance bound for
-multisite observables, the DLR identity for the YM measure, the
-Wilson action, the U(n) instantiation, and the hypothesis
-discharges are all formalized with zero sorries.
+The proof is finished as of PR #2 (commit `a2b76c9`): **zero sorries,
+zero project axioms** across the whole repository. Both headline
+statements are proven in `LGT/MassGap/StrongCoupling.lean`, and
+`#print axioms` on a fresh build shows only the Lean foundationals
+(`propext`, `Classical.choice`, `Quot.sound`) — no project axioms and
+no extra Mathlib analytic axioms.
 
-The genuine exponential-decay statement is stated in
-`LGT/MassGap/StrongCoupling.lean` as
-`ym_mass_gap_exponential_decay` but the proof is a single `sorry`
-— the only one left in the repository. (An earlier intermediate
-theorem dressed in a coarse three-valued "link distance" was
-removed: the 0/1/2 metric capped at 2, which made the bound
-non-decreasing in geometric separation and therefore not a mass
-gap. The wrapper that powered it, `ym_mass_gap_strong_coupling`,
-is kept and is now distance-parameterized — ready to be
-specialized to the genuine ambient shared-plaquette graph
-distance once the reduction in the completion plan lands.)
+An earlier draft stated the central theorem as a single `sorry`
+guarded by a coarse three-valued "link distance" (a 0/1/2 metric
+capped at 2, which was non-decreasing in geometric separation and
+therefore *not* a mass gap). That coarse distance has been replaced by
+a genuine graph distance and the combinatorial reduction described
+below, which closed the last `sorry`.
 
-The remaining work replaces the coarse distance with a real graph
-distance and proves the combinatorial inequality that converts the
-Dobrushin machinery's output into geometric exponential decay.
+## What the theorems say
 
-## The idea
-
-The Dobrushin machinery already delivers a bound of the form
-
-    |connected 2-point function| ≤ 2n² · sum over boundary link pairs
-                                      of α^{d(x,y)} / (1 − α)
-
-for any "distance" `d` on links that has (i) the usual metric
-properties and (ii) the nearest-neighbor support property "if
-`d > 1` then the Dobrushin influence is 0". The coarse distance
-we currently plug in satisfies both, but it's too crude to show
-exponential decay.
-
-**The fix**: use the shortest-path distance in the graph where
-links are adjacent iff they share a lattice plaquette. This
-distance automatically has the nearest-neighbor support property,
-so the Dobrushin machinery applies unchanged. A short geometric
-argument then shows that this graph distance grows linearly with
-the L¹ lattice distance between plaquettes (one graph step moves
-a link anchor by at most 2 lattice sites), so the `α^{d(x,y)}`
-decay in graph steps translates to exponential decay in lattice
-distance at rate `(−log α) / 2`.
-
-## What the finished theorem will say
-
-Two companion statements, both in `LGT/MassGap/StrongCoupling.lean`:
+Both live in `LGT/MassGap/StrongCoupling.lean`, for U(n) at
+`β < 1/(32 n (d−1))` (equivalently `β < 1/(4 n · maxNeighbors d)`),
+with `α = dobrushinAlpha n d β < 1` and
+`d(p,q) = latticePlaquetteDist d N p q` the periodic L¹ distance
+between plaquette anchor sites.
 
 **`ym_mass_gap_exponential_decay`** — the algebraic bound:
 
     |⟨Re Tr U_p · Re Tr U_q⟩_c|
-        ≤ 32 n² / (1 − α) · α^((plaqDist(p,q) − 1) / 2)
+        ≤ 32 n² / (1 − α) · α^((d(p,q) − 1) / 2)
 
-**`ym_mass_gap_rate_exists`** — the existential rate form
-(requires β > 0):
+**`ym_mass_gap_rate_exists`** — the existential rate form (requires
+`β > 0`):
 
-    ∃ m > 0, |⟨Re Tr U_p · Re Tr U_q⟩_c| ≤ C · exp(−m · plaqDist(p,q))
+    ∃ m > 0, |⟨Re Tr U_p · Re Tr U_q⟩_c|
+                ≤ 32 n² / (α (1 − α)) · exp(−m · d(p,q))
 
 with `m = (−log α) / 2`.
 
-The first is the "concrete" form produced by the proof; the second
-is the shape familiar from the physics literature.
+The first is the "concrete" form produced by the proof; the second is
+the shape familiar from the physics literature.
 
-## Work breakdown
+## How it was closed
 
-Nine phases, one of which (Phase 7) can run in parallel with the
-rest:
+The Dobrushin machinery delivers a bound of the form
 
-| Phase | What | Size |
-|---|---|---|
-| 1 | Periodic distance on `ℤ/Nℤ` — a metric | ~50–100 lines |
-| 2 | Lift to L¹ metric on sites and plaquettes | ~40 lines |
-| 3 | Boundary-layer incidence geometry | ~30 lines |
-| 4 | Ambient shared-plaquette graph + connectedness + graph distance | ~150–200 lines |
-| 5 | Reverse triangle + boundary-sum aggregation | ~50 lines |
-| 5.5 | Small refactor: make an existing wrapper distance-generic | ~30–50 lines |
-| 6 | Compose into `ym_mass_gap_exponential_decay` | ~30 lines |
-| 6b | Rate corollary `ym_mass_gap_rate_exists` | ~20–30 lines |
-| 7 | Rename misleading proxy theorems | parallel |
-| 8 | Update user-facing docs | after 6, 6b |
-| 9 | Build + axiom check | last |
+    |connected 2-point function| ≤ 2n² · sum over boundary link pairs
+                                      of α^{d(x,y)} / (1 − α)
 
-Phase 4 is the dominant one: it builds a graph metric on the
-lattice link set using Mathlib's `SimpleGraph.dist`, and the
-connectedness proof on the periodic lattice is verbose (single
-graph steps can translate links transverse to their own direction
-but not parallel — parallel translation requires a three-step walk).
+for any "distance" `d` on links with (i) the usual metric properties
+and (ii) the nearest-neighbor support property "if `d > 1` then the
+Dobrushin influence is 0". The coarse capped distance satisfied both
+but was too crude to show exponential decay.
 
-## Timeline
+**The fix that was implemented**: the shortest-path distance in the
+graph where links are adjacent iff they share a lattice plaquette
+(`ambientLinkGraph` / `linkGraphDist` in
+`LGT/Lattice/LatticeDistance.lean`). This distance has the
+nearest-neighbor support property automatically (`linkGraphDist_support`),
+so the Dobrushin machinery applies unchanged. A geometric argument then
+shows the graph distance grows linearly with the L¹ lattice distance
+between plaquettes (one graph step moves a link anchor by at most 2
+lattice sites; parallel translation costs a three-step walk), so the
+`α^{d(x,y)}` decay in graph steps becomes exponential decay in lattice
+distance at rate `(−log α) / 2`.
 
-Calibrated against comparable sister-project work (the upstream
-Dobrushin infrastructure, the periodic-distance fragments in
-related projects, the existing lattice incidence lemmas):
-**5–8 active days, 1–2 weeks wall-clock**. Dominant uncertainties
-are the ZMod triangle inequality (Phase 1) and the SimpleGraph
-walk constructions over periodic coordinates (Phase 4).
+Pieces added for the closure:
+
+- periodic-distance machinery — `ZMod.periodicDist`, `latticeSiteDist`,
+  `latticePlaquetteDist` (`LatticeDistance.lean`);
+- the ambient shared-plaquette link graph, its connectedness, and
+  `linkGraphDist` with `linkGraphDist_support`;
+- `boundary_sum_bound` — the 16-term boundary-link sum bounded by
+  `16 · α^((d−1)/2) / (1 − α)`;
+- composition into the two headline theorems above.
 
 ## Dependencies on other libraries
 
-None beyond what's already in `lakefile.toml`: Mathlib, the
-sibling `markov-semigroups` library, and `gaussian-field` for
-lattice site types. No upstream PRs are required to close the
-sorry — all the machinery is already exposed.
+None beyond what's already in `lakefile.toml`: Mathlib v4.29.0, the
+sibling `markov-semigroups` library (Dobrushin uniqueness, maximal
+coupling, covariance bounds), and `gaussian-field` (lattice site
+types). No upstream PRs were required.
 
 ## Pointers
 
-- **Detailed Lean plan**: [mass-gap-completion-plan.md](mass-gap-completion-plan.md)
+- **Main theorems**: `LGT/MassGap/StrongCoupling.lean` —
+  `ym_mass_gap_exponential_decay`, `ym_mass_gap_rate_exists`
+- **Lattice geometry**: `LGT/Lattice/LatticeDistance.lean`
+- **Detailed closure record**: [mass-gap-completion-plan.md](mass-gap-completion-plan.md)
 - **Full proof outline**: [mass-gap-proof-outline.md](mass-gap-proof-outline.md)
 - **Blueprint with math context**: [mass-gap-blueprint.md](mass-gap-blueprint.md)
-- **Current sorry location**: `LGT/MassGap/StrongCoupling.lean:2065`
 - **Independent review record**: [codex-review.txt](codex-review.txt),
   [codex-review2.txt](codex-review2.txt),
   [codex-review3.txt](codex-review3.txt)
