@@ -166,7 +166,7 @@ LGT/
     O3MassGap.lean                    -- assembly for O(3) / general models
 docs/
   mass-gap-roadmap.md                 -- short human-facing summary (START HERE)
-  mass-gap-completion-plan.md         -- detailed Lean roadmap for the open sorry
+  mass-gap-completion-plan.md         -- detailed record of the geometric closure
   mass-gap-proof-outline.md           -- proof outline
   mass-gap-blueprint.md               -- full math blueprint
   mass-gap-blueprint.tex              -- LaTeX version
@@ -210,19 +210,17 @@ lake build LGT.MassGap.StrongCoupling
 **New collaborator?** Read in this order:
 
 1. **[`docs/mass-gap-roadmap.md`](docs/mass-gap-roadmap.md)** —
-   two-page human summary: goal, status, approach, timeline.
+   two-page human summary: goal, status, approach, and what was built.
 2. **[`docs/mass-gap-completion-plan.md`](docs/mass-gap-completion-plan.md)** —
-   detailed Lean roadmap, phase-by-phase, with concrete lemma
-   signatures and line-count estimates for each phase.
+   the detailed, phase-by-phase record of the geometric closure, with
+   concrete lemma signatures.
 3. **[`docs/mass-gap-proof-outline.md`](docs/mass-gap-proof-outline.md)** —
-   deeper math context for the existing proofs.
+   deeper math context for the proofs.
 
-**Open work** lives in the completion plan as Phases 1–9. Phases 1
-(ZMod periodic distance), 7 (renaming proxy theorems), and 8 (docs
-cleanup) are the most independent entry points. Phase 4 (ambient link
-graph + connectedness) is the largest and benefits from being taken
-on in one piece. The dependency graph in the plan file shows which
-phases block which.
+**The strong-coupling mass gap is complete** (zero sorries, zero
+project axioms). Natural directions to extend: the 2D Doeblin path
+(`MassGap2D.lean`, partially complete) and the RG scale-transfer
+bridge (`Bridge/`, several fields still stated as hypotheses).
 
 **Conventions**: this project follows Mathlib-style naming and layout
 (see `CLAUDE.md` in the root for the working-methods summary; detailed
@@ -234,9 +232,8 @@ already. Axioms are budgeted: see `research-dev/library/lean/AXIOM_MANAGEMENT.md
 for the vetting protocol if a new one is truly needed.
 
 **How to propose a change**: fork, branch, PR to `main`. For anything
-non-trivial, open an issue first to coordinate — several of the
-phases touch the same files. Commit messages: concise, describe the
-*why*, point at the phase number where relevant.
+non-trivial, open an issue first to coordinate. Commit messages:
+concise, describe the *why*.
 
 ## References
 
@@ -248,7 +245,7 @@ phases touch the same files. Commit messages: concise, describe the
 
 ## Authors
 
-Michael R. Douglas (CMSA, Harvard), with collaborators.
+Michael R. Douglas (CMSA, Harvard), with Fred Rajasekaran.
 
 ## License
 
