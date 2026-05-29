@@ -247,6 +247,28 @@ concise, describe the *why*.
 
 Michael R. Douglas (CMSA, Harvard), with Fred Rajasekaran.
 
+## Independent verification (Lean FRO comparator)
+
+Both headline theorems (`ym_mass_gap_exponential_decay` and
+`ym_mass_gap_rate_exists`) have been checked at commit
+[`ec975bd`](https://github.com/mrdouglasny/lgt/commit/ec975bd) by the
+[Lean FRO comparator](https://github.com/leanprover/comparator) — an
+independent judge that re-exports the kernel terms via `lean4export`,
+verifies the solution's elaborated theorem statement matches the
+challenge's, and replays the proof through Lean's kernel under a
+permitted-axiom whitelist. The run reported:
+
+```
+Lean default kernel accepts the solution
+Your solution is okay!
+```
+
+with the whitelist `{propext, Quot.sound, Classical.choice}`. The macOS
+run used `comparator/scripts/fake-landrun.sh` (the official insecure
+shim), so the kernel-acceptance and axiom-whitelist guarantees hold but
+the sandbox guarantee does not — for adversarial use one would re-run
+on Linux with real `landrun`.
+
 ## License
 
 Copyright (c) 2026 Michael R. Douglas. Released under the Apache 2.0 license.
