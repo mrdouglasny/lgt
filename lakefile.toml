@@ -9,17 +9,17 @@ autoImplicit = false
 [[require]]
 name = "GaussianField"
 git = "https://github.com/mrdouglasny/gaussian-field.git"
-rev = "d1718af95a004fccf05caa439c344e7f42226e6e"
+rev = "dc2b3b8"
 
 [[require]]
 name = "MarkovSemigroups"
 git = "https://github.com/mrdouglasny/markov-semigroups.git"
-rev = "ad74f7e62fad35fe8db8e94ab00bc604e7fdb663"
+rev = "acf6491"
 
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
-version = "git#v4.29.0"
+version = "git#v4.30.0"
 
 [[lean_lib]]
 name = "LGT"
