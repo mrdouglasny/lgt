@@ -1,0 +1,159 @@
+# formalization.yaml — https://github.com/mathlib-initiative/formalization.yaml (v0.3)
+# Describes the `main` branch state at cd77cd5 (0 sorries, 0 project axioms).
+version: "v0.3"
+
+project:
+  name: "lgt"
+  authors: ["Michael R. Douglas"]
+  license: "Apache-2.0"
+
+sources:
+  - title: "Gauge Theory Lecture Notes"
+    authors: ["Sourav Chatterjee"]
+    id: "URL:https://souravchatterjee.su.domains/"
+    type: "lecture-notes"
+    license: "proprietary"
+    note: "Ch. 15–16; primary source for the strong-coupling Dobrushin-uniqueness mass-gap argument (Ch. 16 §16.3)."
+  - title: "Description of a random field by means of conditional probabilities and conditions of its regularity"
+    authors: ["R. L. Dobrushin"]
+    id: "10.1137/1113026"
+    type: "paper"
+    license: "proprietary"
+    note: "Dobrushin uniqueness / correlation-decay method (1968)."
+  - title: "Gibbs Measures and Phase Transitions"
+    authors: ["Hans-Otto Georgii"]
+    id: "ISBN:978-3-11-025029-9"
+    type: "textbook"
+    license: "proprietary"
+    note: "§8: Gibbs specifications, DLR equations, Dobrushin comparison theorem."
+  - title: "Confinement of quarks"
+    authors: ["Kenneth G. Wilson"]
+    id: "10.1103/PhysRevD.10.2445"
+    type: "paper"
+    license: "proprietary"
+    note: "Wilson lattice gauge theory; the plaquette action S = β Σ(n − Re Tr U_p)."
+
+status:
+  scope: >
+    Formalization of the d ≥ 2 lattice Yang–Mills mass gap at strong coupling
+    for U(n) Wilson lattice gauge theory on (ℤ/Nℤ)^d (d ≥ 2, N ≥ 3, n ≥ 1),
+    via the Dobrushin uniqueness method (Chatterjee, Ch. 16). Establishes
+    exponential decay of the connected 2-point function of Wilson plaquette
+    observables for coupling β < 1/(32 n (d−1)). Includes: Wilson action and its
+    gauge invariance; the YM probability measure (product Haar + Boltzmann
+    weight, Z > 0); the Gibbs specification framework with the DLR identity and
+    Dobrushin-condition verification at strong coupling; U(n) instances with
+    trace bounds; periodic-torus link-graph distance machinery; and an
+    independent EKR/tensor-RG-to-Dobrushin bridge yielding correlation decay for
+    general nearest-neighbor spin models. NOT fully covered: the 2D Doeblin path
+    (MassGap2D.lean) and several fields of the RG scale-transfer bridge remain
+    stated as hypotheses.
+  sorry_count: 0
+  sorry_in_definitions: 0
+  axioms: []                   # no project axioms; only Lean foundationals (propext, Classical.choice, Quot.sound)
+  main_results:
+    - declaration: "ym_mass_gap_strong_coupling"
+      file: "LGT/MassGap/StrongCoupling.lean"
+      sorry_count: 0
+      axioms: []
+      literature_dependencies:
+        - statement: "strong-coupling exponential correlation decay via Dobrushin uniqueness (distance-parameterised wrapper)"
+          source: "URL:https://souravchatterjee.su.domains/"
+    - declaration: "ym_mass_gap_exponential_decay"
+      file: "LGT/MassGap/StrongCoupling.lean"
+      sorry_count: 0
+      axioms: []
+      literature_dependencies:
+        - statement: "algebraic (geometric) decay of the connected 2-point function of Wilson plaquette observables on (ℤ/Nℤ)^d for U(n) at β < 1/(32n(d−1))"
+          source: "URL:https://souravchatterjee.su.domains/"
+        - statement: "Wilson lattice gauge action and plaquette observables"
+          source: "10.1103/PhysRevD.10.2445"
+    - declaration: "ym_mass_gap_rate_exists"
+      file: "LGT/MassGap/StrongCoupling.lean"
+      sorry_count: 0
+      axioms: []
+      literature_dependencies:
+        - statement: "existence of a mass m = (−log α)/2 > 0 with exp(−m·plaqDist) decay (canonical mass-gap form)"
+          source: "URL:https://souravchatterjee.su.domains/"
+    - declaration: "ekr_to_mass_gap"
+      file: "LGT/Bridge/O3MassGap.lean"
+      sorry_count: 0
+      axioms: []
+      literature_dependencies:
+        - statement: "Dobrushin comparison: an EKR/tensor-RG certificate (λ<1) yields exponential correlation decay"
+          source: "ISBN:978-3-11-025029-9"
+    - declaration: "spin_model_mass_gap_via_rg"
+      file: "LGT/Bridge/O3MassGap.lean"
+      sorry_count: 0
+      axioms: []
+      literature_dependencies:
+        - statement: "RG scale-transfer of correlation decay to the coarse lattice for a general nearest-neighbor spin model"
+          source: "ISBN:978-3-11-025029-9"
+
+automation:
+  methods:
+    - method: "agent"
+      models: ["claude-opus-4-8"]
+      framework: "Claude Code"
+      tool_setup: "lake build; cycle-by-cycle proving with compiler-guided repair."
+      prompting_notes: >
+        Primary (and sole) prover. Commit co-author trailers span Claude Opus
+        4.6 / 4.7 / 4.8 (1M context) across the project's history.
+  notes: >
+    Only Claude was used as a prover. Codex and Gemini appear in commit bodies
+    and docs/codex-review*.txt strictly as code/math reviewers, not as
+    autoformalization agents; AGENTS.md is a generic project-overview file (not a
+    Codex agent configuration) and there is no GEMINI.md, so neither is listed as
+    an automation method.
+
+fidelity:
+  divergences: >
+    Generalized from the d=2 Doeblin target to a d ≥ 2 (N ≥ 3) strong-coupling
+    result via Dobrushin uniqueness. The link distance in the wrapper is an
+    abstract parameter satisfying refl/triangle/nearest-neighbor support,
+    instantiated to the periodic shared-plaquette link-graph distance for the
+    headline theorems. Decay is proved in the periodic L¹ plaquette distance with
+    a forced factor of 1/2 in the rate. Stated for U(n); general compact G ⊆ U(n)
+    requires a `HasGaugeTrace` instance. Much of the Dobrushin/coupling machinery
+    is supplied by the sibling markov-semigroups library.
+
+review:
+  status: "self-assessed"
+  reviewers: []
+  notes: >
+    0 sorries and 0 project axioms on `main`. `#print axioms` on each headline
+    theorem reports only {propext, Classical.choice, Quot.sound}. Independently
+    re-checked at an earlier commit by the Lean FRO comparator (kernel acceptance
+    under the standard whitelist). README text says Lean v4.29.0 but the actual
+    toolchain at HEAD is v4.30.0.
+
+alignment:
+  namespace: ""               # all declarations live at the root (global) namespace; no `namespace` blocks in the headline files
+  statements:
+    - source: "URL:https://souravchatterjee.su.domains/"
+      lean: "ym_mass_gap_exponential_decay"
+      module: "LGT.MassGap.StrongCoupling"
+      status: "proved"
+      note: "algebraic decay of the connected plaquette 2-point function."
+    - source: "URL:https://souravchatterjee.su.domains/"
+      lean: "ym_mass_gap_rate_exists"
+      module: "LGT.MassGap.StrongCoupling"
+      status: "proved"
+      note: "existential mass m = (−log α)/2 > 0; canonical exp-decay form."
+    - source: "URL:https://souravchatterjee.su.domains/"
+      lean: "ym_mass_gap_strong_coupling"
+      module: "LGT.MassGap.StrongCoupling"
+      status: "proved"
+      note: "distance-parameterised wrapper."
+    - source: "ISBN:978-3-11-025029-9"
+      lean: "ekr_to_mass_gap"
+      module: "LGT.Bridge.O3MassGap"
+      status: "proved"
+      note: "EKR/tensor-RG certificate ⟹ Dobrushin exponential decay."
+    - source: "10.1103/PhysRevD.10.2445"
+      lean: "ym_mass_gap_exponential_decay"
+      module: "LGT.MassGap.StrongCoupling"
+      status: "proved"
+      note: "Wilson plaquette action / observables underlying the YM measure."
+
+acknowledgements: "Fred Rajasekaran (collaborator, per README). Independent verification via the Lean FRO comparator."
