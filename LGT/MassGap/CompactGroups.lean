@@ -87,7 +87,7 @@ theorem compactHaar_isHaarMeasure : IsHaarMeasure (compactHaar K) :=
   isHaarMeasure_haarMeasure _
 
 /-- Normalized Haar probability measure on a compact group, packaged for `lgt`. -/
-def compactHaarProbability : HasHaarProbability K where
+@[reducible] def compactHaarProbability : HasHaarProbability K where
   haar := compactHaar K
   isProb := compactHaar_isProbability K
 
@@ -103,6 +103,14 @@ variable (n : ℕ)
 instance instHasGaugeTraceSubgroup (H : Subgroup (Matrix.unitaryGroup (Fin n) ℂ)) :
     HasGaugeTrace H n where
   rep := (unitaryGroupIncl n).comp H.subtype
+
+/-- A subgroup of `U(n)` is second-countable. Mathlib's subspace instance is
+stated for `↥(s : Set α)` and does not fire for a subgroup `↥H`, so (as `lgt`
+does for `U(n)` itself) we use that the subspace topology is induced by the
+inclusion. -/
+instance instSecondCountableTopologySubgroup (H : Subgroup (Matrix.unitaryGroup (Fin n) ℂ)) :
+    SecondCountableTopology H :=
+  Topology.IsInducing.secondCountableTopology (f := Subtype.val) ⟨rfl⟩
 
 variable (H : Subgroup (Matrix.unitaryGroup (Fin n) ℂ))
 
